@@ -1,10 +1,11 @@
 use actix::Actor;
-use hedgehog_player::{Ping, Player};
+use hedgehog_player::{PlaybackControll, Player};
 use std::io::{self, BufRead, Write};
 
 #[actix::main]
 async fn main() {
-    let player_addr = Player.start();
+    Player::initialize().unwrap();
+    let player_addr = Player::new().start();
 
     let stdin = io::stdin();
     print!("> ");
@@ -20,7 +21,13 @@ async fn main() {
         print!("< ");
 
         match (command, attr) {
-            ("ping", _) => print!("{:?}", player_addr.send(Ping).await),
+            ("play", url) => print!(
+                "{:?}",
+                player_addr
+                    .send(PlaybackControll::Play(url.to_string()))
+                    .await
+            ),
+            ("stop", _) => print!("{:?}", player_addr.send(PlaybackControll::Stop).await),
             (_, _) => print!("command unknown"),
         }
 

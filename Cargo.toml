@@ -2,4 +2,5 @@
 
 members = [
     "hedgehog-player",
+    "hedgehog-library",
 ]

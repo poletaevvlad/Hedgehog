@@ -9,3 +9,6 @@ edition = "2018"
 chrono = "0.4"
 rss = "1.10"
 thiserror = "1.0"
+
+[dev-dependencies]
+pretty_assertions = "1.0"

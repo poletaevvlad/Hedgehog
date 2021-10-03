@@ -3,12 +3,25 @@ use std::convert::TryFrom;
 use std::time::Duration;
 use thiserror::Error;
 
+#[derive(Debug, PartialEq)]
 pub struct FeedMetadata {
     title: String,
     description: String,
     link: String,
     author: Option<String>,
     copyright: Option<String>,
+}
+
+impl From<rss::Channel> for FeedMetadata {
+    fn from(channel: rss::Channel) -> Self {
+        FeedMetadata {
+            title: channel.title,
+            description: channel.description,
+            link: channel.link,
+            author: channel.itunes_ext.and_then(|ext| ext.author),
+            copyright: channel.copyright,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -80,11 +93,36 @@ fn parse_itunes_duration(duration: &str) -> Option<Duration> {
 
 #[cfg(test)]
 mod tests {
-    use super::{EpisodeMetadata, NotPodcastError};
+    use super::{EpisodeMetadata, FeedMetadata, NotPodcastError};
     use chrono::TimeZone;
+    use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use std::convert::TryInto;
     use std::time::Duration;
+
+    #[test]
+    fn feed_from_channel() {
+        let mut channel = rss::Channel::default();
+        channel.title = "Feed title".to_string();
+        channel.description = "Feed description".to_string();
+        channel.link = "http://example.com/feed".to_string();
+        channel.copyright = Some("(c) Copyright".to_string());
+        let mut itunes_ext = rss::extension::itunes::ITunesChannelExtension::default();
+        itunes_ext.author = Some("Author".to_string());
+        channel.itunes_ext = Some(itunes_ext);
+
+        let feed: FeedMetadata = channel.into();
+        assert_eq!(
+            feed,
+            FeedMetadata {
+                title: "Feed title".to_string(),
+                description: "Feed description".to_string(),
+                link: "http://example.com/feed".to_string(),
+                author: Some("Author".to_string()),
+                copyright: Some("(c) Copyright".to_string()),
+            }
+        );
+    }
 
     #[test]
     fn episode_from_full() {

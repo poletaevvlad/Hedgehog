@@ -2,7 +2,7 @@ use crate::metadata::FeedMetadata;
 use crate::model::{Feed, FeedId};
 
 use super::model::{FeedStatus, FeedSummary};
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use std::path::Path;
 use thiserror::Error;
 
@@ -79,8 +79,12 @@ impl<'a> FeedsDao<'a> {
         todo!();
     }
 
-    pub fn create_pending(&self, _source: String) -> Result<FeedId, rusqlite::Error> {
-        todo!()
+    pub fn create_pending(&self, source: &str) -> Result<FeedId, rusqlite::Error> {
+        let mut statement = self
+            .provider
+            .connection
+            .prepare("INSERT INTO feeds (source) VALUES (?1)")?;
+        statement.insert(params![source]).map(FeedId)
     }
 
     pub fn update_metadata(
@@ -98,6 +102,8 @@ impl<'a> FeedsDao<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::model::FeedStatus;
+
     use super::{ConnectionError, SqliteDataProvider};
 
     #[test]
@@ -135,5 +141,20 @@ mod tests {
                 current: 1
             }
         ));
+    }
+
+    #[test]
+    fn inserting_pending() {
+        let provider = SqliteDataProvider::connect(":memory:").unwrap();
+        let id = provider
+            .feeds()
+            .create_pending("http://example.com")
+            .unwrap();
+        let summaries = provider.feeds().query_feeds().unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].id, id);
+        assert_eq!(summaries[0].title, None);
+        assert_eq!(&summaries[0].source, "http://example.com");
+        assert_eq!(summaries[0].status, FeedStatus::Pending);
     }
 }

@@ -7,7 +7,7 @@ CREATE TABLE feeds (
     "author" TEXT,
     "copyright" TEXT,
     "status" INTEGER DEFAULT 0 NOT NULL,
-    "error_code" INTEGER,
+    "error_code" INTEGER DEFAULT 0,
     "source" TEXT NOT NULL
 );
 

@@ -24,8 +24,9 @@ pub enum FeedError {
     Unknown = 0,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FeedStatus {
-    NotProcessed,
+    Pending,
     Loaded,
     Error(FeedError),
 }
@@ -33,7 +34,7 @@ pub enum FeedStatus {
 impl FeedStatus {
     pub(crate) fn into_db(&self) -> (u32, u32) {
         match self {
-            FeedStatus::NotProcessed => (0, 0),
+            FeedStatus::Pending => (0, 0),
             FeedStatus::Loaded => (1, 0),
             FeedStatus::Error(error) => (2, *error as u32),
         }
@@ -45,14 +46,14 @@ impl FeedStatus {
             (2, error) => {
                 FeedStatus::Error(FeedError::from_u32(error).unwrap_or(FeedError::Unknown))
             }
-            (_, _) => FeedStatus::NotProcessed,
+            (_, _) => FeedStatus::Pending,
         }
     }
 }
 
 pub struct FeedSummary {
     pub id: FeedId,
-    pub title: String,
+    pub title: Option<String>,
     pub status: FeedStatus,
     pub source: String,
 }

@@ -1,6 +1,16 @@
+use super::model::{FeedStatus, FeedSummary};
 use rusqlite::Connection;
 use std::path::Path;
 use thiserror::Error;
+
+fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Result<Vec<T>, E> {
+    let iter = items.into_iter();
+    let mut result = Vec::with_capacity(iter.size_hint().0);
+    for item in iter {
+        result.push(item?);
+    }
+    Ok(result)
+}
 
 #[derive(Debug, Error)]
 pub enum ConnectionError {
@@ -34,6 +44,21 @@ impl SqliteDataProvider {
 
         connection.pragma_update(None, "user_version", Self::CURRENT_VERSION)?;
         Ok(SqliteDataProvider { connection })
+    }
+
+    pub fn query_feeds(&self) -> Result<Vec<FeedSummary>, rusqlite::Error> {
+        let mut select = self
+            .connection
+            .prepare("SELECT rowid, title, source, status, error_code FROM feeds")?;
+        let rows = select.query_map([], |row| {
+            Ok(FeedSummary {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                source: row.get(2)?,
+                status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
+            })
+        })?;
+        collect_results(rows)
     }
 }
 

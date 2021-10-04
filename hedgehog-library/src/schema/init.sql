@@ -8,7 +8,6 @@ CREATE TABLE feeds (
     "copyright" TEXT,
     "status" INTEGER DEFAULT 0 NOT NULL,
     "error_code" INTEGER,
-    "source_type" INTEGER NOT NULL,
     "source" TEXT NOT NULL
 );
 

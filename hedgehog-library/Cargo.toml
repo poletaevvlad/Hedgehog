@@ -11,6 +11,8 @@ rss = "1.10"
 thiserror = "1.0"
 rusqlite = { version = "0.26", dependencies = ["chrono"] }
 directories = "4.0"
+num-traits = "0.2"
+num-derive = "0.3"
 
 [dev-dependencies]
 pretty_assertions = "1.0"

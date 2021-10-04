@@ -1,5 +1,21 @@
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use rusqlite::types::{FromSql, ToSql};
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct FeedId(pub i64);
+
+impl FromSql for FeedId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        FromSql::column_result(value).map(FeedId)
+    }
+}
+
+impl ToSql for FeedId {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        ToSql::to_sql(&self.0)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
 pub enum FeedError {
@@ -35,14 +51,14 @@ impl FeedStatus {
 }
 
 pub struct FeedSummary {
-    pub id: u64,
+    pub id: FeedId,
     pub title: String,
     pub status: FeedStatus,
     pub source: String,
 }
 
 pub struct Feed {
-    pub id: u64,
+    pub id: FeedId,
     pub title: Option<String>,
     pub description: Option<String>,
     pub link: Option<String>,

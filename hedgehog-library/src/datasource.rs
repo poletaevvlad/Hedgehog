@@ -1,5 +1,5 @@
 use crate::metadata::FeedMetadata;
-use crate::model::Feed;
+use crate::model::{Feed, FeedId};
 
 use super::model::{FeedStatus, FeedSummary};
 use rusqlite::Connection;
@@ -75,23 +75,23 @@ impl<'a> FeedsDao<'a> {
         collect_results(rows)
     }
 
-    pub fn get_feed(&self, _id: u64) -> Result<Option<Feed>, rusqlite::Error> {
+    pub fn get_feed(&self, _id: FeedId) -> Result<Option<Feed>, rusqlite::Error> {
         todo!();
     }
 
-    pub fn create_pending(&self, _source: String) -> Result<u64, rusqlite::Error> {
+    pub fn create_pending(&self, _source: String) -> Result<FeedId, rusqlite::Error> {
         todo!()
     }
 
     pub fn update_metadata(
         &self,
-        _id: u64,
+        _id: FeedId,
         _metadata: FeedMetadata,
     ) -> Result<Option<bool>, rusqlite::Error> {
         todo!()
     }
 
-    pub fn update_status(&self, _id: u64, _status: FeedStatus) -> Result<bool, rusqlite::Error> {
+    pub fn update_status(&self, _id: FeedId, _status: FeedStatus) -> Result<bool, rusqlite::Error> {
         todo!()
     }
 }

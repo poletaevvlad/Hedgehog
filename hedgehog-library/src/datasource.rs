@@ -1,3 +1,6 @@
+use crate::metadata::FeedMetadata;
+use crate::model::Feed;
+
 use super::model::{FeedStatus, FeedSummary};
 use rusqlite::Connection;
 use std::path::Path;
@@ -21,7 +24,7 @@ pub enum ConnectionError {
 }
 
 #[derive(Debug)]
-struct SqliteDataProvider {
+pub struct SqliteDataProvider {
     connection: Connection,
 }
 
@@ -46,8 +49,19 @@ impl SqliteDataProvider {
         Ok(SqliteDataProvider { connection })
     }
 
+    pub fn feeds(&self) -> FeedsDao {
+        FeedsDao { provider: self }
+    }
+}
+
+pub struct FeedsDao<'a> {
+    provider: &'a SqliteDataProvider,
+}
+
+impl<'a> FeedsDao<'a> {
     pub fn query_feeds(&self) -> Result<Vec<FeedSummary>, rusqlite::Error> {
         let mut select = self
+            .provider
             .connection
             .prepare("SELECT rowid, title, source, status, error_code FROM feeds")?;
         let rows = select.query_map([], |row| {
@@ -59,6 +73,26 @@ impl SqliteDataProvider {
             })
         })?;
         collect_results(rows)
+    }
+
+    pub fn get_feed(&self, _id: u64) -> Result<Option<Feed>, rusqlite::Error> {
+        todo!();
+    }
+
+    pub fn create_pending(&self, _source: String) -> Result<u64, rusqlite::Error> {
+        todo!()
+    }
+
+    pub fn update_metadata(
+        &self,
+        _id: u64,
+        _metadata: FeedMetadata,
+    ) -> Result<Option<bool>, rusqlite::Error> {
+        todo!()
+    }
+
+    pub fn update_status(&self, _id: u64, _status: FeedStatus) -> Result<bool, rusqlite::Error> {
+        todo!()
     }
 }
 

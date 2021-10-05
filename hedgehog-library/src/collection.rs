@@ -85,6 +85,22 @@ impl<T: Identifiable, O: OrderProvider<Type = T>> UpdatableCollection<T, O> {
             }
         }
     }
+
+    pub fn set_ordered(&mut self, items: impl IntoIterator<Item = T>) {
+        self.items.clear();
+        self.ordering.clear();
+
+        let iterator = items.into_iter();
+        let size_hint = iterator.size_hint().0;
+        self.ordering.reserve(size_hint);
+        self.items.reserve(size_hint);
+
+        for item in iterator {
+            let id = item.as_id();
+            self.ordering.push(id.clone());
+            self.items.insert(id, item);
+        }
+    }
 }
 
 struct UpdatableCollectionIter<'a, T: Identifiable, I> {
@@ -154,5 +170,12 @@ mod tests {
 
         collection.update(UpdateOperation::Delete(20));
         assert_collection(&collection, &[Item(10, "a"), Item(30, "d")]);
+    }
+
+    #[test]
+    fn set_ordered() {
+        let mut collection = UpdatableCollection::new(ItemOrderProvider);
+        collection.set_ordered(vec![Item(10, "a"), Item(30, "b"), Item(20, "c")]);
+        assert_collection(&collection, &[Item(10, "a"), Item(30, "b"), Item(20, "c")]);
     }
 }

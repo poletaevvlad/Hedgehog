@@ -9,7 +9,7 @@ edition = "2018"
 chrono = "0.4"
 rss = "1.10"
 thiserror = "1.0"
-rusqlite = { version = "0.26", dependencies = ["chrono"] }
+rusqlite = { version = "0.26", features = ["chrono"] }
 directories = "4.0"
 num-traits = "0.2"
 num-derive = "0.3"

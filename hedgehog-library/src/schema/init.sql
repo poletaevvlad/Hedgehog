@@ -1,6 +1,7 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE feeds (
+    "id" INTEGER NOT NULL PRIMARY KEY,
     "title" TEXT,
     "description" TEXT,
     "link" TEXT,
@@ -12,6 +13,7 @@ CREATE TABLE feeds (
 );
 
 CREATE TABLE episodes (
+    "id" INTEGER NOT NULL PRIMARY KEY,
     "feed_id" INTEGER NOT NULL,
     "guid" TEXT NOT NULL,
     "title" TEXT,
@@ -25,7 +27,7 @@ CREATE TABLE episodes (
     "is_finished" INTEGER,
     "position" INTEGER,
     "error_code" INTEGER,
-    FOREIGN KEY("feed_id") REFERENCES feeds("rowid")
+    FOREIGN KEY("feed_id") REFERENCES feeds("id")
 );
 
 CREATE UNIQUE INDEX episodes_feed_id_guid_index ON episodes ("feed_id", "guid");

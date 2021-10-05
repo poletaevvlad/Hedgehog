@@ -5,11 +5,11 @@ use thiserror::Error;
 
 #[derive(Debug, PartialEq)]
 pub struct FeedMetadata {
-    title: String,
-    description: String,
-    link: String,
-    author: Option<String>,
-    copyright: Option<String>,
+    pub(crate) title: String,
+    pub(crate) description: String,
+    pub(crate) link: String,
+    pub(crate) author: Option<String>,
+    pub(crate) copyright: Option<String>,
 }
 
 impl From<rss::Channel> for FeedMetadata {

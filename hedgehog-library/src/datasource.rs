@@ -1,6 +1,8 @@
-use super::model::{FeedStatus, FeedSummary};
-use crate::metadata::FeedMetadata;
-use crate::model::{Feed, FeedId};
+use crate::metadata::{EpisodeMetadata, FeedMetadata};
+use crate::model::{
+    Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
+    PlaybackError,
+};
 use rusqlite::{named_params, Connection};
 use std::path::Path;
 use thiserror::Error;
@@ -50,6 +52,10 @@ impl SqliteDataProvider {
 
     pub fn feeds(&self) -> FeedsDao {
         FeedsDao { provider: self }
+    }
+
+    pub fn episodes(&self) -> EpisodesDao {
+        EpisodesDao { provider: self }
     }
 }
 
@@ -144,12 +150,93 @@ impl<'a> FeedsDao<'a> {
     }
 }
 
+pub struct EpisodesDao<'a> {
+    provider: &'a SqliteDataProvider,
+}
+
+impl<'a> EpisodesDao<'a> {
+    fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error> {
+        self.provider.connection.prepare(statement)
+    }
+
+    fn query_episodes(&self) -> Result<Vec<EpisodeSummary>, rusqlite::Error> {
+        let mut statement =
+            self.prepare("SELECT id, feed_id, episode_number, title, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes")?;
+        let rows = statement.query_map([], |row| {
+            Ok(EpisodeSummary {
+                id: row.get(0)?,
+                feed_id: row.get(1)?,
+                episode_number: row.get(2)?,
+                title: row.get(3)?,
+                is_new: row.get(4)?,
+                status: EpisodeStatus::from_db(row.get(5)?, row.get(6)?),
+                duration: row.get(7)?,
+                playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_db),
+                publication_date: row.get(9)?,
+                media_url: row.get(10)?,
+            })
+        })?;
+        collect_results(rows)
+    }
+
+    fn sync_metadata(
+        &self,
+        feed_id: FeedId,
+        metadata: &EpisodeMetadata,
+    ) -> Result<EpisodeId, rusqlite::Error> {
+        self.prepare(
+            "INSERT INTO episodes (feed_id, guid, title, description, link, duration, publication_date, episode_number, media_url)
+            VALUES (:feed_id, :guid, :title, :description, :link, :duration, :publication_date, :episode_number, :media_url)
+            ON CONFLICT (feed_id, guid) DO UPDATE SET
+            title = :title, description = :description, link = :link, duration = :duration, publication_date = :publication_date, episode_number = :episode_number, media_url = :media_url
+            WHERE feed_id = :feed_id AND guid = :guid
+            RETURNING id",
+        )?.query_row(named_params! {
+            ":feed_id": feed_id,
+            ":guid": metadata.guid,
+            ":title": metadata.title,
+            ":description": metadata.description,
+            ":link": metadata.link,
+            ":duration": metadata.duration,
+            ":publication_date": metadata.publication_date,
+            ":episode_number": metadata.episode_number,
+            ":media_url": metadata.media_url
+        }, |row| row.get(0))
+    }
+
+    fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, rusqlite::Error> {
+        let mut statement =
+            self.prepare("SELECT feed_id, episode_number, title, description, link, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
+        let result = statement.query_row(named_params! {":id": episode_id}, |row| {
+            Ok(Episode {
+                id: episode_id,
+                feed_id: row.get(0)?,
+                episode_number: row.get(1)?,
+                title: row.get(2)?,
+                description: row.get(3)?,
+                link: row.get(4)?,
+                is_new: row.get(5)?,
+                status: EpisodeStatus::from_db(row.get(6)?, row.get(7)?),
+                duration: row.get(8)?,
+                playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_db),
+                publication_date: row.get(10)?,
+                media_url: row.get(11)?,
+            })
+        });
+        match result {
+            Ok(episode) => Ok(Some(episode)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::metadata::FeedMetadata;
-    use crate::model::{FeedError, FeedStatus};
-
     use super::{ConnectionError, SqliteDataProvider};
+    use crate::metadata::{EpisodeMetadata, FeedMetadata};
+    use crate::model::{EpisodeDuration, EpisodeStatus, EpisodeSummary, FeedError, FeedStatus};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn initializes_if_new() {
@@ -244,5 +331,135 @@ mod tests {
         assert!(is_deleted);
         let is_deleted = provider.feeds().delete(id).unwrap();
         assert!(!is_deleted);
+    }
+
+    #[test]
+    fn crud_operations_on_episodes() {
+        let provider = SqliteDataProvider::connect(":memory:").unwrap();
+        let feed_id = provider
+            .feeds()
+            .create_pending("http://example.com/feed.xml")
+            .unwrap();
+
+        let episode_1_id = provider
+            .episodes()
+            .sync_metadata(
+                feed_id,
+                &EpisodeMetadata {
+                    title: Some("title".to_string()),
+                    description: Some("description".to_string()),
+                    link: Some("link".to_string()),
+                    guid: "guid-1".to_string(),
+                    duration: None,
+                    publication_date: None,
+                    episode_number: Some(3),
+                    media_url: "http://example.com/feed.xml".to_string(),
+                },
+            )
+            .unwrap();
+
+        let retrieved = provider
+            .episodes()
+            .get_episode(episode_1_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(retrieved.id, episode_1_id);
+        assert_eq!(retrieved.feed_id, feed_id);
+        assert_eq!(retrieved.episode_number, Some(3));
+        assert_eq!(retrieved.title.as_deref(), Some("title"));
+        assert_eq!(retrieved.description.as_deref(), Some("description"));
+        assert_eq!(retrieved.link.as_deref(), Some("link"));
+        assert_eq!(retrieved.is_new, true);
+        assert_eq!(retrieved.status, EpisodeStatus::NotStarted);
+        assert_eq!(retrieved.duration, None);
+        assert_eq!(retrieved.playback_error, None);
+        assert_eq!(retrieved.publication_date, None);
+        assert_eq!(&retrieved.media_url, "http://example.com/feed.xml");
+
+        let episode_1_id_updated = provider
+            .episodes()
+            .sync_metadata(
+                feed_id,
+                &EpisodeMetadata {
+                    title: Some("title-upd".to_string()),
+                    description: Some("description-upd".to_string()),
+                    link: Some("link-upd".to_string()),
+                    guid: "guid-1".to_string(),
+                    duration: Some(EpisodeDuration::from_seconds(300)),
+                    publication_date: None,
+                    episode_number: Some(8),
+                    media_url: "http://example.com/feed2.xml".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(episode_1_id, episode_1_id_updated);
+
+        let retrieved = provider
+            .episodes()
+            .get_episode(episode_1_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(retrieved.id, episode_1_id);
+        assert_eq!(retrieved.feed_id, feed_id);
+        assert_eq!(retrieved.episode_number, Some(8));
+        assert_eq!(retrieved.title.as_deref(), Some("title-upd"));
+        assert_eq!(retrieved.description.as_deref(), Some("description-upd"));
+        assert_eq!(retrieved.link.as_deref(), Some("link-upd"));
+        assert_eq!(retrieved.is_new, true);
+        assert_eq!(retrieved.status, EpisodeStatus::NotStarted);
+        assert_eq!(retrieved.duration, Some(EpisodeDuration::from_seconds(300)));
+        assert_eq!(retrieved.playback_error, None);
+        assert_eq!(retrieved.publication_date, None);
+        assert_eq!(&retrieved.media_url, "http://example.com/feed2.xml");
+
+        let episode_2_id = provider
+            .episodes()
+            .sync_metadata(
+                feed_id,
+                &EpisodeMetadata {
+                    title: Some("second-title".to_string()),
+                    description: Some("second-description".to_string()),
+                    link: None,
+                    guid: "guid-2".to_string(),
+                    duration: None,
+                    publication_date: None,
+                    episode_number: None,
+                    media_url: "http://example.com/feed3.xml".to_string(),
+                },
+            )
+            .unwrap();
+
+        let mut episodes = provider.episodes().query_episodes().unwrap();
+        episodes.sort_by_key(|episode| episode.id.0);
+        assert_eq!(
+            episodes[0],
+            EpisodeSummary {
+                id: episode_1_id,
+                feed_id,
+                episode_number: Some(8),
+                title: Some("title-upd".to_string()),
+                is_new: true,
+                status: EpisodeStatus::NotStarted,
+                duration: Some(EpisodeDuration::from_seconds(300)),
+                playback_error: None,
+                publication_date: None,
+                media_url: "http://example.com/feed2.xml".to_string(),
+            }
+        );
+        assert_eq!(
+            episodes[1],
+            EpisodeSummary {
+                id: episode_2_id,
+                feed_id,
+                episode_number: None,
+                title: Some("second-title".to_string()),
+                is_new: true,
+                status: EpisodeStatus::NotStarted,
+                duration: None,
+                playback_error: None,
+                publication_date: None,
+                media_url: "http://example.com/feed3.xml".to_string(),
+            }
+        );
     }
 }

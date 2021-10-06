@@ -23,11 +23,11 @@ CREATE TABLE episodes (
     "publication_date" TEXT,
     "episode_number" INTEGER,
     "media_url" TEXT NOT NULL,
-    "is_new" INTEGER,
-    "is_finished" INTEGER,
+    "is_new" INTEGER NOT NULL DEFAULT 1,
+    "is_finished" INTEGER NOT NULL DEFAULT 0,
     "position" INTEGER,
     "error_code" INTEGER,
-    FOREIGN KEY("feed_id") REFERENCES feeds("id")
+    FOREIGN KEY("feed_id") REFERENCES feeds("id") ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX episodes_feed_id_guid_index ON episodes ("feed_id", "guid");

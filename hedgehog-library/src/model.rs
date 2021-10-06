@@ -1,21 +1,56 @@
+use chrono::{DateTime, Utc};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rusqlite::types::{FromSql, ToSql};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct FeedId(pub i64);
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+pub struct EpisodeDuration(u64);
 
-impl FromSql for FeedId {
+impl EpisodeDuration {
+    pub fn from_seconds(seconds: u64) -> Self {
+        EpisodeDuration(seconds * 1000_000_000)
+    }
+
+    pub fn from_nanoseconds(nanoseconds: u64) -> Self {
+        EpisodeDuration(nanoseconds)
+    }
+}
+
+impl FromSql for EpisodeDuration {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        FromSql::column_result(value).map(FeedId)
+        FromSql::column_result(value).map(EpisodeDuration)
     }
 }
 
-impl ToSql for FeedId {
+impl ToSql for EpisodeDuration {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        ToSql::to_sql(&self.0)
+        self.0.to_sql()
     }
 }
+
+macro_rules! entity_id {
+    ($name:ident) => {
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+        pub struct $name(pub i64);
+
+        impl FromSql for $name {
+            fn column_result(
+                value: rusqlite::types::ValueRef<'_>,
+            ) -> rusqlite::types::FromSqlResult<Self> {
+                FromSql::column_result(value).map($name)
+            }
+        }
+
+        impl ToSql for $name {
+            fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+                ToSql::to_sql(&self.0)
+            }
+        }
+    };
+}
+
+entity_id!(FeedId);
+entity_id!(EpisodeId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
 pub enum FeedError {
@@ -67,4 +102,63 @@ pub struct Feed {
     pub copyright: Option<String>,
     pub source: String,
     pub status: FeedStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EpisodeStatus {
+    NotStarted,
+    Finished,
+    Started(EpisodeDuration),
+}
+
+impl EpisodeStatus {
+    pub(crate) fn from_db(is_finished: bool, position: Option<EpisodeDuration>) -> Self {
+        match (is_finished, position) {
+            (_, Some(position)) => EpisodeStatus::Started(position),
+            (true, None) => EpisodeStatus::Finished,
+            (false, None) => EpisodeStatus::NotStarted,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+pub enum PlaybackError {
+    NotFound = 1,
+    FormatError = 2,
+    Unknown = 0,
+}
+
+impl PlaybackError {
+    pub(crate) fn from_db(value: u32) -> PlaybackError {
+        PlaybackError::from_u32(value).unwrap_or(PlaybackError::Unknown)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct EpisodeSummary {
+    pub id: EpisodeId,
+    pub feed_id: FeedId,
+    pub episode_number: Option<u64>,
+    pub title: Option<String>,
+    pub is_new: bool,
+    pub status: EpisodeStatus,
+    pub duration: Option<EpisodeDuration>,
+    pub playback_error: Option<PlaybackError>,
+    pub publication_date: Option<DateTime<Utc>>,
+    pub media_url: String,
+}
+
+pub struct Episode {
+    pub id: EpisodeId,
+    pub feed_id: FeedId,
+    pub episode_number: Option<u64>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub link: Option<String>,
+    pub is_new: bool,
+    pub status: EpisodeStatus,
+    pub duration: Option<EpisodeDuration>,
+    pub playback_error: Option<PlaybackError>,
+    pub publication_date: Option<DateTime<Utc>>,
+    pub media_url: String,
 }

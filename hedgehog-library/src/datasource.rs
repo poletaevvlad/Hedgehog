@@ -58,11 +58,12 @@ pub struct FeedsDao<'a> {
 }
 
 impl<'a> FeedsDao<'a> {
+    fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error> {
+        self.provider.connection.prepare(statement)
+    }
+
     pub fn query_feeds(&self) -> Result<Vec<FeedSummary>, rusqlite::Error> {
-        let mut select = self
-            .provider
-            .connection
-            .prepare("SELECT id, title, source, status, error_code FROM feeds")?;
+        let mut select = self.prepare("SELECT id, title, source, status, error_code FROM feeds")?;
         let rows = select.query_map([], |row| {
             Ok(FeedSummary {
                 id: row.get(0)?,
@@ -75,7 +76,7 @@ impl<'a> FeedsDao<'a> {
     }
 
     pub fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, rusqlite::Error> {
-        let mut statement = self.provider.connection.prepare("SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
+        let mut statement = self.prepare("SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
                 id: row.get(0)?,
@@ -96,10 +97,7 @@ impl<'a> FeedsDao<'a> {
     }
 
     pub fn create_pending(&self, source: &str) -> Result<FeedId, rusqlite::Error> {
-        let mut statement = self
-            .provider
-            .connection
-            .prepare("INSERT INTO feeds (source) VALUES (?1)")?;
+        let mut statement = self.prepare("INSERT INTO feeds (source) VALUES (?1)")?;
         statement.insert(params![source]).map(FeedId)
     }
 
@@ -108,7 +106,7 @@ impl<'a> FeedsDao<'a> {
         id: FeedId,
         metadata: &FeedMetadata,
     ) -> Result<bool, rusqlite::Error> {
-        let mut statement = self.provider.connection.prepare("UPDATE feeds SET title = ?1, description = ?2, link = ?3, author = ?4, copyright = ?5, status = ?6, error_code = ?7 WHERE id = ?8")?;
+        let mut statement = self.prepare("UPDATE feeds SET title = ?1, description = ?2, link = ?3, author = ?4, copyright = ?5, status = ?6, error_code = ?7 WHERE id = ?8")?;
         let (status, error_code) = FeedStatus::Loaded.into_db();
         statement
             .execute(params![
@@ -125,10 +123,8 @@ impl<'a> FeedsDao<'a> {
     }
 
     pub fn update_status(&self, id: FeedId, status: FeedStatus) -> Result<bool, rusqlite::Error> {
-        let mut statement = self
-            .provider
-            .connection
-            .prepare("UPDATE feeds SET status = ?1, error_code = ?2 WHERE id = ?3")?;
+        let mut statement =
+            self.prepare("UPDATE feeds SET status = ?1, error_code = ?2 WHERE id = ?3")?;
         let (status, error_code) = status.into_db();
         statement
             .execute(params![status, error_code, id])
@@ -136,10 +132,7 @@ impl<'a> FeedsDao<'a> {
     }
 
     pub fn delete(&self, id: FeedId) -> Result<bool, rusqlite::Error> {
-        let mut statement = self
-            .provider
-            .connection
-            .prepare("DELETE FROM feeds WHERE id = ?1")?;
+        let mut statement = self.prepare("DELETE FROM feeds WHERE id = ?1")?;
         statement.execute([id]).map(|updated| updated > 0)
     }
 }

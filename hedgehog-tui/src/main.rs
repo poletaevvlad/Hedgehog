@@ -1,9 +1,11 @@
+mod events;
 use actix::prelude::*;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{Event, KeyEvent};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use events::key;
 use std::io;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
@@ -28,7 +30,7 @@ impl UI {
                 let size = f.size();
                 let block = tui::widgets::Block::default()
                     .title(format!("{}", counter))
-                    .borders(tui::widgets::Borders::NONE);
+                    .borders(tui::widgets::Borders::ALL);
                 f.render_widget(block, size);
             })
             .map_err(|err| {
@@ -55,13 +57,11 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
         _ctx: &mut Self::Context,
     ) {
         let should_render = match item {
-            Ok(Event::Key(KeyEvent {
-                code: KeyCode::Char('c'),
-                modifiers,
-            })) if modifiers.contains(KeyModifiers::CONTROL) => {
+            key!('c', CONTROL) => {
                 System::current().stop();
                 false
             }
+            Ok(Event::Resize(_, _)) => true,
             Err(_) => {
                 System::current().stop();
                 false

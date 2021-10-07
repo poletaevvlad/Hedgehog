@@ -3,4 +3,6 @@
 members = [
     "hedgehog-player",
     "hedgehog-library",
+    "hedgehog-tui",
 ]
+default-members = ["hedgehog-tui"]

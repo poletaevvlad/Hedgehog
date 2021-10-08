@@ -13,6 +13,7 @@ pub(crate) enum Direction {
 pub(crate) enum Amount {
     Character,
     All,
+    Word,
 }
 
 pub(crate) struct Buffer {
@@ -53,6 +54,7 @@ impl Buffer {
                 }
                 index
             }
+            Amount::Word => todo!(),
             Amount::All => 0,
         }
     }
@@ -62,11 +64,27 @@ impl Buffer {
         if self.cursor_position >= max_position {
             return max_position;
         }
+
+        fn advance(text: &str, mut index: usize) -> usize {
+            index += 1;
+            while !text.is_char_boundary(index) {
+                index += 1;
+            }
+            index
+        }
+
         match amount {
-            Amount::Character => {
-                let mut index = self.cursor_position + 1;
-                while !self.text.is_char_boundary(index) {
-                    index += 1;
+            Amount::Character => advance(&self.text, self.cursor_position),
+            Amount::Word => {
+                let mut index = self.cursor_position;
+                // Skipping whitespaces
+                while let Some(true) = self.text[index..].chars().next().map(char::is_whitespace) {
+                    index = advance(&self.text, index);
+                }
+
+                //Finding the first whitespace after the word or end of string
+                while let Some(false) = self.text[index..].chars().next().map(char::is_whitespace) {
+                    index = advance(&self.text, index);
                 }
                 index
             }
@@ -221,6 +239,31 @@ mod tests {
             assert_eq!(buffer.cursor_position(), 0);
             assert!(buffer.move_cursor(Direction::Forward, Amount::All));
             assert_eq!(buffer.cursor_position(), 8);
+        }
+
+        #[test]
+        fn movement_word() {
+            let mut buffer = Buffer::new("каждый охотник желает...".to_string(), 0);
+            assert_eq!(buffer.cursor_position(), 0);
+
+            assert!(buffer.move_cursor(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 12); // каждый| охотник
+
+            assert!(buffer.move_cursor(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 27); // каждый охотник| желает
+
+            assert!(buffer.move_cursor(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 43);
+
+            assert!(!buffer.move_cursor(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 43);
+        }
+
+        #[test]
+        fn movement_word_only_spaces() {
+            let mut buffer = Buffer::new("   ".to_string(), 0);
+            assert!(buffer.move_cursor(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 3);
         }
 
         #[test]

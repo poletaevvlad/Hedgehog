@@ -61,15 +61,30 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn delete_char(&mut self, direction: Direction) -> bool {
+    pub(crate) fn delete(&mut self, direction: Direction, amount: Amount) -> bool {
         match direction {
             Direction::Backward if self.cursor_position > 0 => {
-                self.text.remove(self.cursor_position - 1);
-                self.cursor_position -= 1;
+                match amount {
+                    Amount::Character => {
+                        self.text.remove(self.cursor_position - 1);
+                        self.cursor_position -= 1;
+                    }
+                    Amount::All => {
+                        self.text.drain(0..self.cursor_position);
+                        self.cursor_position = 0;
+                    }
+                }
                 true
             }
             Direction::Forward if self.cursor_position < self.text.len() => {
-                self.text.remove(self.cursor_position);
+                match amount {
+                    Amount::Character => {
+                        self.text.remove(self.cursor_position);
+                    }
+                    Amount::All => {
+                        self.text.drain(self.cursor_position..self.text.len());
+                    }
+                }
                 true
             }
             _ => false,
@@ -194,24 +209,43 @@ mod tests {
         }
 
         #[test]
-        fn character_deletion() {
+        fn deletion_character() {
             let mut buffer = Buffer::from("abc".to_string());
-            assert!(!buffer.delete_char(Direction::Forward));
+            assert!(!buffer.delete(Direction::Forward, Amount::Character));
             assert_buffer(&buffer, "abc", 3);
-            assert!(buffer.delete_char(Direction::Backward));
+            assert!(buffer.delete(Direction::Backward, Amount::Character));
             assert_buffer(&buffer, "ab", 2);
 
             let mut buffer = Buffer::new("abc".to_string(), 0);
-            assert!(buffer.delete_char(Direction::Forward));
+            assert!(buffer.delete(Direction::Forward, Amount::Character));
             assert_buffer(&buffer, "bc", 0);
-            assert!(!buffer.delete_char(Direction::Backward));
+            assert!(!buffer.delete(Direction::Backward, Amount::Character));
             assert_buffer(&buffer, "bc", 0);
 
             let mut buffer = Buffer::new("abcd".to_string(), 2);
-            assert!(buffer.delete_char(Direction::Forward));
+            assert!(buffer.delete(Direction::Forward, Amount::Character));
             assert_buffer(&buffer, "abd", 2);
-            assert!(buffer.delete_char(Direction::Backward));
+            assert!(buffer.delete(Direction::Backward, Amount::Character));
             assert_buffer(&buffer, "ad", 1);
+        }
+
+        #[test]
+        fn deletion_all() {
+            let mut buffer = Buffer::new("abcd".to_string(), 2);
+            assert!(buffer.delete(Direction::Forward, Amount::All));
+            assert_buffer(&buffer, "ab", 2);
+
+            let mut buffer = Buffer::new("abcd".to_string(), 2);
+            assert!(buffer.delete(Direction::Backward, Amount::All));
+            assert_buffer(&buffer, "cd", 0);
+
+            let mut buffer = Buffer::new("abcd".to_string(), 0);
+            assert!(!buffer.delete(Direction::Backward, Amount::All));
+            assert_buffer(&buffer, "abcd", 0);
+
+            let mut buffer = Buffer::new("abcd".to_string(), 4);
+            assert!(!buffer.delete(Direction::Forward, Amount::All));
+            assert_buffer(&buffer, "abcd", 4);
         }
     }
 }

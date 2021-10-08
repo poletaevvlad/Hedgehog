@@ -28,5 +28,6 @@ pub(crate) mod key_modifiers {
     use crossterm::event::KeyModifiers;
 
     pub(crate) const CONTROL: KeyModifiers = KeyModifiers::CONTROL;
+    pub(crate) const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
     pub(crate) const CONTROL_ALT: KeyModifiers = KeyModifiers::CONTROL.union(KeyModifiers::ALT);
 }

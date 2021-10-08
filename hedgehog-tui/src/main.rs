@@ -72,8 +72,18 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                 self.command.push_char(ch);
                 true
             }
-            key!(Left) => self.command.move_cursor(textentry::Direction::Backward),
-            key!(Right) => self.command.move_cursor(textentry::Direction::Forward),
+            key!(Left) => self
+                .command
+                .move_cursor(textentry::Direction::Backward, textentry::Amount::Character),
+            key!(Right) => self
+                .command
+                .move_cursor(textentry::Direction::Forward, textentry::Amount::Character),
+            key!(Home) => self
+                .command
+                .move_cursor(textentry::Direction::Backward, textentry::Amount::All),
+            key!(End) => self
+                .command
+                .move_cursor(textentry::Direction::Forward, textentry::Amount::All),
             key!(Backspace) => self.command.delete_char(textentry::Direction::Backward),
             key!(Delete) => self.command.delete_char(textentry::Direction::Forward),
             Ok(Event::Resize(_, _)) => true,

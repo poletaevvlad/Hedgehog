@@ -1,4 +1,6 @@
 mod events;
+mod widgets;
+use crate::widgets::textentry;
 use actix::prelude::*;
 use crossterm::event::{Event, KeyEvent};
 use crossterm::execute;
@@ -8,36 +10,38 @@ use crossterm::terminal::{
 use events::key;
 use std::io;
 use tui::backend::CrosstermBackend;
+use tui::layout::Rect;
+use tui::text::Span;
 use tui::Terminal;
 
 struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
-    counter: u64,
+    command: textentry::Buffer,
 }
 
 impl UI {
     fn new(terminal: Terminal<CrosstermBackend<std::io::Stdout>>) -> Self {
         UI {
             terminal,
-            counter: 0,
+            command: textentry::Buffer::default(),
         }
     }
 
     fn render(&mut self) {
-        let counter = self.counter;
-        self.terminal
-            .draw(|f| {
-                let size = f.size();
-                let block = tui::widgets::Block::default()
-                    .title(format!("{}", counter))
-                    .borders(tui::widgets::Borders::ALL);
-                f.render_widget(block, size);
-            })
-            .map_err(|err| {
-                println!("{:?}", err);
-                err
-            })
-            .unwrap();
+        let command = &mut self.command;
+        let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
+            let size = f.size();
+            f.render_widget(
+                tui::widgets::Block::default().borders(tui::widgets::Borders::ALL),
+                Rect::new(9, 9, size.width - 18, 3),
+            );
+            textentry::Entry::new().prefix(Span::raw(":")).render(
+                f,
+                Rect::new(10, 10, size.width - 20, 1),
+                command,
+            );
+        };
+        self.terminal.draw(draw).unwrap();
     }
 }
 
@@ -61,6 +65,17 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                 System::current().stop();
                 false
             }
+            Ok(crossterm::event::Event::Key(crossterm::event::KeyEvent {
+                code: crossterm::event::KeyCode::Char(ch),
+                modifiers: crossterm::event::KeyModifiers::NONE,
+            })) => {
+                self.command.push_char(ch);
+                true
+            }
+            key!(Left) => self.command.move_cursor(textentry::Direction::Backward),
+            key!(Right) => self.command.move_cursor(textentry::Direction::Forward),
+            key!(Backspace) => self.command.delete_char(textentry::Direction::Backward),
+            key!(Delete) => self.command.delete_char(textentry::Direction::Forward),
             Ok(Event::Resize(_, _)) => true,
             Err(_) => {
                 System::current().stop();

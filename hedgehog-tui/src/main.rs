@@ -116,7 +116,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     execute!(io::stdout(), EnterAlternateScreen)?;
 
     let backend = CrosstermBackend::new(io::stdout());
-    let terminal = Terminal::new(backend)?;
+    let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
+
     system.block_on(async {
         UI::new(terminal).start();
     });

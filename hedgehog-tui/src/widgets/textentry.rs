@@ -4,6 +4,7 @@ use tui::layout::Rect;
 use tui::text::Span;
 use tui::widgets::StatefulWidget;
 use tui::Frame;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub(crate) enum Direction {
     Forward,
@@ -16,9 +17,11 @@ pub(crate) enum Amount {
     Word,
 }
 
+#[derive(Debug)]
 pub(crate) struct Buffer {
     text: String,
     cursor_position: usize,
+    display_offset: u16,
 }
 
 impl Buffer {
@@ -26,6 +29,7 @@ impl Buffer {
         Buffer {
             text,
             cursor_position,
+            display_offset: 0,
         }
     }
 
@@ -154,6 +158,7 @@ impl From<String> for Buffer {
         Buffer {
             cursor_position: text.len(),
             text,
+            display_offset: 0,
         }
     }
 }
@@ -163,6 +168,7 @@ impl Default for Buffer {
         Buffer {
             text: String::new(),
             cursor_position: 0,
+            display_offset: 0,
         }
     }
 }
@@ -182,20 +188,30 @@ impl<'a> Entry<'a> {
         self
     }
 
-    fn prefix_width(&self) -> u16 {
-        self.prefix.as_ref().map(Span::width).unwrap_or(0) as u16
+    fn prefix_width(&self) -> usize {
+        self.prefix.as_ref().map(Span::width).unwrap_or(0)
     }
 
     pub(crate) fn render<B: Backend>(self, f: &mut Frame<B>, area: Rect, state: &mut Buffer) {
-        f.set_cursor(
-            area.x
-                + self.prefix_width()
-                + Span::raw(&state.text[0..state.cursor_position]).width() as u16,
-            area.y,
-        );
+        let width_before_cursor = self.prefix_width() + state.text[..state.cursor_position].width();
+        // let width_after_cursor = state.text[state.cursor_position..].width();
+        let max_cursor_position = area.width as i32 - 1;
+
+        let mut cursor_position = width_before_cursor as i32 - state.display_offset as i32;
+        if cursor_position < 0 {
+            state.display_offset -= (-cursor_position) as u16;
+            cursor_position = 0;
+        } else if cursor_position > max_cursor_position as i32 {
+            let delta = cursor_position as i32 - max_cursor_position as i32;
+            state.display_offset = state.display_offset + delta as u16;
+            cursor_position = max_cursor_position;
+        }
+
+        f.set_cursor(area.x + cursor_position as u16, area.y);
         f.render_stateful_widget(
             TextEntryWidget {
                 prefix: self.prefix,
+                cursor_position,
             },
             area,
             state,
@@ -205,17 +221,68 @@ impl<'a> Entry<'a> {
 
 struct TextEntryWidget<'a> {
     prefix: Option<Span<'a>>,
+    cursor_position: i32,
+}
+
+fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
+    let mut chars = text.chars();
+    while let Some(ch) = chars.next() {
+        let width = ch.width().unwrap_or(0) as u16;
+        if offset >= width {
+            offset -= width;
+            text = chars.as_str();
+        } else {
+            break;
+        }
+    }
+    (offset, text)
 }
 
 impl<'a> StatefulWidget for TextEntryWidget<'a> {
     type State = Buffer;
 
     fn render(self, mut area: Rect, buf: &mut buffer::Buffer, state: &mut Self::State) {
+        let mut remaining_offset = state.display_offset as u16;
+
         if let Some(ref prefix) = self.prefix {
-            let (x, _) = buf.set_span(area.left(), area.top(), prefix, area.width);
+            let (remaining, prefix_text) = skip_by_width(remaining_offset, &prefix.content);
+            let (x, _) = buf.set_span(
+                area.left(),
+                area.top(),
+                &Span::styled(prefix_text, prefix.style),
+                area.width,
+            );
             area = Rect::new(x, area.y, area.width - (x - area.x), area.height);
+            remaining_offset = remaining;
         }
-        buf.set_span(area.left(), area.top(), &Span::raw(&state.text), area.width);
+
+        let (_, text) = skip_by_width(remaining_offset, state.text.as_str());
+        buf.set_span(area.left(), area.top(), &Span::raw(text), area.width);
+
+        buf.set_span(
+            0,
+            area.top() + 2,
+            &Span::raw(format!("text: {:?}", state.text)),
+            400,
+        );
+        buf.set_span(
+            0,
+            area.top() + 3,
+            &Span::raw(format!("cursor_position: {:?}", state.cursor_position)),
+            400,
+        );
+        buf.set_span(
+            0,
+            area.top() + 4,
+            &Span::raw(format!("display_offset: {:?}", state.display_offset)),
+            400,
+        );
+        buf.set_span(
+            0,
+            area.top() + 5,
+            &Span::raw(format!("cursor_position: {:?}", self.cursor_position)),
+            400,
+        );
     }
 }
 

@@ -33,11 +33,11 @@ impl UI {
             let size = f.size();
             f.render_widget(
                 tui::widgets::Block::default().borders(tui::widgets::Borders::ALL),
-                Rect::new(9, 9, size.width - 18, 3),
+                Rect::new(19, 9, size.width - 38, 3),
             );
-            textentry::Entry::new().prefix(Span::raw(":")).render(
+            textentry::Entry::new().prefix(Span::raw("^^>")).render(
                 f,
-                Rect::new(10, 10, size.width - 20, 1),
+                Rect::new(20, 10, size.width - 40, 1),
                 command,
             );
         };

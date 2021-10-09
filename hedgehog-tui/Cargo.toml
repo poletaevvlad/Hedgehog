@@ -7,3 +7,4 @@ edition = "2018"
 crossterm = { version = "0.20", features = ["event-stream"] }
 tui = { version = "0.15", features = ["crossterm"], default-features = false }
 actix = "0.12"
+unicode-width = "0.1"

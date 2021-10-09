@@ -556,6 +556,7 @@ dependencies = [
  "actix",
  "crossterm 0.20.0",
  "tui",
+ "unicode-width",
 ]
 
 [[package]]

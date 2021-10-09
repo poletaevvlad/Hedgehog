@@ -302,6 +302,18 @@ mod tests {
         }
 
         #[test]
+        fn movement_empty() {
+            let mut buffer = Buffer::default();
+
+            assert!(!buffer.move_cursor(Direction::Forward, Amount::Character));
+            assert!(!buffer.move_cursor(Direction::Forward, Amount::All));
+            assert!(!buffer.move_cursor(Direction::Forward, Amount::Word));
+            assert!(!buffer.move_cursor(Direction::Backward, Amount::Character));
+            assert!(!buffer.move_cursor(Direction::Backward, Amount::All));
+            assert!(!buffer.move_cursor(Direction::Backward, Amount::Word));
+        }
+
+        #[test]
         fn deletion_character() {
             let mut buffer = Buffer::from("абв".to_string());
             assert!(!buffer.delete(Direction::Forward, Amount::Character));

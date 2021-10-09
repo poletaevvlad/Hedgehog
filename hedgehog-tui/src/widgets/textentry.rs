@@ -1,3 +1,4 @@
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use tui::backend::Backend;
 use tui::buffer;
 use tui::layout::Rect;
@@ -5,6 +6,8 @@ use tui::text::Span;
 use tui::widgets::Widget;
 use tui::Frame;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+use crate::events::key;
 
 pub(crate) enum Direction {
     Forward,
@@ -156,6 +159,33 @@ impl Buffer {
             _ => false,
         }
     }
+
+    pub(crate) fn handle_event(&mut self, event: Event) -> bool {
+        match event {
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(ch),
+                modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+            }) => {
+                self.push_char(ch);
+                true
+            }
+            key!(Left) => self.move_cursor(Direction::Backward, Amount::Character),
+            key!(Right) => self.move_cursor(Direction::Forward, Amount::Character),
+            key!(Left, CONTROL) => self.move_cursor(Direction::Backward, Amount::Word),
+            key!(Right, CONTROL) => self.move_cursor(Direction::Forward, Amount::Word),
+            key!(Home) => self.move_cursor(Direction::Backward, Amount::All),
+            key!(End) => self.move_cursor(Direction::Forward, Amount::All),
+            key!(Backspace) => self.delete(Direction::Backward, Amount::Character),
+            key!(Delete) => self.delete(Direction::Forward, Amount::Character),
+            key!(Backspace, SHIFT) => self.delete(Direction::Backward, Amount::All),
+            key!(Delete, SHIFT) => self.delete(Direction::Forward, Amount::All),
+            key!(Backspace, ALT) | key!('w', CONTROL) => {
+                self.delete(Direction::Backward, Amount::Word)
+            }
+            key!(Delete, CONTROL) => self.delete(Direction::Forward, Amount::Word),
+            _ => false,
+        }
+    }
 }
 
 impl From<String> for Buffer {
@@ -209,6 +239,9 @@ impl<'a> Entry<'a> {
         } else if cursor_position > max_cursor_position as i32 {
             let delta = cursor_position as i32 - max_cursor_position as i32;
             state.display_offset = state.display_offset + delta as u16;
+            // if width_before_cursor as i32 - state.display_offset as i32 > max_cursor_position {
+            //     state.display_offset += 1;
+            // }
             cursor_position = max_cursor_position;
         }
 
@@ -226,8 +259,8 @@ impl<'a> Entry<'a> {
             display_offset: state.display_offset,
             text: state.text.as_str(),
         };
-        f.set_cursor(area.x + cursor_position as u16, area.y);
         f.render_widget(widget, area);
+        f.set_cursor(area.x + cursor_position as u16, area.y);
     }
 }
 
@@ -241,8 +274,8 @@ fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
     let mut chars = text.chars();
     while let Some(ch) = chars.next() {
         let width = ch.width().unwrap_or(0) as u16;
-        if offset >= width {
-            offset -= width;
+        if width == 0 || offset > 0 {
+            offset = offset.saturating_sub(width);
             text = chars.as_str();
         } else {
             break;
@@ -436,18 +469,13 @@ mod tests {
 
     mod widget {
         use super::*;
+        use crate::events::key;
+        use crossterm::event::Event;
         use tui::backend::{Backend, TestBackend};
         use tui::buffer::Buffer as TuiBuffer;
-        use tui::layout::Rect;
         use tui::style::Style;
         use tui::text::Span;
         use tui::Terminal;
-
-        fn str_buffer(string: &str) -> TuiBuffer {
-            let mut buffer = TuiBuffer::empty(Rect::new(0, 0, 5, 1));
-            buffer.set_string(0, 0, string, Style::default());
-            buffer
-        }
 
         fn draw_entry(terminal: &mut Terminal<impl Backend>, buffer: &mut Buffer) {
             terminal
@@ -459,35 +487,59 @@ mod tests {
                 .unwrap();
         }
 
+        struct BufferTester {
+            buffer: Buffer,
+            terminal: Terminal<TestBackend>,
+        }
+
+        impl BufferTester {
+            fn new(buffer: Buffer, width: u16) -> Self {
+                let backend = TestBackend::new(width, 1);
+                let terminal = Terminal::new(backend).unwrap();
+                BufferTester { buffer, terminal }
+            }
+
+            fn assert_response(&mut self, event: Event, expected: &str, cursor: (u16, u16)) {
+                self.buffer.handle_event(event);
+                draw_entry(&mut self.terminal, &mut self.buffer);
+                let size = self.terminal.size().unwrap();
+                let mut buffer = TuiBuffer::empty(size);
+                buffer.set_string(0, 0, expected, Style::default());
+                self.terminal.backend().assert_buffer(&buffer);
+                assert_eq!(self.terminal.backend_mut().get_cursor().unwrap(), cursor);
+            }
+        }
+
         #[test]
         fn scrolling_text() {
-            let backend = TestBackend::new(5, 1);
-            let mut terminal = Terminal::new(backend).unwrap();
-            let mut buffer = Buffer::default();
+            let mut tester = BufferTester::new(Buffer::default(), 5);
+            tester.assert_response(key!(Up), "::", (2, 0));
+            tester.assert_response(key!('a'), "::a", (3, 0));
+            tester.assert_response(key!('b'), "::ab", (4, 0));
+            tester.assert_response(key!('c'), ":abc", (4, 0));
+            tester.assert_response(key!('d'), "abcd", (4, 0));
+            tester.assert_response(key!('e'), "bcde", (4, 0));
+            tester.assert_response(key!(Left), "bcde", (3, 0));
+            tester.assert_response(key!(Left), "bcde", (2, 0));
+            tester.assert_response(key!(Left), "bcde", (1, 0));
+            tester.assert_response(key!(Left), "bcde", (0, 0));
+            tester.assert_response(key!(Left), "abcde", (0, 0));
+            tester.assert_response(key!(Left), "::abc", (2, 0));
+            tester.assert_response(key!(End), "bcde", (4, 0));
+            tester.assert_response(key!(Home), "::abc", (2, 0));
+        }
 
-            draw_entry(&mut terminal, &mut buffer);
-            terminal.backend().assert_buffer(&str_buffer("::"));
-            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (2, 0));
-
-            buffer.push_char('a');
-            draw_entry(&mut terminal, &mut buffer);
-            terminal.backend().assert_buffer(&str_buffer("::a"));
-            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (3, 0));
-
-            buffer.push_char('b');
-            draw_entry(&mut terminal, &mut buffer);
-            terminal.backend().assert_buffer(&str_buffer("::ab"));
-            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (4, 0));
-
-            buffer.push_char('c');
-            draw_entry(&mut terminal, &mut buffer);
-            terminal.backend().assert_buffer(&str_buffer(":abc"));
-            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (4, 0));
-
-            buffer.push_char('d');
-            draw_entry(&mut terminal, &mut buffer);
-            terminal.backend().assert_buffer(&str_buffer("abcd"));
-            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (4, 0));
+        #[test]
+        fn wide_character() {
+            let mut tester = BufferTester::new(Buffer::default(), 6);
+            tester.assert_response(key!('ア'), "::ア", (4, 0));
+            tester.assert_response(key!('イ'), ":アイ", (5, 0));
+            tester.assert_response(key!('-'), "アイ-", (5, 0));
+            tester.assert_response(key!('-'), "イ--", (4, 0));
+            // TODO: cursor is placed on the second cell of a wide character and is moved to the right.
+            // Shoud verify if the behavior is consistent across terminals.
+            tester.assert_response(key!('あ'), "--あ", (4, 0));
+            tester.assert_response(key!('お'), "-あお", (4, 0));
         }
     }
 }

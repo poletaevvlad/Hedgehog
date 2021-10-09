@@ -33,11 +33,11 @@ impl UI {
             let size = f.size();
             f.render_widget(
                 tui::widgets::Block::default().borders(tui::widgets::Borders::ALL),
-                Rect::new(19, 9, size.width - 38, 3),
+                Rect::new(19, 9, 8, 3),
             );
-            textentry::Entry::new().prefix(Span::raw("^^>")).render(
+            textentry::Entry::new().prefix(Span::raw("::")).render(
                 f,
-                Rect::new(20, 10, size.width - 40, 1),
+                Rect::new(20, 10, 6, 1),
                 command,
             );
         };
@@ -61,60 +61,16 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
         _ctx: &mut Self::Context,
     ) {
         let should_render = match item {
-            key!('c', CONTROL) => {
+            Ok(key!('c', CONTROL)) => {
                 System::current().stop();
                 false
             }
-            Ok(crossterm::event::Event::Key(crossterm::event::KeyEvent {
-                code: crossterm::event::KeyCode::Char(ch),
-                modifiers:
-                    crossterm::event::KeyModifiers::NONE | crossterm::event::KeyModifiers::SHIFT,
-            })) => {
-                self.command.push_char(ch);
-                true
-            }
-            key!(Left) => self
-                .command
-                .move_cursor(textentry::Direction::Backward, textentry::Amount::Character),
-            key!(Right) => self
-                .command
-                .move_cursor(textentry::Direction::Forward, textentry::Amount::Character),
-            key!(Left, CONTROL) => self
-                .command
-                .move_cursor(textentry::Direction::Backward, textentry::Amount::Word),
-            key!(Right, CONTROL) => self
-                .command
-                .move_cursor(textentry::Direction::Forward, textentry::Amount::Word),
-            key!(Home) => self
-                .command
-                .move_cursor(textentry::Direction::Backward, textentry::Amount::All),
-            key!(End) => self
-                .command
-                .move_cursor(textentry::Direction::Forward, textentry::Amount::All),
-            key!(Backspace) => self
-                .command
-                .delete(textentry::Direction::Backward, textentry::Amount::Character),
-            key!(Delete) => self
-                .command
-                .delete(textentry::Direction::Forward, textentry::Amount::Character),
-            key!(Backspace, SHIFT) => self
-                .command
-                .delete(textentry::Direction::Backward, textentry::Amount::All),
-            key!(Delete, SHIFT) => self
-                .command
-                .delete(textentry::Direction::Forward, textentry::Amount::All),
-            key!(Backspace, ALT) | key!('w', CONTROL) => self
-                .command
-                .delete(textentry::Direction::Backward, textentry::Amount::Word),
-            key!(Delete, CONTROL) => self
-                .command
-                .delete(textentry::Direction::Forward, textentry::Amount::Word),
             Ok(Event::Resize(_, _)) => true,
+            Ok(event) => self.command.handle_event(event),
             Err(_) => {
                 System::current().stop();
                 false
             }
-            _ => false,
         };
         if should_render {
             self.render();

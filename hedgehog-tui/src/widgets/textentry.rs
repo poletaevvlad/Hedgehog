@@ -352,5 +352,26 @@ mod tests {
             assert!(!buffer.delete(Direction::Forward, Amount::All));
             assert_buffer(&buffer, "абвг", 8);
         }
+
+        #[test]
+        fn deletion_word() {
+            let mut buffer = Buffer::new("каждый охотник желает...".to_string(), 0);
+            assert!(buffer.delete(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.as_slice(), " охотник желает...");
+            assert!(buffer.delete(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.as_slice(), " желает...");
+            assert!(buffer.delete(Direction::Forward, Amount::Word));
+            assert_eq!(buffer.as_slice(), "");
+            assert!(!buffer.delete(Direction::Forward, Amount::Word));
+
+            let mut buffer = Buffer::from("каждый охотник желает...".to_string());
+            assert!(buffer.delete(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.as_slice(), "каждый охотник ");
+            assert!(buffer.delete(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.as_slice(), "каждый ");
+            assert!(buffer.delete(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.as_slice(), "");
+            assert!(!buffer.delete(Direction::Forward, Amount::Word));
+        }
     }
 }

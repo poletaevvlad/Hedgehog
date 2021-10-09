@@ -274,7 +274,7 @@ impl<'a> Widget for TextEntryWidget<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Amount, Buffer, Direction};
+    use super::{Amount, Buffer, Direction, Entry};
 
     mod buffer {
         use super::*;
@@ -431,6 +431,63 @@ mod tests {
             assert!(buffer.delete(Direction::Backward, Amount::Word));
             assert_eq!(buffer.as_slice(), "");
             assert!(!buffer.delete(Direction::Forward, Amount::Word));
+        }
+    }
+
+    mod widget {
+        use super::*;
+        use tui::backend::{Backend, TestBackend};
+        use tui::buffer::Buffer as TuiBuffer;
+        use tui::layout::Rect;
+        use tui::style::Style;
+        use tui::text::Span;
+        use tui::Terminal;
+
+        fn str_buffer(string: &str) -> TuiBuffer {
+            let mut buffer = TuiBuffer::empty(Rect::new(0, 0, 5, 1));
+            buffer.set_string(0, 0, string, Style::default());
+            buffer
+        }
+
+        fn draw_entry(terminal: &mut Terminal<impl Backend>, buffer: &mut Buffer) {
+            terminal
+                .draw(|f| {
+                    Entry::new()
+                        .prefix(Span::raw("::"))
+                        .render(f, f.size(), buffer)
+                })
+                .unwrap();
+        }
+
+        #[test]
+        fn scrolling_text() {
+            let backend = TestBackend::new(5, 1);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut buffer = Buffer::default();
+
+            draw_entry(&mut terminal, &mut buffer);
+            terminal.backend().assert_buffer(&str_buffer("::"));
+            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (2, 0));
+
+            buffer.push_char('a');
+            draw_entry(&mut terminal, &mut buffer);
+            terminal.backend().assert_buffer(&str_buffer("::a"));
+            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (3, 0));
+
+            buffer.push_char('b');
+            draw_entry(&mut terminal, &mut buffer);
+            terminal.backend().assert_buffer(&str_buffer("::ab"));
+            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (4, 0));
+
+            buffer.push_char('c');
+            draw_entry(&mut terminal, &mut buffer);
+            terminal.backend().assert_buffer(&str_buffer(":abc"));
+            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (4, 0));
+
+            buffer.push_char('d');
+            draw_entry(&mut terminal, &mut buffer);
+            terminal.backend().assert_buffer(&str_buffer("abcd"));
+            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), (4, 0));
         }
     }
 }

@@ -45,6 +45,10 @@ impl Buffer {
         &self.text
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.text.is_empty()
+    }
+
     pub(crate) fn cursor_position(&self) -> usize {
         self.cursor_position
     }

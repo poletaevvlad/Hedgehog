@@ -2,7 +2,7 @@ mod events;
 mod widgets;
 use crate::widgets::textentry;
 use actix::prelude::*;
-use crossterm::event::{Event, KeyEvent};
+use crossterm::event::Event;
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -14,32 +14,44 @@ use tui::layout::Rect;
 use tui::text::Span;
 use tui::Terminal;
 
+#[derive(Debug)]
+enum CommandState {
+    None,
+    Command(textentry::Buffer),
+}
+
 struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
-    command: textentry::Buffer,
+    command: CommandState,
 }
 
 impl UI {
     fn new(terminal: Terminal<CrosstermBackend<std::io::Stdout>>) -> Self {
         UI {
             terminal,
-            command: textentry::Buffer::default(),
+            command: CommandState::None,
         }
     }
 
     fn render(&mut self) {
         let command = &mut self.command;
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
-            let size = f.size();
+            let area = f.size();
             f.render_widget(
-                tui::widgets::Block::default().borders(tui::widgets::Borders::ALL),
-                Rect::new(19, 9, 8, 3),
+                tui::widgets::Paragraph::new(tui::text::Spans(vec![Span::raw(format!(
+                    "{:?}",
+                    command
+                ))])),
+                Rect::new(0, 0, area.width, area.height - 1),
             );
-            textentry::Entry::new().prefix(Span::raw("::")).render(
-                f,
-                Rect::new(20, 10, 6, 1),
-                command,
-            );
+
+            match command {
+                CommandState::None => (),
+                CommandState::Command(ref mut buffer) => {
+                    let entry = textentry::Entry::new().prefix(Span::raw(":"));
+                    entry.render(f, Rect::new(0, area.height - 1, area.width, 1), buffer);
+                }
+            }
         };
         self.terminal.draw(draw).unwrap();
     }
@@ -60,17 +72,41 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
         item: crossterm::Result<crossterm::event::Event>,
         _ctx: &mut Self::Context,
     ) {
-        let should_render = match item {
-            Ok(key!('c', CONTROL)) => {
-                System::current().stop();
-                false
+        let event = match item {
+            Ok(Event::Resize(_, _)) => {
+                self.render();
+                return;
             }
-            Ok(Event::Resize(_, _)) => true,
-            Ok(event) => self.command.handle_event(event),
+            Ok(event) => event,
             Err(_) => {
                 System::current().stop();
-                false
+                return;
             }
+        };
+
+        let should_render = match self.command {
+            CommandState::None => match event {
+                key!('c', CONTROL) => {
+                    System::current().stop();
+                    false
+                }
+                key!(':') => {
+                    self.command = CommandState::Command(textentry::Buffer::default());
+                    true
+                }
+                _ => false,
+            },
+            CommandState::Command(ref mut buffer) => match event {
+                key!('c', CONTROL) | key!(Esc) => {
+                    self.command = CommandState::None;
+                    true
+                }
+                key!(Backspace) if buffer.is_empty() => {
+                    self.command = CommandState::None;
+                    true
+                }
+                event => buffer.handle_event(event),
+            },
         };
         if should_render {
             self.render();

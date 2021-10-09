@@ -2,7 +2,7 @@ use tui::backend::Backend;
 use tui::buffer;
 use tui::layout::Rect;
 use tui::text::Span;
-use tui::widgets::StatefulWidget;
+use tui::widgets::Widget;
 use tui::Frame;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -50,9 +50,9 @@ impl Buffer {
         self.text[index..].chars().next()
     }
 
-    fn go_backward(&self, amount: Amount) -> usize {
+    fn go_backward(&self, amount: Amount) -> (usize, bool) {
         if self.cursor_position == 0 {
-            return 0;
+            return (0, true);
         }
 
         fn advance(text: &str, mut index: usize) -> usize {
@@ -64,7 +64,7 @@ impl Buffer {
         }
 
         match amount {
-            Amount::Character => advance(&self.text, self.cursor_position),
+            Amount::Character => (advance(&self.text, self.cursor_position), false),
             Amount::Word => {
                 let mut index = advance(&self.text, self.cursor_position);
                 // Skipping whitespaces
@@ -83,9 +83,9 @@ impl Buffer {
                     }
                     index = next
                 }
-                index
+                (index, index == 0)
             }
-            Amount::All => 0,
+            Amount::All => (0, true),
         }
     }
 
@@ -123,22 +123,27 @@ impl Buffer {
     }
 
     pub(crate) fn move_cursor(&mut self, direction: Direction, amount: Amount) -> bool {
-        let new_position = match direction {
+        let (new_position, reset_offset) = match direction {
             Direction::Backward => self.go_backward(amount),
-            Direction::Forward => self.go_forward(amount),
+            Direction::Forward => (self.go_forward(amount), false),
         };
+
+        let mut changed = false;
         if new_position != self.cursor_position {
             self.cursor_position = new_position;
-            true
-        } else {
-            false
+            changed = true;
         }
+        if reset_offset && self.display_offset != 0 {
+            self.display_offset = 0;
+            changed = true;
+        }
+        changed
     }
 
     pub(crate) fn delete(&mut self, direction: Direction, amount: Amount) -> bool {
         match direction {
             Direction::Backward if self.cursor_position > 0 => {
-                let new_index = self.go_backward(amount);
+                let new_index = self.go_backward(amount).0;
                 self.text.drain(new_index..self.cursor_position);
                 self.cursor_position = new_index;
                 true
@@ -216,19 +221,20 @@ impl<'a> Entry<'a> {
             cursor_position = width_before_cursor as i32 - state.display_offset as i32;
         }
 
+        let widget = TextEntryWidget {
+            prefix: self.prefix,
+            display_offset: state.display_offset,
+            text: state.text.as_str(),
+        };
         f.set_cursor(area.x + cursor_position as u16, area.y);
-        f.render_stateful_widget(
-            TextEntryWidget {
-                prefix: self.prefix,
-            },
-            area,
-            state,
-        );
+        f.render_widget(widget, area);
     }
 }
 
 struct TextEntryWidget<'a> {
     prefix: Option<Span<'a>>,
+    text: &'a str,
+    display_offset: u16,
 }
 
 fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
@@ -245,11 +251,9 @@ fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
     (offset, text)
 }
 
-impl<'a> StatefulWidget for TextEntryWidget<'a> {
-    type State = Buffer;
-
-    fn render(self, mut area: Rect, buf: &mut buffer::Buffer, state: &mut Self::State) {
-        let mut remaining_offset = state.display_offset as u16;
+impl<'a> Widget for TextEntryWidget<'a> {
+    fn render(self, mut area: Rect, buf: &mut buffer::Buffer) {
+        let mut remaining_offset = self.display_offset as u16;
 
         if let Some(ref prefix) = self.prefix {
             let (remaining, prefix_text) = skip_by_width(remaining_offset, &prefix.content);
@@ -263,27 +267,8 @@ impl<'a> StatefulWidget for TextEntryWidget<'a> {
             remaining_offset = remaining;
         }
 
-        let (_, text) = skip_by_width(remaining_offset, state.text.as_str());
+        let (_, text) = skip_by_width(remaining_offset, self.text);
         buf.set_span(area.left(), area.top(), &Span::raw(text), area.width);
-
-        buf.set_span(
-            0,
-            area.top() + 2,
-            &Span::raw(format!("text: {:?}", state.text)),
-            400,
-        );
-        buf.set_span(
-            0,
-            area.top() + 3,
-            &Span::raw(format!("cursor_position: {:?}", state.cursor_position)),
-            400,
-        );
-        buf.set_span(
-            0,
-            area.top() + 4,
-            &Span::raw(format!("display_offset: {:?}", state.display_offset)),
-            400,
-        );
     }
 }
 

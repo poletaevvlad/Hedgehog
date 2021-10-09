@@ -67,7 +67,8 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
             }
             Ok(crossterm::event::Event::Key(crossterm::event::KeyEvent {
                 code: crossterm::event::KeyCode::Char(ch),
-                modifiers: crossterm::event::KeyModifiers::NONE,
+                modifiers:
+                    crossterm::event::KeyModifiers::NONE | crossterm::event::KeyModifiers::SHIFT,
             })) => {
                 self.command.push_char(ch);
                 true
@@ -102,6 +103,12 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
             key!(Delete, SHIFT) => self
                 .command
                 .delete(textentry::Direction::Forward, textentry::Amount::All),
+            key!(Backspace, ALT) | key!('w', CONTROL) => self
+                .command
+                .delete(textentry::Direction::Backward, textentry::Amount::Word),
+            key!(Delete, CONTROL) => self
+                .command
+                .delete(textentry::Direction::Forward, textentry::Amount::Word),
             Ok(Event::Resize(_, _)) => true,
             Err(_) => {
                 System::current().stop();

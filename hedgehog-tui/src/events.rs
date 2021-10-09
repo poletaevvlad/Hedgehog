@@ -29,5 +29,5 @@ pub(crate) mod key_modifiers {
 
     pub(crate) const CONTROL: KeyModifiers = KeyModifiers::CONTROL;
     pub(crate) const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
-    pub(crate) const CONTROL_ALT: KeyModifiers = KeyModifiers::CONTROL.union(KeyModifiers::ALT);
+    pub(crate) const ALT: KeyModifiers = KeyModifiers::ALT;
 }

@@ -42,6 +42,10 @@ impl Buffer {
         self.cursor_position
     }
 
+    fn char_at(&self, index: usize) -> Option<char> {
+        self.text[index..].chars().next()
+    }
+
     fn go_backward(&self, amount: Amount) -> usize {
         if self.cursor_position == 0 {
             return 0;
@@ -59,16 +63,18 @@ impl Buffer {
             Amount::Character => advance(&self.text, self.cursor_position),
             Amount::Word => {
                 let mut index = advance(&self.text, self.cursor_position);
+                // Skipping whitespaces
                 while index > 0 {
-                    if let Some(false) = self.text[index..].chars().next().map(char::is_whitespace)
-                    {
+                    if let Some(false) = self.char_at(index).map(char::is_whitespace) {
                         break;
                     }
                     index = advance(&self.text, index);
                 }
+
+                // Finding the first whitespace after the word or end of string
                 while index > 0 {
                     let next = advance(&self.text, index);
-                    if self.text[next..].chars().next().unwrap().is_whitespace() {
+                    if self.char_at(next).unwrap().is_whitespace() {
                         break;
                     }
                     index = next
@@ -98,12 +104,12 @@ impl Buffer {
             Amount::Word => {
                 let mut index = self.cursor_position;
                 // Skipping whitespaces
-                while let Some(true) = self.text[index..].chars().next().map(char::is_whitespace) {
+                while let Some(true) = self.char_at(index).map(char::is_whitespace) {
                     index = advance(&self.text, index);
                 }
 
-                //Finding the first whitespace after the word or end of string
-                while let Some(false) = self.text[index..].chars().next().map(char::is_whitespace) {
+                // Finding the first whitespace after the word or end of string
+                while let Some(false) = self.char_at(index).map(char::is_whitespace) {
                     index = advance(&self.text, index);
                 }
                 index

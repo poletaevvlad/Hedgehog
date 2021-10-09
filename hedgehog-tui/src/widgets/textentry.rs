@@ -46,15 +46,35 @@ impl Buffer {
         if self.cursor_position == 0 {
             return 0;
         }
+
+        fn advance(text: &str, mut index: usize) -> usize {
+            index -= 1;
+            while !text.is_char_boundary(index) {
+                index -= 1;
+            }
+            index
+        }
+
         match amount {
-            Amount::Character => {
-                let mut index = self.cursor_position - 1;
-                while !self.text.is_char_boundary(index) {
-                    index -= 1;
+            Amount::Character => advance(&self.text, self.cursor_position),
+            Amount::Word => {
+                let mut index = advance(&self.text, self.cursor_position);
+                while index > 0 {
+                    if let Some(false) = self.text[index..].chars().next().map(char::is_whitespace)
+                    {
+                        break;
+                    }
+                    index = advance(&self.text, index);
+                }
+                while index > 0 {
+                    let next = advance(&self.text, index);
+                    if self.text[next..].chars().next().unwrap().is_whitespace() {
+                        break;
+                    }
+                    index = next
                 }
                 index
             }
-            Amount::Word => todo!(),
             Amount::All => 0,
         }
     }
@@ -257,6 +277,18 @@ mod tests {
 
             assert!(!buffer.move_cursor(Direction::Forward, Amount::Word));
             assert_eq!(buffer.cursor_position(), 43);
+
+            assert!(buffer.move_cursor(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 28);
+
+            assert!(buffer.move_cursor(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 13);
+
+            assert!(buffer.move_cursor(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 0);
+
+            assert!(!buffer.move_cursor(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 0);
         }
 
         #[test]
@@ -264,6 +296,9 @@ mod tests {
             let mut buffer = Buffer::new("   ".to_string(), 0);
             assert!(buffer.move_cursor(Direction::Forward, Amount::Word));
             assert_eq!(buffer.cursor_position(), 3);
+
+            assert!(buffer.move_cursor(Direction::Backward, Amount::Word));
+            assert_eq!(buffer.cursor_position(), 0);
         }
 
         #[test]

@@ -194,7 +194,7 @@ impl<'a> Entry<'a> {
 
     pub(crate) fn render<B: Backend>(self, f: &mut Frame<B>, area: Rect, state: &mut Buffer) {
         let width_before_cursor = self.prefix_width() + state.text[..state.cursor_position].width();
-        // let width_after_cursor = state.text[state.cursor_position..].width();
+        let width_after_cursor = state.text[state.cursor_position..].width();
         let max_cursor_position = area.width as i32 - 1;
 
         let mut cursor_position = width_before_cursor as i32 - state.display_offset as i32;
@@ -207,11 +207,19 @@ impl<'a> Entry<'a> {
             cursor_position = max_cursor_position;
         }
 
+        let empty_space_after =
+            area.width as i32 - cursor_position as i32 - width_after_cursor as i32 - 1;
+        if empty_space_after > 0 {
+            state.display_offset = state
+                .display_offset
+                .saturating_sub(empty_space_after as u16);
+            cursor_position = width_before_cursor as i32 - state.display_offset as i32;
+        }
+
         f.set_cursor(area.x + cursor_position as u16, area.y);
         f.render_stateful_widget(
             TextEntryWidget {
                 prefix: self.prefix,
-                cursor_position,
             },
             area,
             state,
@@ -221,7 +229,6 @@ impl<'a> Entry<'a> {
 
 struct TextEntryWidget<'a> {
     prefix: Option<Span<'a>>,
-    cursor_position: i32,
 }
 
 fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
@@ -275,12 +282,6 @@ impl<'a> StatefulWidget for TextEntryWidget<'a> {
             0,
             area.top() + 4,
             &Span::raw(format!("display_offset: {:?}", state.display_offset)),
-            400,
-        );
-        buf.set_span(
-            0,
-            area.top() + 5,
-            &Span::raw(format!("cursor_position: {:?}", self.cursor_position)),
             400,
         );
     }

@@ -41,21 +41,21 @@ impl CommandState {
                 let history_index = self.history_index.as_ref();
                 let found_index = match event {
                     key!(Up) => {
-                        let history_index = history_index
-                            .map(|index| index.saturating_add(1))
-                            .unwrap_or(0);
+                        let history_index = history_index.map(|index| index + 1).unwrap_or(0);
                         history.find_before(history_index, self.buffer.as_str())
                     }
-                    key!(Down) => {
-                        let history_index = history_index
-                            .map(|index| index.saturating_sub(1))
-                            .unwrap_or(0);
+                    key!(Down) if history_index != Some(&0) => {
+                        let history_index = history_index.map(|index| index - 1).unwrap_or(0);
                         history.find_after(history_index, self.buffer.as_str())
                     }
-                    _ => unreachable!(),
+                    _ => None,
                 };
 
                 match found_index {
+                    None if event == key!(Down) => {
+                        self.history_index = None;
+                        CommandActionResult::Update
+                    }
                     None => CommandActionResult::None,
                     Some(new_index) => {
                         self.history_index = Some(new_index);

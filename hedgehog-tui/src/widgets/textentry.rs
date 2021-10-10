@@ -244,8 +244,8 @@ impl<'a> Entry<'a> {
         Entry::default()
     }
 
-    pub(crate) fn prefix(mut self, prefix: Span<'a>) -> Self {
-        self.prefix = Some(prefix);
+    pub(crate) fn prefix(mut self, prefix: impl Into<Option<Span<'a>>>) -> Self {
+        self.prefix = prefix.into();
         self
     }
 
@@ -338,8 +338,8 @@ impl<'a> ReadonlyEntry<'a> {
         ReadonlyEntry { prefix: None, text }
     }
 
-    pub(crate) fn prefix(mut self, prefix: Span<'a>) -> Self {
-        self.prefix = Some(prefix);
+    pub(crate) fn prefix(mut self, prefix: impl Into<Option<Span<'a>>>) -> Self {
+        self.prefix = prefix.into();
         self
     }
 

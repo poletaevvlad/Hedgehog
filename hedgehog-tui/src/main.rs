@@ -2,7 +2,9 @@ mod cmdparser;
 mod events;
 mod history;
 mod screen;
+mod status;
 mod widgets;
+
 use actix::prelude::*;
 use crossterm::execute;
 use crossterm::terminal::{

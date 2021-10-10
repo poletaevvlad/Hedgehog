@@ -1,50 +1,16 @@
 use crate::cmdparser;
 use crate::events::key;
 use crate::history::CommandsHistory;
+use crate::status::{Severity, Status};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use actix::prelude::*;
 use crossterm::event::Event;
-use std::fmt;
 use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Span;
 use tui::widgets::Paragraph;
 use tui::Terminal;
-
-enum Status {
-    CommandParsingError(cmdparser::Error),
-}
-
-impl Status {
-    fn severity(&self) -> Severity {
-        match self {
-            Status::CommandParsingError(_) => Severity::Error,
-        }
-    }
-}
-
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Status::CommandParsingError(error) => {
-                f.write_fmt(format_args!("Invalid command: {}", error))
-            }
-        }
-    }
-}
-
-impl From<cmdparser::Error> for Status {
-    fn from(error: cmdparser::Error) -> Self {
-        Status::CommandParsingError(error)
-    }
-}
-
-enum Severity {
-    Error,
-    Warning,
-    Information,
-}
 
 pub(crate) struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,

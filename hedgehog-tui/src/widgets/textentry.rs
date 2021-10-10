@@ -242,10 +242,7 @@ impl<'a> Entry<'a> {
             cursor_position = 0;
         } else if cursor_position > max_cursor_position as i32 {
             let delta = cursor_position as i32 - max_cursor_position as i32;
-            state.display_offset = state.display_offset + delta as u16;
-            // if width_before_cursor as i32 - state.display_offset as i32 > max_cursor_position {
-            //     state.display_offset += 1;
-            // }
+            state.display_offset += delta as u16;
             cursor_position = max_cursor_position;
         }
 

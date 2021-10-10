@@ -166,18 +166,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer {
         }
     }
 
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::UnsupportedDataType("unit"))
+        visitor.visit_unit()
     }
 
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::UnsupportedDataType("unit_struct"))
+        visitor.visit_unit()
     }
 
     fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
@@ -187,11 +187,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::UnsupportedDataType("seq"))
+        visitor.visit_seq(SeqAccess::new(self))
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
@@ -229,7 +229,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer {
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::UnsupportedDataType("map"))
+        Err(Error::UnsupportedDataType("struct"))
     }
 
     fn deserialize_enum<V>(
@@ -285,6 +285,30 @@ impl<'a, 'de> de::SeqAccess<'de> for TupleAccess<'a> {
         }
         self.count -= 1;
 
+        seed.deserialize(&mut *self.deserializer).map(Some)
+    }
+}
+
+struct SeqAccess<'a> {
+    deserializer: &'a mut Deserializer,
+}
+
+impl<'a> SeqAccess<'a> {
+    fn new(deserializer: &'a mut Deserializer) -> Self {
+        SeqAccess { deserializer }
+    }
+}
+
+impl<'a, 'de> de::SeqAccess<'de> for SeqAccess<'a> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        if self.deserializer.tokens.is_empty() {
+            return Ok(None);
+        }
         seed.deserialize(&mut *self.deserializer).map(Some)
     }
 }
@@ -353,12 +377,17 @@ mod tests {
     }
 
     #[derive(Debug, PartialEq, Deserialize)]
+    struct UnitStruct;
+
+    #[derive(Debug, PartialEq, Deserialize)]
     enum MockCommand {
         EnumUnion,
         WithPrimitiveTypes(u8, i8, u16, i16, u32, i32, u64, u64, f32, f64, bool),
         WithTuples((usize, usize), (usize, usize), String),
         WithOptional(Option<String>, Option<String>, Option<String>),
         WithNested(MockList),
+        WithSequence(Vec<u8>),
+        WithUnits((), u8, UnitStruct),
     }
 
     #[test]
@@ -410,5 +439,17 @@ mod tests {
                 Box::new(MockList::List(2, Box::new(MockList::Nil)))
             ))
         );
+    }
+
+    #[test]
+    fn deserialize_sequence() {
+        let command: MockCommand = from_str("WithSequence 1 2 3 4 5").unwrap();
+        assert_eq!(command, MockCommand::WithSequence(vec![1, 2, 3, 4, 5]));
+    }
+
+    #[test]
+    fn deserialize_union() {
+        let command: MockCommand = from_str("WithUnits 5").unwrap();
+        assert_eq!(command, MockCommand::WithUnits((), 5, UnitStruct));
     }
 }

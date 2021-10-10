@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+#[derive(Debug)]
 pub(crate) struct CommandsHistory {
     items: VecDeque<String>,
 }

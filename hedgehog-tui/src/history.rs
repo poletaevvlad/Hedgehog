@@ -29,20 +29,20 @@ impl CommandsHistory {
         self.items.get(index).map(String::as_str)
     }
 
-    pub(crate) fn find_before(&self, mut index: usize, prefix: &str) -> Option<(usize, &str)> {
+    pub(crate) fn find_before(&self, mut index: usize, prefix: &str) -> Option<usize> {
         while let Some(line) = self.get(index) {
             if line.starts_with(prefix) {
-                return Some((index, line));
+                return Some(index);
             }
             index += 1;
         }
         None
     }
 
-    pub(crate) fn find_after(&self, mut index: usize, prefix: &str) -> Option<(usize, &str)> {
+    pub(crate) fn find_after(&self, mut index: usize, prefix: &str) -> Option<usize> {
         while let Some(line) = self.get(index) {
             if line.starts_with(prefix) {
-                return Some((index, line));
+                return Some(index);
             }
             if index == 0 {
                 break;
@@ -91,16 +91,16 @@ mod tests {
     #[test]
     fn finding_before() {
         let history = init_for_find();
-        assert_eq!(history.find_before(1, "ac"), Some((2, "acd")));
-        assert_eq!(history.find_before(1, "aa"), Some((4, "aa")));
+        assert_eq!(history.find_before(1, "ac"), Some(2));
+        assert_eq!(history.find_before(1, "aa"), Some(4));
         assert_eq!(history.find_before(1, "ae"), None);
     }
 
     #[test]
     fn finding_after() {
         let history = init_for_find();
-        assert_eq!(history.find_after(3, "ac"), Some((2, "acd")));
-        assert_eq!(history.find_after(1, "ac"), Some((0, "ac")));
+        assert_eq!(history.find_after(3, "ac"), Some(2));
+        assert_eq!(history.find_after(1, "ac"), Some(0));
         assert_eq!(history.find_after(2, "aa"), None);
     }
 }

@@ -41,7 +41,7 @@ impl Buffer {
         self.cursor_position += ch.len_utf8();
     }
 
-    pub(crate) fn as_slice(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.text
     }
 
@@ -162,6 +162,28 @@ impl Buffer {
             }
             _ => false,
         }
+    }
+
+    pub(crate) fn is_editing_event(event: Event) -> bool {
+        matches!(
+            event,
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(_),
+                modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+            }) | key!(Left)
+                | key!(Left, CONTROL)
+                | key!(Right)
+                | key!(Right, CONTROL)
+                | key!(Home)
+                | key!(End)
+                | key!(Backspace)
+                | key!(Backspace, SHIFT)
+                | key!(Backspace, ALT)
+                | key!(Delete)
+                | key!(Delete, SHIFT)
+                | key!(Delete, CONTROL)
+                | key!('w', CONTROL)
+        )
     }
 
     pub(crate) fn handle_event(&mut self, event: Event) -> bool {
@@ -351,7 +373,7 @@ mod tests {
         use super::*;
 
         fn assert_buffer(buffer: &Buffer, text: &str, position: usize) {
-            assert_eq!(buffer.as_slice(), text);
+            assert_eq!(buffer.as_str(), text);
             assert_eq!(buffer.cursor_position(), position);
         }
 
@@ -487,20 +509,20 @@ mod tests {
         fn deletion_word() {
             let mut buffer = Buffer::new("каждый охотник желает...".to_string(), 0);
             assert!(buffer.delete(Direction::Forward, Amount::Word));
-            assert_eq!(buffer.as_slice(), " охотник желает...");
+            assert_eq!(buffer.as_str(), " охотник желает...");
             assert!(buffer.delete(Direction::Forward, Amount::Word));
-            assert_eq!(buffer.as_slice(), " желает...");
+            assert_eq!(buffer.as_str(), " желает...");
             assert!(buffer.delete(Direction::Forward, Amount::Word));
-            assert_eq!(buffer.as_slice(), "");
+            assert_eq!(buffer.as_str(), "");
             assert!(!buffer.delete(Direction::Forward, Amount::Word));
 
             let mut buffer = Buffer::from("каждый охотник желает...".to_string());
             assert!(buffer.delete(Direction::Backward, Amount::Word));
-            assert_eq!(buffer.as_slice(), "каждый охотник ");
+            assert_eq!(buffer.as_str(), "каждый охотник ");
             assert!(buffer.delete(Direction::Backward, Amount::Word));
-            assert_eq!(buffer.as_slice(), "каждый ");
+            assert_eq!(buffer.as_str(), "каждый ");
             assert!(buffer.delete(Direction::Backward, Amount::Word));
-            assert_eq!(buffer.as_slice(), "");
+            assert_eq!(buffer.as_str(), "");
             assert!(!buffer.delete(Direction::Forward, Amount::Word));
         }
     }

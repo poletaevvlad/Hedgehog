@@ -44,9 +44,18 @@ impl UI {
 
             match command {
                 CommandState::None => (),
-                CommandState::Command(ref mut buffer, _) => {
-                    let entry = textentry::Entry::new().prefix(Span::raw(":"));
-                    entry.render(f, Rect::new(0, area.height - 1, area.width, 1), buffer);
+                CommandState::Command(ref mut buffer, history_index) => {
+                    let history_index = history_index.and_then(|index| history.get(index));
+                    let rect = Rect::new(0, area.height - 1, area.width, 1);
+                    match history_index {
+                        Some(text) => textentry::ReadonlyEntry::new(text)
+                            .prefix(Span::raw(":"))
+                            .render(f, rect),
+                        None => {
+                            let entry = textentry::Entry::new().prefix(Span::raw(":"));
+                            entry.render(f, rect, buffer);
+                        }
+                    }
                 }
             }
         };
@@ -93,24 +102,67 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                 }
                 _ => false,
             },
-            CommandState::Command(ref mut buffer, _) => match event {
+            CommandState::Command(ref mut buffer, history_index) => match event {
                 key!('c', CONTROL) | key!(Esc) => {
                     self.command = CommandState::None;
                     true
                 }
-                key!(Backspace) if buffer.is_empty() => {
+                key!(Backspace) if buffer.is_empty() && history_index.is_none() => {
                     self.command = CommandState::None;
                     true
                 }
+                key!(Up) | key!(Down) => {
+                    let found_index = match event {
+                        key!(Up) => {
+                            let history_index = history_index.map(|index| index + 1).unwrap_or(0);
+                            self.commands_history
+                                .find_before(history_index, buffer.as_str())
+                        }
+                        key!(Down) => {
+                            let history_index = history_index
+                                .map(|index| index.saturating_sub(1))
+                                .unwrap_or(0);
+                            self.commands_history
+                                .find_after(history_index, buffer.as_str())
+                        }
+                        _ => unreachable!(),
+                    };
+                    match found_index {
+                        None => false,
+                        Some(new_index) => {
+                            let current_state =
+                                std::mem::replace(&mut self.command, CommandState::None);
+                            if let CommandState::Command(buffer, _) = current_state {
+                                self.command = CommandState::Command(buffer, Some(new_index));
+                                true
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                    }
+                }
                 key!(Enter) => {
-                    let command = buffer.as_slice();
+                    let command = buffer.as_str();
                     if !command.is_empty() {
                         self.commands_history.push(command.to_string());
                     }
                     self.command = CommandState::None;
                     true
                 }
-                event => buffer.handle_event(event),
+                event if textentry::Buffer::is_editing_event(event) => {
+                    let history = &self.commands_history;
+                    let history_str = history_index.and_then(|index| history.get(index));
+                    match history_str {
+                        Some(string) => {
+                            let mut new_buffer = textentry::Buffer::from(string.to_string());
+                            new_buffer.handle_event(event);
+                            self.command = CommandState::Command(new_buffer, None);
+                            true
+                        }
+                        None => buffer.handle_event(event),
+                    }
+                }
+                _ => false,
             },
         };
         if should_render {

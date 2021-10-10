@@ -306,9 +306,46 @@ impl<'a> Widget for TextEntryWidget<'a> {
     }
 }
 
+pub(crate) struct ReadonlyEntry<'a> {
+    prefix: Option<Span<'a>>,
+    text: &'a str,
+}
+
+impl<'a> ReadonlyEntry<'a> {
+    pub(crate) fn new(text: &'a str) -> Self {
+        ReadonlyEntry { prefix: None, text }
+    }
+
+    pub(crate) fn prefix(mut self, prefix: Span<'a>) -> Self {
+        self.prefix = Some(prefix);
+        self
+    }
+
+    pub(crate) fn render<B: Backend>(self, f: &mut Frame<B>, area: Rect) {
+        let width_before_cursor =
+            self.prefix.as_ref().map(Span::width).unwrap_or(0) as usize + self.text.width();
+        let max_cursor_position = area.width as i32 - 1;
+
+        let mut cursor_position = width_before_cursor as i32;
+        let mut display_offset = 0;
+        if cursor_position > max_cursor_position as i32 {
+            display_offset = (cursor_position as i32 - max_cursor_position as i32) as u16;
+            cursor_position = max_cursor_position;
+        }
+
+        let widget = TextEntryWidget {
+            prefix: self.prefix,
+            display_offset,
+            text: self.text,
+        };
+        f.render_widget(widget, area);
+        f.set_cursor(area.x + cursor_position as u16, area.y);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Amount, Buffer, Direction, Entry};
+    use super::{Amount, Buffer, Direction, Entry, ReadonlyEntry};
 
     mod buffer {
         use super::*;
@@ -539,6 +576,52 @@ mod tests {
             tester.assert_response(key!('-'), "イ--", (5, 0));
             tester.assert_response(key!('あ'), "--あ", (5, 0));
             tester.assert_response(key!('お'), "-あお", (5, 0));
+        }
+    }
+
+    mod readonly_widget {
+        use super::*;
+        use tui::backend::{Backend, TestBackend};
+        use tui::buffer::Buffer as TuiBuffer;
+        use tui::layout::Rect;
+        use tui::style::Style;
+        use tui::text::Span;
+        use tui::Terminal;
+
+        fn assert_readonly(width: u16, text: &str, expected: &str, cursor: (u16, u16)) {
+            let backend = TestBackend::new(width, 1);
+            let mut terminal = Terminal::new(backend).unwrap();
+            terminal
+                .draw(|f| {
+                    ReadonlyEntry::new(text)
+                        .prefix(Span::raw("::"))
+                        .render(f, Rect::new(0, 0, width, 1))
+                })
+                .unwrap();
+
+            let mut buffer = TuiBuffer::empty(Rect::new(0, 0, width, 1));
+            buffer.set_string(0, 0, expected, Style::default());
+            terminal.backend().assert_buffer(&buffer);
+            assert_eq!(terminal.backend_mut().get_cursor().unwrap(), cursor);
+        }
+
+        #[test]
+        fn displaying_readonly() {
+            assert_readonly(5, "", "::", (2, 0));
+            assert_readonly(5, "a", "::a", (3, 0));
+            assert_readonly(5, "ab", "::ab", (4, 0));
+            assert_readonly(5, "abc", ":abc", (4, 0));
+            assert_readonly(5, "abcdef", "cdef", (4, 0));
+        }
+
+        #[test]
+        fn displaying_wide_characters() {
+            assert_readonly(6, "あ", "::あ", (4, 0));
+            assert_readonly(6, "あえ", ":あえ", (5, 0));
+            assert_readonly(6, "あえ-", "あえ-", (5, 0));
+            assert_readonly(6, "あえ--", "え--", (5, 0));
+            assert_readonly(6, "あえ--あ", "--あ", (5, 0));
+            assert_readonly(6, "あえ--あお", "-あお", (5, 0));
         }
     }
 }

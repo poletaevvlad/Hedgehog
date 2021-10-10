@@ -1,5 +1,6 @@
 mod cmdparser;
 mod events;
+mod history;
 mod screen;
 mod widgets;
 use actix::prelude::*;

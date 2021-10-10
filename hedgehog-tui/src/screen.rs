@@ -96,7 +96,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     }
                     CommandActionResult::Submit => {
                         let command_str = command_state.as_str(&self.commands_history).to_string();
-                        self.commands_history.push(command_str);
+                        self.commands_history.push(&command_str);
                         self.command = None;
                         true
                     }

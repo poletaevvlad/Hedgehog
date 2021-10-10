@@ -18,10 +18,22 @@ impl CommandsHistory {
         }
     }
 
-    pub(crate) fn push(&mut self, command: String) {
-        if self.items.len() == self.items.capacity() {
-            self.items.pop_back();
+    pub(crate) fn push(&mut self, command: &str) {
+        let mut index = None;
+        for i in 0..self.items.len() {
+            if self.items[i] == command {
+                index = Some(i);
+                break;
+            }
         }
+        let command = if let Some(index) = index {
+            self.items.remove(index).unwrap()
+        } else {
+            if self.items.len() == self.items.capacity() {
+                self.items.pop_back();
+            }
+            command.to_string()
+        };
         self.items.push_front(command)
     }
 
@@ -51,6 +63,10 @@ impl CommandsHistory {
         }
         None
     }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &str> {
+        self.items.iter().map(String::as_str)
+    }
 }
 
 impl Default for CommandsHistory {
@@ -68,23 +84,28 @@ mod tests {
         let mut history = CommandsHistory::default();
         assert_eq!(history.get(0), None);
 
-        history.push("first".to_string());
+        history.push("first");
         assert_eq!(history.get(0), Some("first"));
         assert_eq!(history.get(1), None);
 
-        history.push("second".to_string());
+        history.push("second");
         assert_eq!(history.get(0), Some("second"));
         assert_eq!(history.get(1), Some("first"));
+        assert_eq!(history.get(2), None);
+
+        history.push("first");
+        assert_eq!(history.get(0), Some("first"));
+        assert_eq!(history.get(1), Some("second"));
         assert_eq!(history.get(2), None);
     }
 
     fn init_for_find() -> CommandsHistory {
         let mut history = CommandsHistory::default();
-        history.push("aa".to_string()); // 4
-        history.push("abcd".to_string()); // 3
-        history.push("acd".to_string()); // 2
-        history.push("abc".to_string()); // 1
-        history.push("ac".to_string()); // 0
+        history.push("aa"); // 4
+        history.push("abcd"); // 3
+        history.push("acd"); // 2
+        history.push("abc"); // 1
+        history.push("ac"); // 0
         history
     }
 
@@ -102,5 +123,20 @@ mod tests {
         assert_eq!(history.find_after(3, "ac"), Some(2));
         assert_eq!(history.find_after(1, "ac"), Some(0));
         assert_eq!(history.find_after(2, "aa"), None);
+    }
+
+    #[test]
+    fn removes_old_entries() {
+        let mut history = CommandsHistory::with_capacity(3);
+        history.push("a");
+        history.push("b");
+        history.push("c");
+        assert_eq!(history.iter().collect::<Vec<&str>>(), vec!["c", "b", "a"]);
+
+        history.push("b");
+        assert_eq!(history.iter().collect::<Vec<&str>>(), vec!["b", "c", "a"]);
+
+        history.push("d");
+        assert_eq!(history.iter().collect::<Vec<&str>>(), vec!["d", "b", "c"]);
     }
 }

@@ -1,3 +1,4 @@
+mod cmdparser;
 mod events;
 mod screen;
 mod widgets;

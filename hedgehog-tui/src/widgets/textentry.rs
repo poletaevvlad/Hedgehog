@@ -539,11 +539,9 @@ mod tests {
             tester.assert_response(key!('ア'), "::ア", (4, 0));
             tester.assert_response(key!('イ'), ":アイ", (5, 0));
             tester.assert_response(key!('-'), "アイ-", (5, 0));
-            tester.assert_response(key!('-'), "イ--", (4, 0));
-            // TODO: cursor is placed on the second cell of a wide character and is moved to the right.
-            // Shoud verify if the behavior is consistent across terminals.
-            tester.assert_response(key!('あ'), "--あ", (4, 0));
-            tester.assert_response(key!('お'), "-あお", (4, 0));
+            tester.assert_response(key!('-'), "イ--", (5, 0));
+            tester.assert_response(key!('あ'), "--あ", (5, 0));
+            tester.assert_response(key!('お'), "-あお", (5, 0));
         }
     }
 }

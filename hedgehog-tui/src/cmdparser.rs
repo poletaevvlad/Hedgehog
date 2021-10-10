@@ -223,13 +223,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer {
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
-        _fields: &'static [&'static str],
-        _visitor: V,
+        fields: &'static [&'static str],
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::UnsupportedDataType("struct"))
+        visitor.visit_seq(TupleAccess::new(self, fields.len()))
     }
 
     fn deserialize_enum<V>(
@@ -357,11 +357,11 @@ impl<'a, 'de> de::VariantAccess<'de> for EnumAccess<'a> {
         visitor.visit_seq(TupleAccess::new(self.deserializer, len))
     }
 
-    fn struct_variant<V>(self, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value>
+    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::UnsupportedDataType("struct_variant"))
+        visitor.visit_seq(TupleAccess::new(self.deserializer, fields.len()))
     }
 }
 
@@ -380,6 +380,12 @@ mod tests {
     struct UnitStruct;
 
     #[derive(Debug, PartialEq, Deserialize)]
+    struct NonTupleStruct {
+        first: u8,
+        second: u8,
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
     enum MockCommand {
         EnumUnion,
         WithPrimitiveTypes(u8, i8, u16, i16, u32, i32, u64, u64, f32, f64, bool),
@@ -388,6 +394,7 @@ mod tests {
         WithNested(MockList),
         WithSequence(Vec<u8>),
         WithUnits((), u8, UnitStruct),
+        WithStruct { a: u8, b: NonTupleStruct, c: u8 },
     }
 
     #[test]
@@ -451,5 +458,21 @@ mod tests {
     fn deserialize_union() {
         let command: MockCommand = from_str("WithUnits 5").unwrap();
         assert_eq!(command, MockCommand::WithUnits((), 5, UnitStruct));
+    }
+
+    #[test]
+    fn deserialize_struct() {
+        let command: MockCommand = from_str("WithStruct 1 2 3 4").unwrap();
+        assert_eq!(
+            command,
+            MockCommand::WithStruct {
+                a: 1,
+                b: NonTupleStruct {
+                    first: 2,
+                    second: 3
+                },
+                c: 4
+            }
+        );
     }
 }

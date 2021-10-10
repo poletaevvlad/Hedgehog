@@ -13,6 +13,7 @@ pub(crate) struct CommandState {
     history_index: Option<usize>,
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum CommandActionResult {
     None,
     Update,
@@ -63,12 +64,15 @@ impl CommandState {
                     }
                 }
             }
-            key!(Enter) if self.buffer.is_empty() => CommandActionResult::Clear,
+            key!(Enter) if self.buffer.is_empty() && self.history_index.is_none() => {
+                CommandActionResult::Clear
+            }
             key!(Enter) => CommandActionResult::Submit,
             event if Buffer::is_editing_event(event) => {
                 let history_str = self.history_index.and_then(|index| history.get(index));
                 if let Some(string) = history_str {
                     self.buffer = Buffer::from(string.to_string());
+                    self.history_index = None;
                 }
                 match self.buffer.handle_event(event) {
                     true => CommandActionResult::Update,
@@ -123,5 +127,161 @@ impl<'a> CommandEditor<'a> {
                 .prefix(self.prefix)
                 .render(f, rect, &mut self.state.buffer),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tui::backend::TestBackend;
+    use tui::buffer::Buffer;
+    use tui::layout::Rect;
+    use tui::style::Style;
+    use tui::text::Span;
+    use tui::Terminal;
+
+    use super::{CommandActionResult, CommandEditor, CommandState};
+    use crate::events::key;
+    use crate::history::CommandsHistory;
+
+    fn assert_display(state: &mut CommandState, history: &CommandsHistory, display: &str) {
+        let mut terminal = Terminal::new(TestBackend::new(80, 1)).unwrap();
+        terminal
+            .draw(|f| {
+                CommandEditor::new(state).prefix(Span::raw(":")).render(
+                    f,
+                    Rect::new(0, 0, 80, 1),
+                    history,
+                );
+            })
+            .unwrap();
+
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 80, 1));
+        buffer.set_string(0, 0, display, Style::default());
+        terminal.backend().assert_buffer(&buffer);
+    }
+
+    #[test]
+    fn navigating_history() {
+        let mut history = CommandsHistory::new();
+        history.push("first");
+        history.push("second");
+
+        let mut state = CommandState::default();
+        assert_display(&mut state, &history, ":");
+
+        assert_eq!(
+            state.handle_event(key!(Up), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":second");
+
+        assert_eq!(
+            state.handle_event(key!(Up), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":first");
+
+        assert_eq!(
+            state.handle_event(key!(Up), &history),
+            CommandActionResult::None
+        );
+        assert_display(&mut state, &history, ":first");
+
+        assert_eq!(
+            state.handle_event(key!(Down), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":second");
+
+        assert_eq!(
+            state.handle_event(key!(Down), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":");
+    }
+
+    #[test]
+    fn keeps_the_entered_command() {
+        let mut history = CommandsHistory::new();
+        history.push("first");
+        history.push("second");
+        let mut state = CommandState::default();
+
+        assert_eq!(
+            state.handle_event(key!('f'), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":f");
+
+        assert_eq!(
+            state.handle_event(key!(Up), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":first");
+
+        assert_eq!(
+            state.handle_event(key!(Down), &history),
+            CommandActionResult::Update
+        );
+        assert_display(&mut state, &history, ":f");
+
+        assert_eq!(
+            state.handle_event(key!(Enter), &history),
+            CommandActionResult::Submit
+        );
+        assert_eq!(state.as_str(&history), "f");
+    }
+
+    #[test]
+    fn submits_history_command() {
+        let mut history = CommandsHistory::new();
+        history.push("first");
+        let mut state = CommandState::default();
+        state.handle_event(key!(Up), &history);
+
+        assert_eq!(
+            state.handle_event(key!(Enter), &history),
+            CommandActionResult::Submit
+        );
+        assert_eq!(state.as_str(&history), "first");
+    }
+
+    #[test]
+    fn updates_from_history() {
+        let mut history = CommandsHistory::new();
+        history.push("first");
+        let mut state = CommandState::default();
+        state.handle_event(key!(Up), &history);
+
+        assert_eq!(
+            state.handle_event(key!(Backspace), &history),
+            CommandActionResult::Update
+        );
+        assert_eq!(state.as_str(&history), "firs");
+    }
+
+    #[test]
+    fn clears_via_backspace() {
+        let mut state = CommandState::default();
+        let history = CommandsHistory::new();
+        state.handle_event(key!('a'), &history);
+        assert_eq!(
+            state.handle_event(key!(Backspace), &history),
+            CommandActionResult::Update
+        );
+        assert_eq!(
+            state.handle_event(key!(Backspace), &history),
+            CommandActionResult::Clear
+        );
+    }
+
+    #[test]
+    fn clears_via_clear() {
+        let mut state = CommandState::default();
+        let history = CommandsHistory::new();
+        assert_eq!(
+            state.handle_event(key!(Enter), &history),
+            CommandActionResult::Clear
+        );
     }
 }

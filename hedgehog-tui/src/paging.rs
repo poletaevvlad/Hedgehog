@@ -73,20 +73,20 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
             (self.offset + self.window_size + self.options.loaded_margin_size - 1).min(size),
         );
 
-        pop_back_while(&mut self.chunks, |item| item.index < first_required_page);
-        pop_front_while(&mut self.chunks, |item| item.index > last_required_page);
+        pop_front_while(&mut self.chunks, |item| item.index < first_required_page);
+        pop_back_while(&mut self.chunks, |item| item.index > last_required_page);
 
         if let Some(first) = self.chunks.front() {
             let mut index = first.index;
             while index > first_required_page {
-                self.chunks.push_back(Chunk::new(index));
+                self.chunks.push_front(Chunk::new(index));
                 self.provider.request_page(index, self.options.chunk_size);
                 index -= 1;
             }
 
-            let mut index = self.chunks.back().unwrap().index;
-            while index < last_required_page {
-                self.chunks.push_front(Chunk::new(index));
+            let mut index = self.chunks.back().unwrap().index + 1;
+            while index <= last_required_page {
+                self.chunks.push_back(Chunk::new(index));
                 self.provider.request_page(index, self.options.chunk_size);
                 index += 1
             }
@@ -103,13 +103,17 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
         self.update();
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = Option<&T>> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = Option<&T>>
+    where
+        T: std::fmt::Debug,
+    {
         PaginatedListIterator {
             list: self,
             remaining: self.window_size,
             index: self.chunks.front().map(|first_index| {
                 (
-                    self.index_to_page(self.offset) - first_index.index,
+                    self.index_to_page(self.offset)
+                        .saturating_sub(first_index.index),
                     self.index_in_page(self.offset),
                 )
             }),
@@ -127,6 +131,15 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
             }
         }
     }
+
+    pub(crate) fn scroll(&mut self, offset: i64) {
+        if offset > 0 {
+            self.offset = self.offset.saturating_add(offset as usize);
+        } else {
+            self.offset = self.offset.saturating_sub(-offset as usize);
+        }
+        self.update();
+    }
 }
 
 #[derive(Debug)]
@@ -136,7 +149,7 @@ struct PaginatedListIterator<'a, T: 'a, P> {
     index: Option<(usize, usize)>,
 }
 
-impl<'a, T: 'a, P> Iterator for PaginatedListIterator<'a, T, P> {
+impl<'a, T: 'a + std::fmt::Debug, P> Iterator for PaginatedListIterator<'a, T, P> {
     type Item = Option<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -234,5 +247,26 @@ mod tests {
             list.iter().collect::<Vec<Option<&i8>>>(),
             vec![Some(&0), Some(&1), Some(&2), Some(&3), Some(&4), Some(&5)]
         );
+
+        list.scroll(1);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&i8>>>(),
+            vec![Some(&1), Some(&2), Some(&3), Some(&4), Some(&5), Some(&6)],
+        );
+        assert_eq!(requested.borrow_mut().pop_front(), None);
+
+        list.scroll(1);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&i8>>>(),
+            vec![Some(&2), Some(&3), Some(&4), Some(&5), Some(&6), Some(&7)],
+        );
+        assert_eq!(requested.borrow_mut().pop_front(), Some(2));
+
+        list.scroll(1);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&i8>>>(),
+            vec![Some(&3), Some(&4), Some(&5), Some(&6), Some(&7), None],
+        );
+        assert_eq!(requested.borrow_mut().pop_front(), None);
     }
 }

@@ -1,6 +1,7 @@
 mod cmdparser;
 mod events;
 mod history;
+mod paging;
 mod screen;
 mod status;
 mod widgets;

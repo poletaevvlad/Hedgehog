@@ -137,23 +137,24 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
         }
     }
 
-    pub(crate) fn scroll(&mut self, offset: i64) {
+    pub(crate) fn set_offset(&mut self, offset: usize) {
         if let Some(size) = self.size {
             if size <= self.window_size {
                 return;
             }
-            if offset > 0 {
-                self.offset = self.offset.saturating_add(offset as usize);
-                let maximum_offset = size - self.window_size;
-
-                if self.offset > maximum_offset {
-                    self.offset = maximum_offset;
-                }
-            } else {
-                self.offset = self.offset.saturating_sub(-offset as usize);
-            }
+            let maximum_offset = size - self.window_size;
+            self.offset = offset.min(maximum_offset);
             self.update();
         }
+    }
+
+    pub(crate) fn scroll(&mut self, offset: isize) {
+        let new_offset = if offset > 0 {
+            self.offset.saturating_add(offset as usize)
+        } else {
+            self.offset.saturating_sub(-offset as usize)
+        };
+        self.set_offset(new_offset);
     }
 
     #[cfg(test)]
@@ -226,9 +227,58 @@ fn pop_back_while<T>(vec: &mut VecDeque<T>, predicate: impl Fn(&T) -> bool) {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct InteractiveList<T, P> {
+    pub(crate) items: PaginatedList<T, P>,
+    pub(crate) selected_index: usize,
+    scroll_margin: usize,
+}
+
+impl<T, P: PaginatedDataProvider> InteractiveList<T, P> {
+    pub(crate) fn new(items: PaginatedList<T, P>) -> Self {
+        InteractiveList {
+            items,
+            selected_index: 0,
+            scroll_margin: 0,
+        }
+    }
+
+    pub(crate) fn with_margins(mut self, margins: usize) -> Self {
+        self.scroll_margin = margins;
+        self
+    }
+
+    pub(crate) fn move_cursor(&mut self, offset: i64) {
+        let size = if let Some(size) = self.items.size {
+            size
+        } else {
+            return;
+        };
+
+        if offset > 0 {
+            self.selected_index =
+                (self.selected_index + offset as usize).min(size.saturating_sub(1))
+        } else {
+            self.selected_index = self.selected_index.saturating_sub((-offset) as usize)
+        }
+
+        if self.selected_index < self.items.offset + self.scroll_margin {
+            self.items
+                .set_offset(self.selected_index.saturating_sub(self.scroll_margin));
+        } else if self.selected_index
+            > (self.items.offset + self.items.window_size).saturating_sub(self.scroll_margin + 1)
+        {
+            self.items.set_offset(
+                (self.selected_index + self.scroll_margin + 1)
+                    .saturating_sub(self.items.window_size),
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{PaginatedDataProvider, PaginatedList, PaginatedListOptions};
+    use super::{InteractiveList, PaginatedDataProvider, PaginatedList, PaginatedListOptions};
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -299,6 +349,7 @@ mod tests {
         assert_eq!(requested.borrow_mut().pop_front(), None);
     }
 
+    #[derive(Debug)]
     struct NoopProvider;
 
     impl PaginatedDataProvider for NoopProvider {
@@ -378,5 +429,76 @@ mod tests {
         assert_eq!(list.iter().collect::<Vec<Option<&u8>>>(), expected);
         list.scroll(1);
         assert_eq!(list.iter().collect::<Vec<Option<&u8>>>(), expected);
+    }
+
+    mod interactive_list {
+        use super::*;
+
+        fn assert_list(list: &InteractiveList<u8, NoopProvider>, index: usize, items: &[u8]) {
+            assert_eq!(list.selected_index, index);
+            assert_eq!(
+                &list
+                    .items
+                    .iter()
+                    .map(Option::unwrap)
+                    .cloned()
+                    .collect::<Vec<u8>>(),
+                items
+            );
+        }
+
+        #[test]
+        fn moving_selection() {
+            let mut list = PaginatedList::<u8, _>::new(4, NoopProvider);
+            list.set_size(6);
+            list.data_available(0, vec![0, 1, 2, 3, 4, 5]);
+            let mut list = InteractiveList::new(list).with_margins(1);
+
+            assert_list(&list, 0, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 1, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 2, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 3, &[1, 2, 3, 4]);
+            list.move_cursor(1);
+            assert_list(&list, 4, &[2, 3, 4, 5]);
+            list.move_cursor(1);
+            assert_list(&list, 5, &[2, 3, 4, 5]);
+            list.move_cursor(1);
+            assert_list(&list, 5, &[2, 3, 4, 5]);
+
+            list.move_cursor(-1);
+            assert_list(&list, 4, &[2, 3, 4, 5]);
+            list.move_cursor(-1);
+            assert_list(&list, 3, &[2, 3, 4, 5]);
+            list.move_cursor(-1);
+            assert_list(&list, 2, &[1, 2, 3, 4]);
+            list.move_cursor(-1);
+            assert_list(&list, 1, &[0, 1, 2, 3]);
+            list.move_cursor(-1);
+            assert_list(&list, 0, &[0, 1, 2, 3]);
+            list.move_cursor(-1);
+            assert_list(&list, 0, &[0, 1, 2, 3]);
+        }
+
+        #[test]
+        fn all_on_screen() {
+            let mut list = PaginatedList::<u8, _>::new(4, NoopProvider);
+            list.set_size(4);
+            list.data_available(0, vec![0, 1, 2, 3]);
+            let mut list = InteractiveList::new(list).with_margins(1);
+
+            list.move_cursor(-1);
+            assert_list(&list, 0, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 1, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 2, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 3, &[0, 1, 2, 3]);
+            list.move_cursor(1);
+            assert_list(&list, 3, &[0, 1, 2, 3]);
+        }
     }
 }

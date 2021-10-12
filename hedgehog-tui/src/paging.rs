@@ -138,12 +138,19 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
     }
 
     pub(crate) fn scroll(&mut self, offset: i64) {
-        if offset > 0 {
-            self.offset = self.offset.saturating_add(offset as usize);
-        } else {
-            self.offset = self.offset.saturating_sub(-offset as usize);
+        if let Some(size) = self.size {
+            if offset > 0 {
+                self.offset = self.offset.saturating_add(offset as usize);
+                let maximum_offset = size - self.window_size;
+
+                if self.offset > maximum_offset {
+                    self.offset = maximum_offset;
+                }
+            } else {
+                self.offset = self.offset.saturating_sub(-offset as usize);
+            }
+            self.update();
         }
-        self.update();
     }
 
     #[cfg(test)]
@@ -316,5 +323,34 @@ mod tests {
             list.scroll(-1);
             assert_eq!(&list.get_page_indices(), expected);
         }
+    }
+
+    #[test]
+    fn does_not_scroll_past_boundary() {
+        let mut list = PaginatedList::<u8, _>::new(3, NoopProvider);
+        list.set_size(4);
+        list.data_available(0, vec![1, 2, 3, 4]);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&u8>>>(),
+            vec![Some(&1), Some(&2), Some(&3)],
+        );
+
+        list.scroll(-1);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&u8>>>(),
+            vec![Some(&1), Some(&2), Some(&3)],
+        );
+
+        list.scroll(1);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&u8>>>(),
+            vec![Some(&2), Some(&3), Some(&4)],
+        );
+
+        list.scroll(1);
+        assert_eq!(
+            list.iter().collect::<Vec<Option<&u8>>>(),
+            vec![Some(&2), Some(&3), Some(&4)],
+        );
     }
 }

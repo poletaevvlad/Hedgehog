@@ -108,10 +108,7 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
         self.update();
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = Option<&T>>
-    where
-        T: std::fmt::Debug,
-    {
+    pub(crate) fn iter<'a>(&'a self) -> PaginatedListIterator<'a, T, P> {
         PaginatedListIterator {
             list: self,
             remaining: self
@@ -166,13 +163,13 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
 }
 
 #[derive(Debug)]
-struct PaginatedListIterator<'a, T: 'a, P> {
+pub(crate) struct PaginatedListIterator<'a, T: 'a, P> {
     list: &'a PaginatedList<T, P>,
     remaining: usize,
     index: Option<(usize, usize)>,
 }
 
-impl<'a, T: 'a + std::fmt::Debug, P> Iterator for PaginatedListIterator<'a, T, P> {
+impl<'a, T: 'a, P> Iterator for PaginatedListIterator<'a, T, P> {
     type Item = Option<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -197,6 +194,15 @@ impl<'a, T: 'a + std::fmt::Debug, P> Iterator for PaginatedListIterator<'a, T, P
         };
         self.remaining -= 1;
         Some(result)
+    }
+}
+
+impl<'a, T: 'a, P: PaginatedDataProvider> IntoIterator for &'a PaginatedList<T, P> {
+    type Item = Option<&'a T>;
+    type IntoIter = PaginatedListIterator<'a, T, P>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

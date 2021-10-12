@@ -77,11 +77,16 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
         pop_back_while(&mut self.chunks, |item| item.index > last_required_page);
 
         if let Some(first) = self.chunks.front() {
-            let mut index = first.index;
-            while index > first_required_page {
-                self.chunks.push_front(Chunk::new(index));
-                self.provider.request_page(index, self.options.chunk_size);
-                index -= 1;
+            if first.index != 0 {
+                let mut index = first.index.saturating_sub(1);
+                while index >= first_required_page {
+                    self.chunks.push_front(Chunk::new(index));
+                    self.provider.request_page(index, self.options.chunk_size);
+                    if index == 0 {
+                        break;
+                    }
+                    index = index.saturating_sub(1);
+                }
             }
 
             let mut index = self.chunks.back().unwrap().index + 1;
@@ -139,6 +144,11 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
             self.offset = self.offset.saturating_sub(-offset as usize);
         }
         self.update();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_page_indices(&self) -> Vec<usize> {
+        self.chunks.iter().map(|chunk| chunk.index).collect()
     }
 }
 
@@ -268,5 +278,43 @@ mod tests {
             vec![Some(&3), Some(&4), Some(&5), Some(&6), Some(&7), None],
         );
         assert_eq!(requested.borrow_mut().pop_front(), None);
+    }
+
+    struct NoopProvider;
+
+    impl PaginatedDataProvider for NoopProvider {
+        fn request_page(&mut self, _index: usize, _size: usize) {}
+    }
+
+    #[test]
+    fn creating_and_dropping_pages() {
+        let options = PaginatedListOptions {
+            chunk_size: 3,
+            loaded_margin_size: 1,
+        };
+        let mut list = PaginatedList::<(), _>::new(4, NoopProvider).with_options(options);
+        list.set_size(1000);
+
+        let expected_indices = vec![
+            vec![0, 1],
+            vec![0, 1],
+            vec![0, 1, 2],
+            vec![0, 1, 2],
+            vec![1, 2],
+            vec![1, 2, 3],
+            vec![1, 2, 3],
+            vec![2, 3],
+            vec![2, 3, 4],
+        ];
+
+        for expected in &expected_indices {
+            assert_eq!(&list.get_page_indices(), expected);
+            list.scroll(1);
+        }
+
+        for expected in expected_indices.iter().rev() {
+            list.scroll(-1);
+            assert_eq!(&list.get_page_indices(), expected);
+        }
     }
 }

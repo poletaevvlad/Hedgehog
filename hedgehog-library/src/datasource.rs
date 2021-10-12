@@ -3,6 +3,7 @@ use crate::model::{
     Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
     PlaybackError,
 };
+use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
 use std::path::Path;
 use thiserror::Error;
@@ -23,6 +24,12 @@ pub enum ConnectionError {
 
     #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {version})")]
     VersionUnknown { version: u32, current: u32 },
+
+    #[error("Directory for the database cannot be determined")]
+    CannonDetermineDataDirectory,
+
+    #[error(transparent)]
+    Other(#[from] Box<dyn std::error::Error>),
 }
 
 #[derive(Debug)]
@@ -51,12 +58,54 @@ impl SqliteDataProvider {
         Ok(SqliteDataProvider { connection })
     }
 
-    pub fn feeds(&self) -> FeedsDao {
-        FeedsDao { provider: self }
+    pub fn connect_default_path() -> Result<Self, ConnectionError> {
+        let base_dirs = BaseDirs::new().ok_or(ConnectionError::CannonDetermineDataDirectory)?;
+        let mut data_dir = base_dirs.data_dir().to_path_buf();
+        data_dir.push("hedgehog");
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|error| ConnectionError::Other(Box::new(error)))?;
+        data_dir.push("episodes-db");
+        Self::connect(data_dir)
     }
 
-    pub fn episodes(&self) -> EpisodesDao {
-        EpisodesDao { provider: self }
+    pub fn feeds(&self) -> impl FeedsDao + '_ {
+        ConnectionFeedsDao {
+            connection: &self.connection,
+        }
+    }
+
+    pub fn episodes<'a>(&'a self) -> impl EpisodesDao + '_ {
+        ConnectionEpisodesDao {
+            connection: &self.connection,
+        }
+    }
+
+    pub fn transaction<'conn>(&'conn mut self) -> Result<Transaction<'conn>, rusqlite::Error> {
+        Ok(Transaction {
+            transaction: self.connection.transaction()?,
+        })
+    }
+}
+
+pub struct Transaction<'conn> {
+    transaction: rusqlite::Transaction<'conn>,
+}
+
+impl<'conn> Transaction<'conn> {
+    pub fn commit(self) -> Result<(), rusqlite::Error> {
+        self.transaction.commit()
+    }
+
+    pub fn episodes<'a>(&'a self) -> impl EpisodesDao + '_ {
+        TransactionEpisodesDao {
+            transaction: &self.transaction,
+        }
+    }
+
+    pub fn feeds<'a>(&'a self) -> impl FeedsDao + '_ {
+        TransactionFeedsDao {
+            transaction: &self.transaction,
+        }
     }
 }
 
@@ -65,16 +114,30 @@ pub struct FeedsQuery {
     pub count: usize,
 }
 
-pub struct FeedsDao<'a> {
-    provider: &'a SqliteDataProvider,
+struct ConnectionFeedsDao<'a> {
+    connection: &'a rusqlite::Connection,
 }
 
-impl<'a> FeedsDao<'a> {
+impl<'a> FeedsDao for ConnectionFeedsDao<'a> {
     fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error> {
-        self.provider.connection.prepare(statement)
+        self.connection.prepare(statement)
     }
+}
 
-    pub fn query(&self, query: FeedsQuery) -> Result<Vec<FeedSummary>, rusqlite::Error> {
+struct TransactionFeedsDao<'a, 'conn> {
+    transaction: &'a rusqlite::Transaction<'conn>,
+}
+
+impl<'a, 'conn> FeedsDao for TransactionFeedsDao<'a, 'conn> {
+    fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error> {
+        self.transaction.prepare(statement)
+    }
+}
+
+pub trait FeedsDao {
+    fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error>;
+
+    fn query(&self, query: FeedsQuery) -> Result<Vec<FeedSummary>, rusqlite::Error> {
         let mut select = self.prepare(
             "SELECT id, title, source, status, error_code FROM feeds LIMIT :limit OFFSET :offset",
         )?;
@@ -95,7 +158,7 @@ impl<'a> FeedsDao<'a> {
         collect_results(rows)
     }
 
-    pub fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, rusqlite::Error> {
+    fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, rusqlite::Error> {
         let mut statement = self.prepare("SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
@@ -116,12 +179,12 @@ impl<'a> FeedsDao<'a> {
         }
     }
 
-    pub fn create_pending(&self, source: &str) -> Result<FeedId, rusqlite::Error> {
+    fn create_pending(&self, source: &str) -> Result<FeedId, rusqlite::Error> {
         let mut statement = self.prepare("INSERT INTO feeds (source) VALUES (:id)")?;
         statement.insert(named_params! {":id": source}).map(FeedId)
     }
 
-    pub fn update_metadata(
+    fn update_metadata(
         &self,
         id: FeedId,
         metadata: &FeedMetadata,
@@ -146,7 +209,7 @@ impl<'a> FeedsDao<'a> {
             .map(|updated| updated > 0)
     }
 
-    pub fn update_status(&self, id: FeedId, status: FeedStatus) -> Result<bool, rusqlite::Error> {
+    fn update_status(&self, id: FeedId, status: FeedStatus) -> Result<bool, rusqlite::Error> {
         let mut statement = self.prepare(
             "UPDATE feeds SET status = :status, error_code = :error_code WHERE id = :id",
         )?;
@@ -156,7 +219,7 @@ impl<'a> FeedsDao<'a> {
             .map(|updated| updated > 0)
     }
 
-    pub fn delete(&self, id: FeedId) -> Result<bool, rusqlite::Error> {
+    fn delete(&self, id: FeedId) -> Result<bool, rusqlite::Error> {
         let mut statement = self.prepare("DELETE FROM feeds WHERE id = :id")?;
         statement
             .execute(named_params! {":id": id})
@@ -164,14 +227,28 @@ impl<'a> FeedsDao<'a> {
     }
 }
 
-pub struct EpisodesDao<'a> {
-    provider: &'a SqliteDataProvider,
+pub struct ConnectionEpisodesDao<'a> {
+    connection: &'a rusqlite::Connection,
 }
 
-impl<'a> EpisodesDao<'a> {
+impl<'a> EpisodesDao for ConnectionEpisodesDao<'a> {
     fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error> {
-        self.provider.connection.prepare(statement)
+        self.connection.prepare(statement)
     }
+}
+
+struct TransactionEpisodesDao<'a, 'conn> {
+    transaction: &'a rusqlite::Transaction<'conn>,
+}
+
+impl<'a, 'conn> EpisodesDao for TransactionEpisodesDao<'a, 'conn> {
+    fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error> {
+        self.transaction.prepare(statement)
+    }
+}
+
+pub trait EpisodesDao {
+    fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error>;
 
     fn query_episodes(&self) -> Result<Vec<EpisodeSummary>, rusqlite::Error> {
         let mut statement =
@@ -247,7 +324,7 @@ impl<'a> EpisodesDao<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ConnectionError, FeedsQuery, SqliteDataProvider};
+    use super::{ConnectionError, EpisodesDao, FeedsDao, FeedsQuery, SqliteDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeDuration, EpisodeStatus, EpisodeSummary, FeedError, FeedStatus};
     use pretty_assertions::assert_eq;

@@ -114,7 +114,10 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
     {
         PaginatedListIterator {
             list: self,
-            remaining: self.window_size,
+            remaining: self
+                .size
+                .map(|size| self.window_size.min(size))
+                .unwrap_or(self.window_size),
             index: self.chunks.front().map(|first_index| {
                 (
                     self.index_to_page(self.offset)
@@ -139,6 +142,9 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
 
     pub(crate) fn scroll(&mut self, offset: i64) {
         if let Some(size) = self.size {
+            if size <= self.window_size {
+                return;
+            }
             if offset > 0 {
                 self.offset = self.offset.saturating_add(offset as usize);
                 let maximum_offset = size - self.window_size;
@@ -352,5 +358,19 @@ mod tests {
             list.iter().collect::<Vec<Option<&u8>>>(),
             vec![Some(&2), Some(&3), Some(&4)],
         );
+    }
+
+    #[test]
+    fn items_fewer_then_window_size() {
+        let mut list = PaginatedList::<u8, _>::new(4, NoopProvider);
+        list.set_size(3);
+        list.data_available(0, vec![1, 2, 3]);
+
+        let expected = vec![Some(&1), Some(&2), Some(&3)];
+        assert_eq!(list.iter().collect::<Vec<Option<&u8>>>(), expected);
+        list.scroll(-1);
+        assert_eq!(list.iter().collect::<Vec<Option<&u8>>>(), expected);
+        list.scroll(1);
+        assert_eq!(list.iter().collect::<Vec<Option<&u8>>>(), expected);
     }
 }

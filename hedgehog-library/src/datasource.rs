@@ -20,6 +20,7 @@ fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Resul
 pub enum ConnectionError {
     #[error("Database query failed")]
     SqliteError(#[from] rusqlite::Error),
+
     #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {version})")]
     VersionUnknown { version: u32, current: u32 },
 }
@@ -59,6 +60,11 @@ impl SqliteDataProvider {
     }
 }
 
+pub struct FeedsQuery {
+    pub offset: usize,
+    pub count: usize,
+}
+
 pub struct FeedsDao<'a> {
     provider: &'a SqliteDataProvider,
 }
@@ -68,16 +74,24 @@ impl<'a> FeedsDao<'a> {
         self.provider.connection.prepare(statement)
     }
 
-    pub fn query_feeds(&self) -> Result<Vec<FeedSummary>, rusqlite::Error> {
-        let mut select = self.prepare("SELECT id, title, source, status, error_code FROM feeds")?;
-        let rows = select.query_map([], |row| {
-            Ok(FeedSummary {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                source: row.get(2)?,
-                status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
-            })
-        })?;
+    pub fn query(&self, query: FeedsQuery) -> Result<Vec<FeedSummary>, rusqlite::Error> {
+        let mut select = self.prepare(
+            "SELECT id, title, source, status, error_code FROM feeds LIMIT :limit OFFSET :offset",
+        )?;
+        let rows = select.query_map(
+            named_params![
+                ":limit": query.count,
+                ":offset": query.offset,
+            ],
+            |row| {
+                Ok(FeedSummary {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    source: row.get(2)?,
+                    status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
+                })
+            },
+        )?;
         collect_results(rows)
     }
 
@@ -233,7 +247,7 @@ impl<'a> EpisodesDao<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ConnectionError, SqliteDataProvider};
+    use super::{ConnectionError, FeedsQuery, SqliteDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeDuration, EpisodeStatus, EpisodeSummary, FeedError, FeedStatus};
     use pretty_assertions::assert_eq;
@@ -283,7 +297,13 @@ mod tests {
             .create_pending("http://example.com/feed.xml")
             .unwrap();
 
-        let summaries = provider.feeds().query_feeds().unwrap();
+        let summaries = provider
+            .feeds()
+            .query(FeedsQuery {
+                offset: 0,
+                count: 100,
+            })
+            .unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, id);
         assert_eq!(summaries[0].title, None);
@@ -320,7 +340,13 @@ mod tests {
             .unwrap();
         assert!(is_updated);
 
-        let summaries = provider.feeds().query_feeds().unwrap();
+        let summaries = provider
+            .feeds()
+            .query(FeedsQuery {
+                offset: 0,
+                count: 100,
+            })
+            .unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, id);
         assert_eq!(summaries[0].title.as_deref(), Some("Title"));

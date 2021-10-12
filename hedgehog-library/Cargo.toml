@@ -17,3 +17,7 @@ num-derive = "0.3"
 [dev-dependencies]
 pretty_assertions = "1.0"
 tempfile = "3.2"
+
+[[bin]]
+name = "import-xml"
+path = "bin/import_xml.rs"

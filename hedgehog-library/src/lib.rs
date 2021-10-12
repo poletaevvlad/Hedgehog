@@ -1,4 +1,6 @@
 mod collection;
 pub mod datasource;
-pub(crate) mod metadata;
+pub mod metadata;
 pub mod model;
+
+pub use rss;

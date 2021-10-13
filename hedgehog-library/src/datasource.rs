@@ -8,6 +8,31 @@ use rusqlite::{named_params, Connection};
 use std::path::Path;
 use thiserror::Error;
 
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub enum QueryError {
+    #[error(transparent)]
+    SqliteError(#[from] rusqlite::Error),
+}
+
+pub trait ListQuery {
+    type Item: 'static;
+}
+
+pub trait QueryHandler<P: ListQuery> {
+    fn get_size(&self, request: P) -> Result<usize, QueryError>;
+
+    fn query(&self, request: P, offset: usize, count: usize) -> Result<Vec<P::Item>, QueryError>;
+}
+
+pub struct FeedSummariesQuery;
+
+impl ListQuery for FeedSummariesQuery {
+    type Item = FeedSummary;
+}
+
+pub trait DataProvider: std::marker::Unpin + QueryHandler<FeedSummariesQuery> {}
+
 fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Result<Vec<T>, E> {
     let iter = items.into_iter();
     let mut result = Vec::with_capacity(iter.size_hint().0);
@@ -36,6 +61,8 @@ pub enum ConnectionError {
 pub struct SqliteDataProvider {
     connection: Connection,
 }
+
+impl DataProvider for SqliteDataProvider {}
 
 impl SqliteDataProvider {
     const CURRENT_VERSION: u32 = 1;
@@ -136,27 +163,6 @@ impl<'a, 'conn> FeedsDao for TransactionFeedsDao<'a, 'conn> {
 
 pub trait FeedsDao {
     fn prepare(&self, statement: &str) -> Result<rusqlite::Statement, rusqlite::Error>;
-
-    fn query(&self, query: FeedsQuery) -> Result<Vec<FeedSummary>, rusqlite::Error> {
-        let mut select = self.prepare(
-            "SELECT id, title, source, status, error_code FROM feeds LIMIT :limit OFFSET :offset",
-        )?;
-        let rows = select.query_map(
-            named_params![
-                ":limit": query.count,
-                ":offset": query.offset,
-            ],
-            |row| {
-                Ok(FeedSummary {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    source: row.get(2)?,
-                    status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
-                })
-            },
-        )?;
-        collect_results(rows)
-    }
 
     fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, rusqlite::Error> {
         let mut statement = self.prepare("SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
@@ -322,9 +328,37 @@ pub trait EpisodesDao {
     }
 }
 
+impl QueryHandler<FeedSummariesQuery> for SqliteDataProvider {
+    fn get_size(&self, _request: FeedSummariesQuery) -> Result<usize, QueryError> {
+        let mut select = self.connection.prepare("SELECT COUNT(id) FROM feeds")?;
+        Ok(select.query_row([], |row| row.get(0))?)
+    }
+
+    fn query(
+        &self,
+        _request: FeedSummariesQuery,
+        offset: usize,
+        count: usize,
+    ) -> Result<Vec<FeedSummary>, QueryError> {
+        let mut select = self.connection.prepare(
+            "SELECT id, title, source, status, error_code FROM feeds LIMIT :limit OFFSET :offset",
+        )?;
+        let rows = select.query_map(named_params![":limit": count, ":offset": offset,], |row| {
+            Ok(FeedSummary {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                source: row.get(2)?,
+                status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
+            })
+        })?;
+        Ok(collect_results(rows)?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ConnectionError, EpisodesDao, FeedsDao, FeedsQuery, SqliteDataProvider};
+    use super::{ConnectionError, EpisodesDao, FeedSummariesQuery, FeedsDao, SqliteDataProvider};
+    use crate::datasource::QueryHandler;
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeDuration, EpisodeStatus, EpisodeSummary, FeedError, FeedStatus};
     use pretty_assertions::assert_eq;
@@ -374,13 +408,10 @@ mod tests {
             .create_pending("http://example.com/feed.xml")
             .unwrap();
 
-        let summaries = provider
-            .feeds()
-            .query(FeedsQuery {
-                offset: 0,
-                count: 100,
-            })
-            .unwrap();
+        let count = provider.get_size(FeedSummariesQuery).unwrap();
+        assert_eq!(count, 1);
+
+        let summaries = provider.query(FeedSummariesQuery, 0, 100).unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, id);
         assert_eq!(summaries[0].title, None);
@@ -417,13 +448,7 @@ mod tests {
             .unwrap();
         assert!(is_updated);
 
-        let summaries = provider
-            .feeds()
-            .query(FeedsQuery {
-                offset: 0,
-                count: 100,
-            })
-            .unwrap();
+        let summaries = provider.query(FeedSummariesQuery, 0, 100).unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, id);
         assert_eq!(summaries[0].title.as_deref(), Some("Title"));

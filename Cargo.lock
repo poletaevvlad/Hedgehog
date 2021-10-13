@@ -530,6 +530,7 @@ dependencies = [
 name = "hedgehog-library"
 version = "0.1.0"
 dependencies = [
+ "actix",
  "chrono",
  "directories",
  "num-derive",
@@ -555,6 +556,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "crossterm 0.20.0",
+ "hedgehog-library",
  "serde",
  "shlex",
  "thiserror",

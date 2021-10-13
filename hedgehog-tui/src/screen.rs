@@ -5,6 +5,7 @@ use crate::status::{Severity, Status};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use actix::prelude::*;
 use crossterm::event::Event;
+use hedgehog_library::Library;
 use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
@@ -17,15 +18,20 @@ pub(crate) struct UI {
     command: Option<CommandState>,
     commands_history: CommandsHistory,
     status: Option<Status>,
+    library: Addr<Library>,
 }
 
 impl UI {
-    pub(crate) fn new(terminal: Terminal<CrosstermBackend<std::io::Stdout>>) -> Self {
+    pub(crate) fn new(
+        terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
+        library: Addr<Library>,
+    ) -> Self {
         UI {
             terminal,
             command: None,
             commands_history: CommandsHistory::new(),
             status: None,
+            library,
         }
     }
 

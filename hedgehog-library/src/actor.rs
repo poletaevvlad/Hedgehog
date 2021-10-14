@@ -1,4 +1,5 @@
-use crate::datasource::{DataProvider, ListQuery, QueryError, QueryHandler, SqliteDataProvider};
+use crate::datasource::{DataProvider, ListQuery, QueryError, QueryHandler};
+use crate::sqlite::SqliteDataProvider;
 use actix::{Actor, Context, Handler, Message};
 
 #[derive(Message)]

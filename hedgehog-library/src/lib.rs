@@ -8,4 +8,4 @@ mod sqlite;
 pub use rss;
 
 pub use actor::Library;
-pub use datasource::SqliteDataProvider;
+pub use sqlite::SqliteDataProvider;

@@ -1,10 +1,4 @@
-use hedgehog_library::datasource::{EpisodesDao, FeedsDao, SqliteDataProvider};
-use hedgehog_library::metadata::{EpisodeMetadata, FeedMetadata};
-use hedgehog_library::rss::Channel;
-use std::convert::TryFrom;
 use std::env;
-use std::fs::File;
-use std::io::BufReader;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -13,7 +7,7 @@ fn main() {
         return;
     }
 
-    let mut data_provider = SqliteDataProvider::connect_default_path().unwrap();
+    /*let mut data_provider = SqliteDataProvider::connect_default_path().unwrap();
     let transaction = data_provider.transaction().unwrap();
 
     let feed_id = transaction.feeds().create_pending(&args[1]).unwrap();
@@ -33,5 +27,5 @@ fn main() {
             .unwrap();
     }
 
-    transaction.commit().unwrap();
+    transaction.commit().unwrap();*/
 }

@@ -181,7 +181,7 @@ impl QueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
     ) -> Result<Vec<EpisodeSummary>, QueryError> {
         let mut sql = "SELECT id, feed_id, episode_number, title, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
-        sql.push_str(" LIMIT :limit OFFSER :offset");
+        sql.push_str(" LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
 
         let mut params = vec![

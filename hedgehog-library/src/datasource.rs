@@ -8,8 +8,8 @@ pub enum QueryError {
     SqliteError(#[from] rusqlite::Error),
 }
 
-pub trait ListQuery {
-    type Item: 'static;
+pub trait ListQuery: Send {
+    type Item: 'static + Send;
 }
 
 pub trait QueryHandler<P: ListQuery> {
@@ -24,6 +24,7 @@ impl ListQuery for FeedSummariesQuery {
     type Item = FeedSummary;
 }
 
+#[derive(Clone)]
 pub struct EpisodeSummariesQuery {
     pub feed_id: Option<FeedId>,
 }

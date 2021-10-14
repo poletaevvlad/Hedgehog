@@ -2,32 +2,31 @@ use tui::buffer::Buffer;
 use tui::layout::Rect;
 use tui::widgets::Widget;
 
-pub(crate) trait ListItemFactory {
-    type Item;
-    type Widget: Widget;
+pub(crate) trait ListItemRenderingDelegate<'a> {
+    type Item: 'a;
 
-    fn create_widget(&self, item: Self::Item) -> Self::Widget;
+    fn render_item(&self, area: Rect, item: Self::Item, buf: &mut Buffer);
 }
 
 pub(crate) struct List<F, I> {
-    factory: F,
+    delegate: F,
     items: I,
 }
 
 impl<F, I> List<F, I> {
-    pub(crate) fn new(factory: F, items: I) -> Self {
-        List { factory, items }
+    pub(crate) fn new(delegate: F, items: I) -> Self {
+        List { delegate, items }
     }
 }
 
-impl<F: ListItemFactory, I: IntoIterator<Item = F::Item>> Widget for List<F, I> {
+impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widget for List<F, I> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut iterator = self.items.into_iter();
         for y in area.top()..=area.bottom() {
             match iterator.next() {
                 Some(item) => {
-                    let widget = self.factory.create_widget(item);
-                    widget.render(Rect::new(area.x, y, area.width, 1), buf);
+                    self.delegate
+                        .render_item(Rect::new(area.x, y, area.width, 1), item, buf)
                 }
                 None => break,
             }

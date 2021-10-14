@@ -10,9 +10,24 @@ pub struct QueryRequest<Q: ListQuery> {
     pub offset: usize,
 }
 
+impl<Q: ListQuery> QueryRequest<Q> {
+    pub fn new(data: Q, count: usize) -> Self {
+        QueryRequest {
+            data,
+            count,
+            offset: 0,
+        }
+    }
+
+    pub fn with_offset(mut self, offset: usize) -> Self {
+        self.offset = offset;
+        self
+    }
+}
+
 #[derive(Message)]
 #[rtype(result = "Result<usize, QueryError>")]
-pub struct SizeRequest<Q: ListQuery>(Q);
+pub struct SizeRequest<Q: ListQuery>(pub Q);
 
 pub struct Library<D: DataProvider = SqliteDataProvider> {
     data_provider: D,

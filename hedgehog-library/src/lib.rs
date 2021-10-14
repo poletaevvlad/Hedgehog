@@ -9,3 +9,6 @@ pub use rss;
 
 pub use actor::Library;
 pub use sqlite::SqliteDataProvider;
+
+pub use actor::{QueryRequest, SizeRequest};
+pub use datasource::{EpisodeSummariesQuery, FeedSummariesQuery, ListQuery};

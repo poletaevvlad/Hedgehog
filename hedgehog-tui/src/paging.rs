@@ -13,7 +13,7 @@ impl<T> Chunk<T> {
 }
 
 pub(crate) trait PaginatedDataProvider {
-    fn request_page(&mut self, index: usize, size: usize);
+    fn request_page(&mut self, page_index: usize, offset: usize, size: usize);
 }
 
 #[derive(Debug)]
@@ -92,7 +92,11 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
                 let mut index = first.index.saturating_sub(1);
                 while index >= first_required_page {
                     self.chunks.push_front(Chunk::new(index));
-                    self.provider.request_page(index, self.options.chunk_size);
+                    self.provider.request_page(
+                        index,
+                        index * self.options.chunk_size,
+                        self.options.chunk_size,
+                    );
                     if index == 0 {
                         break;
                     }
@@ -103,13 +107,21 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
             let mut index = self.chunks.back().unwrap().index + 1;
             while index <= last_required_page {
                 self.chunks.push_back(Chunk::new(index));
-                self.provider.request_page(index, self.options.chunk_size);
+                self.provider.request_page(
+                    index,
+                    index * self.options.chunk_size,
+                    self.options.chunk_size,
+                );
                 index += 1
             }
         } else {
             for index in first_required_page..=last_required_page {
                 self.chunks.push_back(Chunk::new(index));
-                self.provider.request_page(index, self.options.chunk_size);
+                self.provider.request_page(
+                    index,
+                    index * self.options.chunk_size,
+                    self.options.chunk_size,
+                );
             }
         }
     }
@@ -284,7 +296,7 @@ mod tests {
     }
 
     impl PaginatedDataProvider for MockProvider {
-        fn request_page(&mut self, index: usize, _size: usize) {
+        fn request_page(&mut self, index: usize, _offset: usize, _size: usize) {
             self.data.borrow_mut().push_back(index)
         }
     }
@@ -342,7 +354,7 @@ mod tests {
     struct NoopProvider;
 
     impl PaginatedDataProvider for NoopProvider {
-        fn request_page(&mut self, _index: usize, _size: usize) {}
+        fn request_page(&mut self, _index: usize, _offset: usize, _size: usize) {}
     }
 
     #[test]

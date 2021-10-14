@@ -31,6 +31,14 @@ impl ListQuery for FeedSummariesQuery {
     type Item = FeedSummary;
 }
 
+pub struct EpisodeSummariesQuery {
+    pub feed_id: Option<FeedId>,
+}
+
+impl ListQuery for EpisodeSummariesQuery {
+    type Item = EpisodeSummary;
+}
+
 pub trait DataProvider: std::marker::Unpin + QueryHandler<FeedSummariesQuery> {}
 
 fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Result<Vec<T>, E> {

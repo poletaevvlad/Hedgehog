@@ -25,7 +25,7 @@ pub(crate) struct PaginatedListOptions {
 #[derive(Debug)]
 pub(crate) struct PaginatedList<T, P> {
     provider: P,
-    size: Option<usize>,
+    size: usize,
     chunks: VecDeque<Chunk<T>>,
     offset: usize,
     window_size: usize,
@@ -38,20 +38,35 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
         loaded_margin_size: 64,
     };
 
-    pub(crate) fn new(window_size: usize, provider: P) -> Self {
-        PaginatedList {
+    pub(crate) fn new(window_size: usize, size: usize, provider: P) -> Self {
+        let mut this = PaginatedList {
             provider,
-            size: None,
+            size,
             chunks: VecDeque::new(),
             offset: 0,
             window_size,
             options: Self::DEFAULT_OPTIONS,
-        }
+        };
+        this.update();
+        this
     }
 
-    pub(crate) fn with_options(mut self, options: PaginatedListOptions) -> Self {
-        self.options = options;
-        self
+    pub(crate) fn new_with_options(
+        window_size: usize,
+        size: usize,
+        provider: P,
+        options: PaginatedListOptions,
+    ) -> Self {
+        let mut this = PaginatedList {
+            provider,
+            size,
+            chunks: VecDeque::new(),
+            offset: 0,
+            window_size,
+            options,
+        };
+        this.update();
+        this
     }
 
     fn index_to_page(&self, index: usize) -> usize {
@@ -63,14 +78,10 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
     }
 
     fn update(&mut self) {
-        let size = match self.size {
-            Some(size) => size,
-            None => return,
-        };
         let first_required_page =
             self.index_to_page(self.offset.saturating_sub(self.options.loaded_margin_size));
         let last_required_page = self.index_to_page(
-            (self.offset + self.window_size + self.options.loaded_margin_size - 1).min(size),
+            (self.offset + self.window_size + self.options.loaded_margin_size - 1).min(self.size),
         );
 
         pop_front_while(&mut self.chunks, |item| item.index < first_required_page);
@@ -103,18 +114,10 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
         }
     }
 
-    pub(crate) fn set_size(&mut self, size: usize) {
-        self.size = Some(size);
-        self.update();
-    }
-
     pub(crate) fn iter<'a>(&'a self) -> PaginatedListIterator<'a, T, P> {
         PaginatedListIterator {
             list: self,
-            remaining: self
-                .size
-                .map(|size| self.window_size.min(size))
-                .unwrap_or(self.window_size),
+            remaining: self.window_size.min(self.size),
             index: self.chunks.front().map(|first_index| {
                 (
                     self.index_to_page(self.offset)
@@ -138,14 +141,12 @@ impl<T, P: PaginatedDataProvider> PaginatedList<T, P> {
     }
 
     pub(crate) fn set_offset(&mut self, offset: usize) {
-        if let Some(size) = self.size {
-            if size <= self.window_size {
-                return;
-            }
-            let maximum_offset = size - self.window_size;
-            self.offset = offset.min(maximum_offset);
-            self.update();
+        if self.size <= self.window_size {
+            return;
         }
+        let maximum_offset = self.size - self.window_size;
+        self.offset = offset.min(maximum_offset);
+        self.update();
     }
 
     pub(crate) fn scroll(&mut self, offset: isize) {
@@ -249,15 +250,9 @@ impl<T, P: PaginatedDataProvider> InteractiveList<T, P> {
     }
 
     pub(crate) fn move_cursor(&mut self, offset: i64) {
-        let size = if let Some(size) = self.items.size {
-            size
-        } else {
-            return;
-        };
-
         if offset > 0 {
             self.selected_index =
-                (self.selected_index + offset as usize).min(size.saturating_sub(1))
+                (self.selected_index + offset as usize).min(self.items.size.saturating_sub(1))
         } else {
             self.selected_index = self.selected_index.saturating_sub((-offset) as usize)
         }
@@ -304,13 +299,7 @@ mod tests {
             chunk_size: 4,
             loaded_margin_size: 1,
         };
-        let mut list = PaginatedList::new(6, provider).with_options(options);
-        assert_eq!(
-            list.iter().collect::<Vec<Option<&i8>>>(),
-            vec![None, None, None, None, None, None]
-        );
-
-        list.set_size(20);
+        let mut list = PaginatedList::new_with_options(6, 20, provider, options);
         assert_eq!(requested.borrow_mut().pop_front(), Some(0));
         assert_eq!(requested.borrow_mut().pop_front(), Some(1));
         assert_eq!(requested.borrow_mut().pop_front(), None);
@@ -362,9 +351,7 @@ mod tests {
             chunk_size: 3,
             loaded_margin_size: 1,
         };
-        let mut list = PaginatedList::<(), _>::new(4, NoopProvider).with_options(options);
-        list.set_size(1000);
-
+        let mut list = PaginatedList::<(), _>::new_with_options(4, 1000, NoopProvider, options);
         let expected_indices = vec![
             vec![0, 1],
             vec![0, 1],
@@ -390,8 +377,7 @@ mod tests {
 
     #[test]
     fn does_not_scroll_past_boundary() {
-        let mut list = PaginatedList::<u8, _>::new(3, NoopProvider);
-        list.set_size(4);
+        let mut list = PaginatedList::<u8, _>::new(3, 4, NoopProvider);
         list.data_available(0, vec![1, 2, 3, 4]);
         assert_eq!(
             list.iter().collect::<Vec<Option<&u8>>>(),
@@ -419,8 +405,7 @@ mod tests {
 
     #[test]
     fn items_fewer_then_window_size() {
-        let mut list = PaginatedList::<u8, _>::new(4, NoopProvider);
-        list.set_size(3);
+        let mut list = PaginatedList::<u8, _>::new(4, 3, NoopProvider);
         list.data_available(0, vec![1, 2, 3]);
 
         let expected = vec![Some(&1), Some(&2), Some(&3)];
@@ -449,8 +434,7 @@ mod tests {
 
         #[test]
         fn moving_selection() {
-            let mut list = PaginatedList::<u8, _>::new(4, NoopProvider);
-            list.set_size(6);
+            let mut list = PaginatedList::<u8, _>::new(4, 6, NoopProvider);
             list.data_available(0, vec![0, 1, 2, 3, 4, 5]);
             let mut list = InteractiveList::new(list).with_margins(1);
 
@@ -484,8 +468,7 @@ mod tests {
 
         #[test]
         fn all_on_screen() {
-            let mut list = PaginatedList::<u8, _>::new(4, NoopProvider);
-            list.set_size(4);
+            let mut list = PaginatedList::<u8, _>::new(4, 4, NoopProvider);
             list.data_available(0, vec![0, 1, 2, 3]);
             let mut list = InteractiveList::new(list).with_margins(1);
 

@@ -15,8 +15,10 @@ trait DataView<'a> {
     fn handle(&mut self, msg: Self::Message) -> bool;
 }
 
+#[derive(Debug)]
 struct ListDataRequest;
 
+#[derive(Debug)]
 struct ListData<T> {
     items: Option<Vec<T>>,
 }
@@ -57,6 +59,7 @@ where
     fn update(&mut self, _range: Range<usize>, _request_data: impl Fn(Self::Request)) {}
 }
 
+#[derive(Debug)]
 struct ListDataIterator<'a, T>(std::slice::Iter<'a, T>);
 
 impl<'a, T> Iterator for ListDataIterator<'a, T> {
@@ -67,16 +70,19 @@ impl<'a, T> Iterator for ListDataIterator<'a, T> {
     }
 }
 
+#[derive(Debug)]
 enum PaginagedDataRequest {
     Size,
     Page { index: usize, range: Range<usize> },
 }
 
+#[derive(Debug)]
 enum PaginatedDataMessage<T> {
     Size(usize),
     Page { index: usize, values: Vec<T> },
 }
 
+#[derive(Debug)]
 struct PaginatedData<T> {
     page_size: usize,
     margin_size: usize,
@@ -202,6 +208,7 @@ where
     }
 }
 
+#[derive(Debug)]
 struct PaginatedDataIterator<'a, T> {
     data: &'a PaginatedData<T>,
     index: usize,
@@ -222,7 +229,7 @@ impl<'a, T> Iterator for PaginatedDataIterator<'a, T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Versioned<T>(usize, T);
 
 impl<T> Versioned<T> {
@@ -239,7 +246,7 @@ impl<T> Versioned<T> {
     }
 
     fn same_version<R>(&self, other: &Versioned<R>) -> bool {
-        self.0 != other.0
+        self.0 == other.0
     }
 
     fn as_ref(&self) -> Versioned<&T> {
@@ -265,6 +272,11 @@ trait DataProvider {
     fn request(&self, request: Versioned<Self::Request>);
 }
 
+struct InteractiveListOptions {
+    scroll_margin: usize,
+}
+
+#[derive(Debug)]
 struct InteractiveList<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> {
     _lifetime: std::marker::PhantomData<&'a ()>,
     provider: Versioned<Option<P>>,
@@ -276,9 +288,13 @@ struct InteractiveList<'a, T: DataView<'a>, P: DataProvider<Request = T::Request
 }
 
 impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList<'a, T, P> {
-    const DEFAULT_SCROLL_MARGIN: usize = 3;
+    const DEFAULT_OPTIONS: InteractiveListOptions = InteractiveListOptions { scroll_margin: 3 };
 
     fn new(window_size: usize) -> Self {
+        Self::new_with_options(window_size, Self::DEFAULT_OPTIONS)
+    }
+
+    fn new_with_options(window_size: usize, options: InteractiveListOptions) -> Self {
         InteractiveList {
             _lifetime: std::marker::PhantomData,
             provider: Versioned::new(None),
@@ -286,12 +302,12 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
             selection: 0,
             offset: 0,
             window_size,
-            scroll_margin: Self::DEFAULT_SCROLL_MARGIN,
+            scroll_margin: options.scroll_margin,
         }
     }
 
     fn set_provider(&mut self, provider: P) {
-        self.provider.update(Some(provider));
+        self.provider = self.provider.update(Some(provider));
         self.offset = 0;
         self.data = T::init(|request| request_data(&self.provider, request));
     }
@@ -321,7 +337,7 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
         } else {
             self.selection = (self.selection)
                 .saturating_add(offset as usize)
-                .max(size.saturating_sub(1));
+                .min(size.saturating_sub(1));
         }
 
         let new_offset = if self.selection < self.offset + self.scroll_margin {
@@ -336,11 +352,25 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
 
         if let Some(offset) = new_offset {
             let provider = &self.provider;
+            self.offset = offset.min(size.saturating_sub(self.window_size));
             self.data
                 .update(offset..(offset + self.window_size), |request| {
                     request_data(provider, request)
                 });
         }
+    }
+
+    fn iter(
+        &'a self,
+    ) -> Option<impl Iterator<Item = (Option<&'a <T as DataView<'a>>::Item>, bool)>> {
+        let window_size = self.window_size;
+        let offset = self.offset;
+        let selection = self.selection;
+        self.data.iter(self.offset).map(move |iter| {
+            iter.enumerate()
+                .take(window_size)
+                .map(move |(index, item)| (item, index + offset == selection))
+        })
     }
 }
 
@@ -351,4 +381,140 @@ fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Re
             provider.request(message)
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        DataProvider, DataView, InteractiveList, InteractiveListOptions, ListData, Versioned,
+    };
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+
+    #[derive(Debug)]
+    struct MockDataProvider<T> {
+        requests: Rc<RefCell<VecDeque<Versioned<T>>>>,
+    }
+
+    impl<T> MockDataProvider<T> {
+        fn new() -> (Self, Rc<RefCell<VecDeque<Versioned<T>>>>) {
+            let requests = Rc::new(RefCell::new(VecDeque::new()));
+            let provider = MockDataProvider {
+                requests: requests.clone(),
+            };
+            (provider, requests)
+        }
+    }
+
+    impl<T> DataProvider for MockDataProvider<T> {
+        type Request = T;
+
+        fn request(&self, request: Versioned<Self::Request>) {
+            self.requests.borrow_mut().push_back(request);
+        }
+    }
+
+    fn assert_list<'a, P: DataProvider>(
+        list: &'a InteractiveList<'a, impl DataView<'a, Item = u8, Request = P::Request>, P>,
+        expected: &[(Option<u8>, bool)],
+    ) {
+        assert_eq!(
+            list.iter()
+                .unwrap()
+                .map(|(a, b)| (a.cloned(), b))
+                .collect::<Vec<(Option<u8>, bool)>>()
+                .as_slice(),
+            expected,
+        );
+    }
+
+    macro_rules! item {
+        ($value:expr) => {
+            (Some($value), false)
+        };
+        ($value:expr, selected) => {
+            (Some($value), true)
+        };
+    }
+
+    #[test]
+    fn scrolling_list_data() {
+        let mut scroll_list =
+            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(
+                4,
+                InteractiveListOptions { scroll_margin: 1 },
+            );
+        assert!(scroll_list.iter().is_none());
+
+        let (provider, requests) = MockDataProvider::new();
+        scroll_list.set_provider(provider);
+        assert!(scroll_list.iter().is_none());
+        let request = requests.borrow_mut().pop_front().unwrap();
+        assert!(requests.borrow().is_empty());
+        requests.borrow_mut().clear();
+
+        scroll_list.handle_data(request.with_data(vec![1, 2, 3, 4, 5, 6]));
+        let expected_forward = vec![
+            [item!(1, selected), item!(2), item!(3), item!(4)],
+            [item!(1), item!(2, selected), item!(3), item!(4)],
+            [item!(1), item!(2), item!(3, selected), item!(4)],
+            [item!(2), item!(3), item!(4, selected), item!(5)],
+            [item!(3), item!(4), item!(5, selected), item!(6)],
+            [item!(3), item!(4), item!(5), item!(6, selected)],
+            [item!(3), item!(4), item!(5), item!(6, selected)],
+        ];
+        for expected in expected_forward {
+            assert_list(&scroll_list, &expected);
+            scroll_list.move_cursor(1);
+        }
+
+        let expected_backward = vec![
+            [item!(3), item!(4), item!(5), item!(6, selected)],
+            [item!(3), item!(4), item!(5, selected), item!(6)],
+            [item!(3), item!(4, selected), item!(5), item!(6)],
+            [item!(2), item!(3, selected), item!(4), item!(5)],
+            [item!(1), item!(2, selected), item!(3), item!(4)],
+            [item!(1, selected), item!(2), item!(3), item!(4)],
+            [item!(1, selected), item!(2), item!(3), item!(4)],
+        ];
+        for expected in expected_backward {
+            assert_list(&scroll_list, &expected);
+            scroll_list.move_cursor(-1);
+        }
+    }
+
+    #[test]
+    fn scrolling_fits_on_screen() {
+        let mut scroll_list =
+            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(
+                4,
+                InteractiveListOptions { scroll_margin: 1 },
+            );
+        assert!(scroll_list.iter().is_none());
+
+        let (provider, requests) = MockDataProvider::new();
+        scroll_list.set_provider(provider);
+        assert!(scroll_list.iter().is_none());
+        let request = requests.borrow_mut().pop_front().unwrap();
+        assert!(requests.borrow().is_empty());
+        requests.borrow_mut().clear();
+
+        scroll_list.handle_data(request.with_data(vec![1, 2, 3]));
+        let expected_both_ways = vec![
+            [item!(1, selected), item!(2), item!(3)],
+            [item!(1, selected), item!(2), item!(3)],
+            [item!(1), item!(2, selected), item!(3)],
+            [item!(1), item!(2), item!(3, selected)],
+            [item!(1), item!(2), item!(3, selected)],
+        ];
+        for expected in expected_both_ways.iter().skip(1) {
+            assert_list(&scroll_list, expected);
+            scroll_list.move_cursor(1);
+        }
+        for expected in expected_both_ways.iter().rev().skip(1) {
+            assert_list(&scroll_list, expected);
+            scroll_list.move_cursor(-1);
+        }
+    }
 }

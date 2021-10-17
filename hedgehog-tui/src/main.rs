@@ -1,4 +1,5 @@
 mod cmdparser;
+mod dataview;
 mod events;
 mod history;
 mod paging;

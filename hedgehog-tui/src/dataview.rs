@@ -104,8 +104,8 @@ struct PaginatedData<T> {
     page_size: usize,
     load_margins: usize,
     size: Option<usize>,
-    first_chunk_index: usize,
-    chunks: VecDeque<Option<Vec<T>>>,
+    first_page_index: usize,
+    pages: VecDeque<Option<Vec<T>>>,
 }
 
 impl<T> PaginatedData<T> {
@@ -119,11 +119,11 @@ impl<T> PaginatedData<T> {
 
     fn item_at(&self, index: usize) -> Option<&T> {
         let page_index = self.page_index(index);
-        if page_index < self.first_chunk_index {
+        if page_index < self.first_page_index {
             return None;
         }
-        self.chunks
-            .get(page_index - self.first_chunk_index)
+        self.pages
+            .get(page_index - self.first_page_index)
             .and_then(|page| page.as_ref())
             .and_then(|page| page.get(self.page_item_index(index)))
     }
@@ -137,7 +137,7 @@ impl<T> PaginatedData<T> {
 
     #[cfg(test)]
     fn pages_range(&self) -> (usize, usize) {
-        (self.first_chunk_index, self.chunks.len())
+        (self.first_page_index, self.pages.len())
     }
 }
 
@@ -156,8 +156,8 @@ where
             page_size: options.page_size,
             load_margins: options.load_margins,
             size: None,
-            first_chunk_index: 0,
-            chunks: VecDeque::new(),
+            first_page_index: 0,
+            pages: VecDeque::new(),
         }
     }
 
@@ -183,26 +183,26 @@ where
             self.page_index(((range.end + self.load_margins).saturating_sub(1)).min(size));
         let indices_count = last_required_page - first_required_page + 1;
 
-        if !self.chunks.is_empty() {
-            while self.first_chunk_index < first_required_page {
-                self.chunks.pop_front();
-                self.first_chunk_index += 1;
+        if !self.pages.is_empty() {
+            while self.first_page_index < first_required_page {
+                self.pages.pop_front();
+                self.first_page_index += 1;
             }
-            while self.first_chunk_index > first_required_page {
-                self.chunks.push_front(None);
-                self.first_chunk_index -= 1;
-                self.request_page(self.first_chunk_index, &request_data);
+            while self.first_page_index > first_required_page {
+                self.pages.push_front(None);
+                self.first_page_index -= 1;
+                self.request_page(self.first_page_index, &request_data);
             }
 
-            if self.chunks.len() > indices_count {
-                self.chunks.drain(indices_count..);
+            if self.pages.len() > indices_count {
+                self.pages.drain(indices_count..);
             }
         } else {
-            self.first_chunk_index = first_required_page;
+            self.first_page_index = first_required_page;
         }
-        while self.chunks.len() < indices_count {
-            self.request_page(self.first_chunk_index + self.chunks.len(), &request_data);
-            self.chunks.push_back(None);
+        while self.pages.len() < indices_count {
+            self.request_page(self.first_page_index + self.pages.len(), &request_data);
+            self.pages.push_back(None);
         }
     }
 
@@ -213,10 +213,10 @@ where
                 true
             }
             PaginatedDataMessage::Page { index, values } => {
-                if index < self.first_chunk_index {
+                if index < self.first_page_index {
                     return false;
                 }
-                if let Some(page) = self.chunks.get_mut(index - self.first_chunk_index) {
+                if let Some(page) = self.pages.get_mut(index - self.first_page_index) {
                     *page = Some(values);
                     true
                 } else {

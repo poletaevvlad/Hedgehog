@@ -1,6 +1,23 @@
 use std::collections::VecDeque;
 use std::ops::Range;
 
+#[derive(Debug, Clone)]
+struct DataViewOptions {
+    page_size: usize,
+    load_margins: usize,
+    scroll_margins: usize,
+}
+
+impl Default for DataViewOptions {
+    fn default() -> Self {
+        DataViewOptions {
+            page_size: 128,
+            load_margins: 32,
+            scroll_margins: 3,
+        }
+    }
+}
+
 // TODO: remove lifetime when GATs are stabilized
 trait DataView<'a> {
     type Item: 'a;
@@ -8,7 +25,7 @@ trait DataView<'a> {
     type Request;
     type Message;
 
-    fn init(request_data: impl Fn(Self::Request)) -> Self;
+    fn init(request_data: impl Fn(Self::Request), options: DataViewOptions) -> Self;
     fn iter(&'a self, offset: usize) -> Option<Self::Iter>;
     fn size(&self) -> Option<usize>;
     fn update(&mut self, range: Range<usize>, request_data: impl Fn(Self::Request));
@@ -32,7 +49,7 @@ where
     type Request = ListDataRequest;
     type Message = Vec<T>;
 
-    fn init(request_data: impl Fn(Self::Request)) -> Self {
+    fn init(request_data: impl Fn(Self::Request), _options: DataViewOptions) -> Self {
         request_data(ListDataRequest);
         Self { items: None }
     }
@@ -85,16 +102,13 @@ enum PaginatedDataMessage<T> {
 #[derive(Debug)]
 struct PaginatedData<T> {
     page_size: usize,
-    margin_size: usize,
+    load_margins: usize,
     size: Option<usize>,
     first_chunk_index: usize,
     chunks: VecDeque<Option<Vec<T>>>,
 }
 
 impl<T> PaginatedData<T> {
-    const DEFAULT_PAGE_SIZE: usize = 128;
-    const DEFAULT_MARGIN_SIZE: usize = 32;
-
     fn page_index(&self, index: usize) -> usize {
         index / self.page_size
     }
@@ -131,11 +145,11 @@ where
     type Request = PaginagedDataRequest;
     type Message = PaginatedDataMessage<T>;
 
-    fn init(request_data: impl Fn(Self::Request)) -> Self {
+    fn init(request_data: impl Fn(Self::Request), options: DataViewOptions) -> Self {
         request_data(PaginagedDataRequest::Size);
         PaginatedData {
-            page_size: Self::DEFAULT_PAGE_SIZE,
-            margin_size: Self::DEFAULT_MARGIN_SIZE,
+            page_size: options.page_size,
+            load_margins: options.load_margins,
             size: None,
             first_chunk_index: 0,
             chunks: VecDeque::new(),
@@ -159,9 +173,9 @@ where
             Some(size) => size,
             None => return,
         };
-        let first_required_page = self.page_index(range.start.saturating_sub(self.margin_size));
+        let first_required_page = self.page_index(range.start.saturating_sub(self.load_margins));
         let last_required_page =
-            self.page_item_index(((range.end + self.margin_size).saturating_sub(1)).min(size));
+            self.page_item_index(((range.end + self.load_margins).saturating_sub(1)).min(size));
         let indices_count = last_required_page - first_required_page + 1;
 
         if !self.chunks.is_empty() {
@@ -272,44 +286,41 @@ trait DataProvider {
     fn request(&self, request: Versioned<Self::Request>);
 }
 
-struct InteractiveListOptions {
-    scroll_margin: usize,
-}
-
 #[derive(Debug)]
 struct InteractiveList<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> {
     _lifetime: std::marker::PhantomData<&'a ()>,
     provider: Versioned<Option<P>>,
     data: T,
+    options: DataViewOptions,
     selection: usize,
     offset: usize,
     window_size: usize,
-    scroll_margin: usize,
 }
 
 impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList<'a, T, P> {
-    const DEFAULT_OPTIONS: InteractiveListOptions = InteractiveListOptions { scroll_margin: 3 };
-
     fn new(window_size: usize) -> Self {
-        Self::new_with_options(window_size, Self::DEFAULT_OPTIONS)
+        Self::new_with_options(window_size, DataViewOptions::default())
     }
 
-    fn new_with_options(window_size: usize, options: InteractiveListOptions) -> Self {
+    fn new_with_options(window_size: usize, options: DataViewOptions) -> Self {
         InteractiveList {
             _lifetime: std::marker::PhantomData,
             provider: Versioned::new(None),
-            data: T::init(|_| ()),
+            data: T::init(|_| (), options.clone()),
+            options,
             selection: 0,
             offset: 0,
             window_size,
-            scroll_margin: options.scroll_margin,
         }
     }
 
     fn set_provider(&mut self, provider: P) {
         self.provider = self.provider.update(Some(provider));
         self.offset = 0;
-        self.data = T::init(|request| request_data(&self.provider, request));
+        self.data = T::init(
+            |request| request_data(&self.provider, request),
+            self.options.clone(),
+        );
     }
 
     fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {
@@ -340,12 +351,14 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
                 .min(size.saturating_sub(1));
         }
 
-        let new_offset = if self.selection < self.offset + self.scroll_margin {
-            Some(self.selection.saturating_sub(self.scroll_margin))
+        let new_offset = if self.selection < self.offset + self.options.scroll_margins {
+            Some(self.selection.saturating_sub(self.options.scroll_margins))
         } else if self.selection
-            > (self.offset + self.window_size).saturating_sub(self.scroll_margin + 1)
+            > (self.offset + self.window_size).saturating_sub(self.options.scroll_margins + 1)
         {
-            Some((self.selection + self.scroll_margin + 1).saturating_sub(self.window_size))
+            Some(
+                (self.selection + self.options.scroll_margins + 1).saturating_sub(self.window_size),
+            )
         } else {
             None
         };
@@ -385,12 +398,16 @@ fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Re
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        DataProvider, DataView, InteractiveList, InteractiveListOptions, ListData, Versioned,
-    };
+    use super::{DataProvider, DataView, DataViewOptions, InteractiveList, ListData, Versioned};
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
+
+    const TEST_OPTIONS: DataViewOptions = DataViewOptions {
+        page_size: 4,
+        load_margins: 1,
+        scroll_margins: 1,
+    };
 
     #[derive(Debug)]
     struct MockDataProvider<T> {
@@ -441,10 +458,7 @@ mod tests {
     #[test]
     fn scrolling_list_data() {
         let mut scroll_list =
-            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(
-                4,
-                InteractiveListOptions { scroll_margin: 1 },
-            );
+            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(4, TEST_OPTIONS);
         assert!(scroll_list.iter().is_none());
 
         let (provider, requests) = MockDataProvider::new();
@@ -487,10 +501,7 @@ mod tests {
     #[test]
     fn scrolling_fits_on_screen() {
         let mut scroll_list =
-            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(
-                4,
-                InteractiveListOptions { scroll_margin: 1 },
-            );
+            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(4, TEST_OPTIONS);
         assert!(scroll_list.iter().is_none());
 
         let (provider, requests) = MockDataProvider::new();

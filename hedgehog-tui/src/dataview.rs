@@ -87,7 +87,7 @@ impl<'a, T> Iterator for ListDataIterator<'a, T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum PaginagedDataRequest {
     Size,
     Page { index: usize, range: Range<usize> },
@@ -134,9 +134,14 @@ impl<T> PaginatedData<T> {
             range: (index * self.page_size)..((index + 1) * self.page_size),
         });
     }
+
+    #[cfg(test)]
+    fn pages_range(&self) -> (usize, usize) {
+        (self.first_chunk_index, self.chunks.len())
+    }
 }
 
-impl<'a, T> DataView<'a> for PaginatedData<T>
+impl<'a, T: std::fmt::Debug> DataView<'a> for PaginatedData<T>
 where
     Self: 'a,
 {
@@ -175,7 +180,7 @@ where
         };
         let first_required_page = self.page_index(range.start.saturating_sub(self.load_margins));
         let last_required_page =
-            self.page_item_index(((range.end + self.load_margins).saturating_sub(1)).min(size));
+            self.page_index(((range.end + self.load_margins).saturating_sub(1)).min(size));
         let indices_count = last_required_page - first_required_page + 1;
 
         if !self.chunks.is_empty() {
@@ -185,7 +190,7 @@ where
             }
             while self.first_chunk_index > first_required_page {
                 self.chunks.push_front(None);
-                self.first_chunk_index += 1;
+                self.first_chunk_index -= 1;
                 self.request_page(self.first_chunk_index, &request_data);
             }
 
@@ -325,7 +330,7 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
 
     fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {
         let previous_size = self.data.size();
-        if !self.provider.same_version(&msg) || self.data.handle(msg.unwrap()) {
+        if !self.provider.same_version(&msg) || !self.data.handle(msg.unwrap()) {
             return false;
         };
         if previous_size.is_none() && self.data.size().is_some() {
@@ -398,7 +403,10 @@ fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Re
 
 #[cfg(test)]
 mod tests {
-    use super::{DataProvider, DataView, DataViewOptions, InteractiveList, ListData, Versioned};
+    use super::{
+        DataProvider, DataView, DataViewOptions, InteractiveList, ListData, PaginagedDataRequest,
+        PaginatedData, PaginatedDataMessage, Versioned,
+    };
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -452,6 +460,15 @@ mod tests {
         };
         ($value:expr, selected) => {
             (Some($value), true)
+        };
+    }
+
+    macro_rules! no_item {
+        () => {
+            (None, false)
+        };
+        (selected) => {
+            (None, true)
         };
     }
 
@@ -525,6 +542,198 @@ mod tests {
         }
         for expected in expected_both_ways.iter().rev().skip(1) {
             assert_list(&scroll_list, expected);
+            scroll_list.move_cursor(-1);
+        }
+    }
+
+    #[test]
+    fn initializing_paginated_list() {
+        let mut scroll_list =
+            InteractiveList::<PaginatedData<u8>, MockDataProvider<_>>::new_with_options(
+                6,
+                TEST_OPTIONS,
+            );
+        assert!(scroll_list.iter().is_none());
+
+        let (provider, requests) = MockDataProvider::new();
+        scroll_list.set_provider(provider);
+        assert!(scroll_list.iter().is_none());
+
+        let request = requests.borrow_mut().pop_front().unwrap();
+        assert_eq!(request.get(), &PaginagedDataRequest::Size);
+        scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(20)));
+
+        assert_list(
+            &scroll_list,
+            &[
+                no_item!(selected),
+                no_item!(),
+                no_item!(),
+                no_item!(),
+                no_item!(),
+                no_item!(),
+            ],
+        );
+
+        assert_eq!(
+            requests.borrow_mut().pop_front().unwrap().get(),
+            &PaginagedDataRequest::Page {
+                index: 0,
+                range: 0..4
+            }
+        );
+        assert_eq!(
+            requests.borrow_mut().pop_front().unwrap().get(),
+            &PaginagedDataRequest::Page {
+                index: 1,
+                range: 4..8
+            }
+        );
+
+        scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
+            index: 1,
+            values: vec![4, 5, 6, 7],
+        }));
+        assert_list(
+            &scroll_list,
+            &[
+                no_item!(selected),
+                no_item!(),
+                no_item!(),
+                no_item!(),
+                item!(4),
+                item!(5),
+            ],
+        );
+
+        scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
+            index: 0,
+            values: vec![0, 1, 2, 3],
+        }));
+        assert_list(
+            &scroll_list,
+            &[
+                item!(0, selected),
+                item!(1),
+                item!(2),
+                item!(3),
+                item!(4),
+                item!(5),
+            ],
+        );
+
+        scroll_list.move_cursor(6);
+        assert_list(
+            &scroll_list,
+            &[
+                item!(2),
+                item!(3),
+                item!(4),
+                item!(5),
+                item!(6, selected),
+                item!(7),
+            ],
+        );
+        assert_eq!(
+            requests.borrow_mut().pop_front().unwrap().get(),
+            &PaginagedDataRequest::Page {
+                index: 2,
+                range: 8..12
+            }
+        );
+
+        scroll_list.move_cursor(1);
+        assert!(requests.borrow().is_empty());
+        assert_list(
+            &scroll_list,
+            &[
+                item!(3),
+                item!(4),
+                item!(5),
+                item!(6),
+                item!(7, selected),
+                no_item!(),
+            ],
+        );
+    }
+
+    #[test]
+    fn creating_and_dropping_pages() {
+        let mut options = TEST_OPTIONS.clone();
+        options.page_size = 3;
+        let mut scroll_list =
+            InteractiveList::<PaginatedData<u8>, MockDataProvider<_>>::new_with_options(4, options);
+
+        let (provider, requests) = MockDataProvider::new();
+        scroll_list.set_provider(provider);
+        assert!(scroll_list.iter().is_none());
+
+        let request = requests.borrow_mut().pop_front().unwrap();
+        assert_eq!(request.get(), &PaginagedDataRequest::Size);
+        scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(100)));
+
+        let scrolling_data = vec![
+            (0, 2, [item!(0, selected), item!(0), item!(0), item!(1)]),
+            (0, 2, [item!(0), item!(0, selected), item!(0), item!(1)]),
+            (0, 2, [item!(0), item!(0), item!(0, selected), item!(1)]),
+            (0, 2, [item!(0), item!(0), item!(1, selected), item!(1)]),
+            (0, 3, [item!(0), item!(1), item!(1, selected), item!(1)]),
+            (0, 3, [item!(1), item!(1), item!(1, selected), item!(2)]),
+            (1, 2, [item!(1), item!(1), item!(2, selected), item!(2)]),
+            (1, 3, [item!(1), item!(2), item!(2, selected), item!(2)]),
+            (1, 3, [item!(2), item!(2), item!(2, selected), item!(3)]),
+            (2, 2, [item!(2), item!(2), item!(3, selected), item!(3)]),
+        ];
+        for (page_index, offset, expected) in scrolling_data {
+            while let Some(request) = requests.borrow_mut().pop_front() {
+                match request.get() {
+                    PaginagedDataRequest::Size => panic!(),
+                    PaginagedDataRequest::Page { index, range } => {
+                        scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
+                            index: *index,
+                            values: vec![*index as u8; range.len()],
+                        }));
+                    }
+                }
+            }
+            assert_list(&scroll_list, &expected);
+            let (actual_index, actual_offset) = scroll_list.data.pages_range();
+            assert_eq!(page_index, actual_index);
+            assert_eq!(offset, actual_offset);
+
+            scroll_list.move_cursor(1);
+        }
+
+        let scrolling_backwards_data = vec![
+            (2, 3, [item!(2), item!(3), item!(3, selected), item!(3)]),
+            (2, 3, [item!(2), item!(3, selected), item!(3), item!(3)]),
+            (2, 2, [item!(2), item!(2, selected), item!(3), item!(3)]),
+            (1, 3, [item!(2), item!(2, selected), item!(2), item!(3)]),
+            (1, 3, [item!(1), item!(2, selected), item!(2), item!(2)]),
+            (1, 2, [item!(1), item!(1, selected), item!(2), item!(2)]),
+            (0, 3, [item!(1), item!(1, selected), item!(1), item!(2)]),
+            (0, 3, [item!(0), item!(1, selected), item!(1), item!(1)]),
+            (0, 2, [item!(0), item!(0, selected), item!(1), item!(1)]),
+            (0, 2, [item!(0), item!(0, selected), item!(0), item!(1)]),
+            (0, 2, [item!(0, selected), item!(0), item!(0), item!(1)]),
+        ];
+        for (page_index, offset, expected) in scrolling_backwards_data {
+            while let Some(request) = requests.borrow_mut().pop_front() {
+                match request.get() {
+                    PaginagedDataRequest::Size => panic!(),
+                    PaginagedDataRequest::Page { index, range } => {
+                        scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
+                            index: *index,
+                            values: vec![*index as u8; range.len()],
+                        }));
+                    }
+                }
+            }
+            assert_list(&scroll_list, &expected);
+            let (actual_index, actual_offset) = scroll_list.data.pages_range();
+            assert_eq!(page_index, actual_index);
+            assert_eq!(offset, actual_offset);
+
             scroll_list.move_cursor(-1);
         }
     }

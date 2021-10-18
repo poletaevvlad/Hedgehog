@@ -293,7 +293,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
 
     pub(crate) fn set_window_size(&mut self, window_size: usize) {
         self.window_size = window_size;
-        self.update();
+        self.move_cursor(0);
     }
 
     pub(crate) fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {

@@ -2,7 +2,7 @@ use crate::dataview::{DataProvider, PaginatedDataMessage, PaginatedDataRequest, 
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::status::Severity;
-use crate::view_model::ViewModel;
+use crate::view_model::{Command, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
 use actix::prelude::*;
@@ -109,7 +109,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
         let should_render = match self.command {
             None => match event {
                 key!('c', CONTROL) => {
-                    System::current().stop();
+                    self.view_model.handle_command(Command::Quit);
                     false
                 }
                 key!(':') => {

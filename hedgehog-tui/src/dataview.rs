@@ -283,17 +283,26 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         );
     }
 
+    fn update(&mut self) {
+        let provider = &self.provider;
+        self.data
+            .update(self.offset..(self.offset + self.window_size), |request| {
+                request_data(provider, request)
+            });
+    }
+
+    pub(crate) fn set_window_size(&mut self, window_size: usize) {
+        self.window_size = window_size;
+        self.update();
+    }
+
     pub(crate) fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {
         let previous_size = self.data.size();
         if !self.provider.same_version(&msg) || !self.data.handle(msg.unwrap()) {
             return false;
         };
         if previous_size.is_none() && self.data.size().is_some() {
-            let provider = &self.provider;
-            self.data
-                .update(self.offset..(self.offset + self.window_size), |request| {
-                    request_data(provider, request)
-                });
+            self.update();
         }
         true
     }

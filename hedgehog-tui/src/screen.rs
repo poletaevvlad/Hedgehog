@@ -1,16 +1,13 @@
 use crate::cmdparser;
-use crate::dataview::{
-    DataProvider, InteractiveList, PaginatedData, PaginatedDataMessage, PaginatedDataRequest,
-    Versioned,
-};
+use crate::dataview::{DataProvider, PaginatedDataMessage, PaginatedDataRequest, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::status::{Severity, Status};
+use crate::view_model::ViewModel;
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
 use actix::prelude::*;
 use crossterm::event::Event;
-use hedgehog_library::model::EpisodeSummary;
 use hedgehog_library::{EpisodeSummariesQuery, Library, QueryRequest, SizeRequest};
 use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
@@ -25,11 +22,12 @@ pub(crate) struct UI {
     commands_history: CommandsHistory,
     status: Option<Status>,
     library: Addr<Library>,
-    episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
+    view_model: ViewModel,
 }
 
 impl UI {
     pub(crate) fn new(
+        size: (u16, u16),
         terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
         library: Addr<Library>,
     ) -> Self {
@@ -39,7 +37,7 @@ impl UI {
             commands_history: CommandsHistory::new(),
             status: None,
             library,
-            episodes_list: InteractiveList::new(64),
+            view_model: ViewModel::new(size),
         }
     }
 
@@ -47,7 +45,7 @@ impl UI {
         let command = &mut self.command;
         let history = &self.commands_history;
         let status = &self.status;
-        let episodes_list = &self.episodes_list;
+        let episodes_list = &self.view_model.episodes_list;
 
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
@@ -82,10 +80,12 @@ impl Actor for UI {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         ctx.add_stream(crossterm::event::EventStream::new());
-        self.episodes_list.set_provider(EpisodesListProvider {
-            query: EpisodeSummariesQuery { feed_id: None },
-            actor: ctx.address(),
-        });
+        self.view_model
+            .episodes_list
+            .set_provider(EpisodesListProvider {
+                query: EpisodeSummariesQuery { feed_id: None },
+                actor: ctx.address(),
+            });
         self.render();
     }
 }
@@ -97,7 +97,8 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
         _ctx: &mut Self::Context,
     ) {
         let event = match item {
-            Ok(Event::Resize(_, _)) => {
+            Ok(Event::Resize(width, height)) => {
+                self.view_model.set_size(width, height);
                 self.render();
                 return;
             }
@@ -148,7 +149,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
     }
 }
 
-struct EpisodesListProvider {
+pub(crate) struct EpisodesListProvider {
     query: EpisodeSummariesQuery,
     actor: Addr<UI>,
 }
@@ -179,7 +180,7 @@ impl Handler<DataFetchingRequest> for UI {
                     PaginatedDataRequest::Size => {
                         Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
                             move |size, actor, _ctx| {
-                                let should_render = (actor.episodes_list).handle_data(
+                                let should_render = (actor.view_model.episodes_list).handle_data(
                                     Versioned::new(PaginatedDataMessage::Size(
                                         size.unwrap().unwrap(),
                                     ))
@@ -200,7 +201,7 @@ impl Handler<DataFetchingRequest> for UI {
                             })
                             .into_actor(self)
                             .map(move |data, actor, _ctx| {
-                                let should_render = (actor.episodes_list).handle_data(
+                                let should_render = (actor.view_model.episodes_list).handle_data(
                                     Versioned::new(PaginatedDataMessage::Page {
                                         index,
                                         values: data.unwrap().unwrap(),

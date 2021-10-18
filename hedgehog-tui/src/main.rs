@@ -27,11 +27,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
+    let size = terminal.size()?;
     terminal.clear()?;
 
     system.block_on(async {
         let library = Library::new(data_provider).start();
-        UI::new(terminal, library).start();
+        UI::new((size.width, size.height), terminal, library).start();
     });
     system.run()?;
 

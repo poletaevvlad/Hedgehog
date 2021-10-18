@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::ops::Range;
 
 #[derive(Debug, Clone)]
-struct DataViewOptions {
+pub(crate) struct DataViewOptions {
     page_size: usize,
     load_margins: usize,
     scroll_margins: usize,
@@ -18,34 +18,28 @@ impl Default for DataViewOptions {
     }
 }
 
-// TODO: remove lifetime when GATs are stabilized
-trait DataView<'a> {
-    type Item: 'a;
-    type Iter: Iterator<Item = Option<&'a Self::Item>>;
+pub(crate) trait DataView {
+    type Item;
     type Request;
     type Message;
 
     fn init(request_data: impl Fn(Self::Request), options: DataViewOptions) -> Self;
-    fn iter(&'a self, offset: usize) -> Option<Self::Iter>;
+    fn item_at(&self, index: usize) -> Option<&Self::Item>;
     fn size(&self) -> Option<usize>;
     fn update(&mut self, range: Range<usize>, request_data: impl Fn(Self::Request));
     fn handle(&mut self, msg: Self::Message) -> bool;
 }
 
 #[derive(Debug)]
-struct ListDataRequest;
+pub(crate) struct ListDataRequest;
 
 #[derive(Debug)]
-struct ListData<T> {
+pub(crate) struct ListData<T> {
     items: Option<Vec<T>>,
 }
 
-impl<'a, T> DataView<'a> for ListData<T>
-where
-    Self: 'a,
-{
+impl<T> DataView for ListData<T> {
     type Item = T;
-    type Iter = ListDataIterator<'a, T>;
     type Request = ListDataRequest;
     type Message = Vec<T>;
 
@@ -54,15 +48,11 @@ where
         Self { items: None }
     }
 
-    fn iter(&'a self, offset: usize) -> Option<Self::Iter> {
-        self.items
-            .as_ref()
-            .map(|items| ListDataIterator(items[offset..].iter()))
-    }
-
     fn size(&self) -> Option<usize> {
         self.items.as_ref().map(Vec::len)
     }
+
+    fn update(&mut self, _range: Range<usize>, _request_data: impl Fn(Self::Request)) {}
 
     fn handle(&mut self, msg: Self::Message) -> bool {
         if self.items.is_none() {
@@ -73,34 +63,25 @@ where
         }
     }
 
-    fn update(&mut self, _range: Range<usize>, _request_data: impl Fn(Self::Request)) {}
-}
-
-#[derive(Debug)]
-struct ListDataIterator<'a, T>(std::slice::Iter<'a, T>);
-
-impl<'a, T> Iterator for ListDataIterator<'a, T> {
-    type Item = Option<&'a T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Some)
+    fn item_at(&self, index: usize) -> Option<&Self::Item> {
+        self.items.as_ref().and_then(|items| items.get(index))
     }
 }
 
 #[derive(Debug, PartialEq)]
-enum PaginagedDataRequest {
+pub(crate) enum PaginatedDataRequest {
     Size,
     Page { index: usize, range: Range<usize> },
 }
 
 #[derive(Debug)]
-enum PaginatedDataMessage<T> {
+pub(crate) enum PaginatedDataMessage<T> {
     Size(usize),
     Page { index: usize, values: Vec<T> },
 }
 
 #[derive(Debug)]
-struct PaginatedData<T> {
+pub(crate) struct PaginatedData<T> {
     page_size: usize,
     load_margins: usize,
     size: Option<usize>,
@@ -117,19 +98,8 @@ impl<T> PaginatedData<T> {
         index % self.page_size
     }
 
-    fn item_at(&self, index: usize) -> Option<&T> {
-        let page_index = self.page_index(index);
-        if page_index < self.first_page_index {
-            return None;
-        }
-        self.pages
-            .get(page_index - self.first_page_index)
-            .and_then(|page| page.as_ref())
-            .and_then(|page| page.get(self.page_item_index(index)))
-    }
-
-    fn request_page(&self, index: usize, request_data: &impl Fn(PaginagedDataRequest)) {
-        request_data(PaginagedDataRequest::Page {
+    fn request_page(&self, index: usize, request_data: &impl Fn(PaginatedDataRequest)) {
+        request_data(PaginatedDataRequest::Page {
             index,
             range: (index * self.page_size)..((index + 1) * self.page_size),
         });
@@ -141,17 +111,13 @@ impl<T> PaginatedData<T> {
     }
 }
 
-impl<'a, T: std::fmt::Debug> DataView<'a> for PaginatedData<T>
-where
-    Self: 'a,
-{
+impl<T> DataView for PaginatedData<T> {
     type Item = T;
-    type Iter = PaginatedDataIterator<'a, T>;
-    type Request = PaginagedDataRequest;
+    type Request = PaginatedDataRequest;
     type Message = PaginatedDataMessage<T>;
 
     fn init(request_data: impl Fn(Self::Request), options: DataViewOptions) -> Self {
-        request_data(PaginagedDataRequest::Size);
+        request_data(PaginatedDataRequest::Size);
         PaginatedData {
             page_size: options.page_size,
             load_margins: options.load_margins,
@@ -159,14 +125,6 @@ where
             first_page_index: 0,
             pages: VecDeque::new(),
         }
-    }
-
-    fn iter(&'a self, offset: usize) -> Option<Self::Iter> {
-        self.size.map(|size| PaginatedDataIterator {
-            data: self,
-            index: offset,
-            size,
-        })
     }
 
     fn size(&self) -> Option<usize> {
@@ -225,75 +183,73 @@ where
             }
         }
     }
-}
 
-#[derive(Debug)]
-struct PaginatedDataIterator<'a, T> {
-    data: &'a PaginatedData<T>,
-    index: usize,
-    size: usize,
-}
-
-impl<'a, T> Iterator for PaginatedDataIterator<'a, T> {
-    type Item = Option<&'a T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.size {
+    fn item_at(&self, index: usize) -> Option<&T> {
+        let page_index = self.page_index(index);
+        if page_index < self.first_page_index {
             return None;
-        } else {
-            let value = self.data.item_at(self.index);
-            self.index += 1;
-            Some(value)
         }
+        self.pages
+            .get(page_index - self.first_page_index)
+            .and_then(|page| page.as_ref())
+            .and_then(|page| page.get(self.page_item_index(index)))
     }
 }
 
 #[derive(Debug, Clone)]
-struct Versioned<T>(usize, T);
+pub(crate) struct Versioned<T>(usize, T);
 
 impl<T> Versioned<T> {
-    fn new(value: T) -> Self {
+    pub(crate) fn new(value: T) -> Self {
         Versioned(0, value)
     }
 
-    fn update<R>(&self, new_value: R) -> Versioned<R> {
+    pub(crate) fn with_version(mut self, version: usize) -> Self {
+        self.0 = version;
+        self
+    }
+
+    pub(crate) fn update<R>(&self, new_value: R) -> Versioned<R> {
         Versioned(self.0.wrapping_add(1), new_value)
     }
 
-    fn with_data<R>(&self, new_value: R) -> Versioned<R> {
+    pub(crate) fn with_data<R>(&self, new_value: R) -> Versioned<R> {
         Versioned(self.0, new_value)
     }
 
-    fn same_version<R>(&self, other: &Versioned<R>) -> bool {
+    pub(crate) fn same_version<R>(&self, other: &Versioned<R>) -> bool {
         self.0 == other.0
     }
 
-    fn as_ref(&self) -> Versioned<&T> {
+    pub(crate) fn as_ref(&self) -> Versioned<&T> {
         Versioned(self.0, &self.1)
     }
 
-    fn map<R>(self, f: impl FnOnce(T) -> R) -> Versioned<R> {
+    pub(crate) fn map<R>(self, f: impl FnOnce(T) -> R) -> Versioned<R> {
         Versioned(self.0, f(self.1))
     }
 
-    fn get(&self) -> &T {
+    pub(crate) fn get(&self) -> &T {
         &self.1
     }
 
-    fn unwrap(self) -> T {
+    pub(crate) fn version(&self) -> usize {
+        self.0
+    }
+
+    pub(crate) fn unwrap(self) -> T {
         self.1
     }
 }
 
-trait DataProvider {
+pub(crate) trait DataProvider {
     type Request;
 
     fn request(&self, request: Versioned<Self::Request>);
 }
 
 #[derive(Debug)]
-struct InteractiveList<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> {
-    _lifetime: std::marker::PhantomData<&'a ()>,
+pub(crate) struct InteractiveList<T: DataView, P: DataProvider<Request = T::Request>> {
     provider: Versioned<Option<P>>,
     data: T,
     options: DataViewOptions,
@@ -302,14 +258,13 @@ struct InteractiveList<'a, T: DataView<'a>, P: DataProvider<Request = T::Request
     window_size: usize,
 }
 
-impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList<'a, T, P> {
-    fn new(window_size: usize) -> Self {
+impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
+    pub(crate) fn new(window_size: usize) -> Self {
         Self::new_with_options(window_size, DataViewOptions::default())
     }
 
-    fn new_with_options(window_size: usize, options: DataViewOptions) -> Self {
+    pub(crate) fn new_with_options(window_size: usize, options: DataViewOptions) -> Self {
         InteractiveList {
-            _lifetime: std::marker::PhantomData,
             provider: Versioned::new(None),
             data: T::init(|_| (), options.clone()),
             options,
@@ -319,7 +274,7 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
         }
     }
 
-    fn set_provider(&mut self, provider: P) {
+    pub(crate) fn set_provider(&mut self, provider: P) {
         self.provider = self.provider.update(Some(provider));
         self.offset = 0;
         self.data = T::init(
@@ -328,7 +283,7 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
         );
     }
 
-    fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {
+    pub(crate) fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {
         let previous_size = self.data.size();
         if !self.provider.same_version(&msg) || !self.data.handle(msg.unwrap()) {
             return false;
@@ -343,7 +298,7 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
         true
     }
 
-    fn move_cursor(&mut self, offset: isize) {
+    pub(crate) fn move_cursor(&mut self, offset: isize) {
         let size = match self.data.size() {
             Some(size) => size,
             None => return,
@@ -378,16 +333,13 @@ impl<'a, T: DataView<'a>, P: DataProvider<Request = T::Request>> InteractiveList
         }
     }
 
-    fn iter(
-        &'a self,
-    ) -> Option<impl Iterator<Item = (Option<&'a <T as DataView<'a>>::Item>, bool)>> {
+    pub(crate) fn iter(&self) -> Option<impl Iterator<Item = (Option<&T::Item>, bool)>> {
         let window_size = self.window_size;
         let offset = self.offset;
         let selection = self.selection;
-        self.data.iter(self.offset).map(move |iter| {
-            iter.enumerate()
-                .take(window_size)
-                .map(move |(index, item)| (item, index + offset == selection))
+        self.data.size().map(move |size| {
+            (offset..(offset + window_size).min(size))
+                .map(move |index| (self.data.item_at(index), index == selection))
         })
     }
 }
@@ -404,8 +356,8 @@ fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Re
 #[cfg(test)]
 mod tests {
     use super::{
-        DataProvider, DataView, DataViewOptions, InteractiveList, ListData, PaginagedDataRequest,
-        PaginatedData, PaginatedDataMessage, Versioned,
+        DataProvider, DataView, DataViewOptions, InteractiveList, ListData, PaginatedData,
+        PaginatedDataMessage, PaginatedDataRequest, Versioned,
     };
     use std::cell::RefCell;
     use std::collections::VecDeque;
@@ -440,8 +392,8 @@ mod tests {
         }
     }
 
-    fn assert_list<'a, P: DataProvider>(
-        list: &'a InteractiveList<'a, impl DataView<'a, Item = u8, Request = P::Request>, P>,
+    fn assert_list<P: DataProvider>(
+        list: &InteractiveList<impl DataView<Item = u8, Request = P::Request>, P>,
         expected: &[(Option<u8>, bool)],
     ) {
         assert_eq!(
@@ -560,7 +512,7 @@ mod tests {
         assert!(scroll_list.iter().is_none());
 
         let request = requests.borrow_mut().pop_front().unwrap();
-        assert_eq!(request.get(), &PaginagedDataRequest::Size);
+        assert_eq!(request.get(), &PaginatedDataRequest::Size);
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(20)));
 
         assert_list(
@@ -577,14 +529,14 @@ mod tests {
 
         assert_eq!(
             requests.borrow_mut().pop_front().unwrap().get(),
-            &PaginagedDataRequest::Page {
+            &PaginatedDataRequest::Page {
                 index: 0,
                 range: 0..4
             }
         );
         assert_eq!(
             requests.borrow_mut().pop_front().unwrap().get(),
-            &PaginagedDataRequest::Page {
+            &PaginatedDataRequest::Page {
                 index: 1,
                 range: 4..8
             }
@@ -636,7 +588,7 @@ mod tests {
         );
         assert_eq!(
             requests.borrow_mut().pop_front().unwrap().get(),
-            &PaginagedDataRequest::Page {
+            &PaginatedDataRequest::Page {
                 index: 2,
                 range: 8..12
             }
@@ -669,7 +621,7 @@ mod tests {
         assert!(scroll_list.iter().is_none());
 
         let request = requests.borrow_mut().pop_front().unwrap();
-        assert_eq!(request.get(), &PaginagedDataRequest::Size);
+        assert_eq!(request.get(), &PaginatedDataRequest::Size);
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(100)));
 
         let scrolling_data = vec![
@@ -687,8 +639,8 @@ mod tests {
         for (page_index, offset, expected) in scrolling_data {
             while let Some(request) = requests.borrow_mut().pop_front() {
                 match request.get() {
-                    PaginagedDataRequest::Size => panic!(),
-                    PaginagedDataRequest::Page { index, range } => {
+                    PaginatedDataRequest::Size => panic!(),
+                    PaginatedDataRequest::Page { index, range } => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
                             index: *index,
                             values: vec![*index as u8; range.len()],
@@ -720,8 +672,8 @@ mod tests {
         for (page_index, offset, expected) in scrolling_backwards_data {
             while let Some(request) = requests.borrow_mut().pop_front() {
                 match request.get() {
-                    PaginagedDataRequest::Size => panic!(),
-                    PaginagedDataRequest::Page { index, range } => {
+                    PaginatedDataRequest::Size => panic!(),
+                    PaginatedDataRequest::Page { index, range } => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
                             index: *index,
                             values: vec![*index as u8; range.len()],

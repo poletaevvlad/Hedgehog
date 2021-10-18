@@ -1,8 +1,7 @@
-use crate::cmdparser;
 use crate::dataview::{DataProvider, PaginatedDataMessage, PaginatedDataRequest, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
-use crate::status::{Severity, Status};
+use crate::status::Severity;
 use crate::view_model::ViewModel;
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
@@ -20,7 +19,6 @@ pub(crate) struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
     command: Option<CommandState>,
     commands_history: CommandsHistory,
-    status: Option<Status>,
     library: Addr<Library>,
     view_model: ViewModel,
 }
@@ -35,7 +33,6 @@ impl UI {
             terminal,
             command: None,
             commands_history: CommandsHistory::new(),
-            status: None,
             library,
             view_model: ViewModel::new(size),
         }
@@ -44,8 +41,8 @@ impl UI {
     fn render(&mut self) {
         let command = &mut self.command;
         let history = &self.commands_history;
-        let status = &self.status;
         let episodes_list = &self.view_model.episodes_list;
+        let view_model = &self.view_model;
 
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
@@ -59,7 +56,7 @@ impl UI {
                 CommandEditor::new(command_state)
                     .prefix(Span::raw(":"))
                     .render(f, status_rect, history);
-            } else if let Some(status) = status {
+            } else if let Some(status) = &view_model.status {
                 let color = match status.severity() {
                     Severity::Error => Color::Red,
                     Severity::Warning => Color::Yellow,
@@ -116,7 +113,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     false
                 }
                 key!(':') => {
-                    self.status = None;
+                    self.view_model.clear_status();
                     self.command = Some(CommandState::default());
                     true
                 }
@@ -132,12 +129,9 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     }
                     CommandActionResult::Submit => {
                         let command_str = command_state.as_str(&self.commands_history).to_string();
-                        match cmdparser::from_str::<()>(&command_str) {
-                            Ok(_cmd) => (),
-                            Err(error) => self.status = Some(error.into()),
-                        };
                         self.commands_history.push(&command_str);
                         self.command = None;
+                        self.view_model.handle_command_str(command_str.as_str());
                         true
                     }
                 }

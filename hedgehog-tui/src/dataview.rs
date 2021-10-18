@@ -307,18 +307,12 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         true
     }
 
-    pub(crate) fn move_cursor(&mut self, offset: isize) {
+    fn set_cursor(&mut self, position: usize) {
         let size = match self.data.size() {
             Some(size) => size,
             None => return,
         };
-        if offset < 0 {
-            self.selection = self.selection.saturating_sub(offset.abs() as usize);
-        } else {
-            self.selection = (self.selection)
-                .saturating_add(offset as usize)
-                .min(size.saturating_sub(1));
-        }
+        self.selection = position;
 
         let new_offset = if self.selection < self.offset + self.options.scroll_margins {
             Some(self.selection.saturating_sub(self.options.scroll_margins))
@@ -339,6 +333,32 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
                 .update(offset..(offset + self.window_size), |request| {
                     request_data(provider, request)
                 });
+        }
+    }
+
+    pub(crate) fn move_cursor(&mut self, offset: isize) {
+        let size = match self.data.size() {
+            Some(size) => size,
+            None => return,
+        };
+        if offset < 0 {
+            self.set_cursor(self.selection.saturating_sub(offset.abs() as usize));
+        } else {
+            self.set_cursor(
+                (self.selection)
+                    .saturating_add(offset as usize)
+                    .min(size.saturating_sub(1)),
+            );
+        }
+    }
+
+    pub(crate) fn move_cursor_first(&mut self) {
+        self.set_cursor(0)
+    }
+
+    pub(crate) fn move_cursor_last(&mut self) {
+        if let Some(size) = self.data.size() {
+            self.set_cursor(size.saturating_sub(1));
         }
     }
 

@@ -38,6 +38,8 @@ impl ViewModel {
         match command {
             Command::LineNext => self.episodes_list.move_cursor(1),
             Command::LinePrevious => self.episodes_list.move_cursor(-1),
+            Command::LineFirst => self.episodes_list.move_cursor_first(),
+            Command::LineLast => self.episodes_list.move_cursor_last(),
             Command::Quit => System::current().stop(),
         }
     }
@@ -48,6 +50,8 @@ impl ViewModel {
 pub(crate) enum Command {
     LineNext,
     LinePrevious,
+    LineFirst,
+    LineLast,
     #[serde(alias = "q")]
     Quit,
 }

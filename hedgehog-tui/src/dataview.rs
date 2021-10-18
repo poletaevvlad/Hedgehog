@@ -371,6 +371,24 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
                 .map(move |index| (self.data.item_at(index), index == selection))
         })
     }
+
+    pub(crate) fn handle_command(&mut self, command: CursorCommand) {
+        match command {
+            CursorCommand::Next => self.move_cursor(1),
+            CursorCommand::Previous => self.move_cursor(-1),
+            CursorCommand::First => self.move_cursor_first(),
+            CursorCommand::Last => self.move_cursor_last(),
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum CursorCommand {
+    Next,
+    Previous,
+    First,
+    Last,
 }
 
 fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Request) {

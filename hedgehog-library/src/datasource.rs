@@ -24,7 +24,7 @@ impl ListQuery for FeedSummariesQuery {
     type Item = FeedSummary;
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EpisodeSummariesQuery {
     pub feed_id: Option<FeedId>,
 }

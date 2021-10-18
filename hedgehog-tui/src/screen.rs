@@ -1,12 +1,16 @@
 use crate::cmdparser;
+use crate::dataview::{
+    DataProvider, InteractiveList, PaginatedData, PaginatedDataMessage, PaginatedDataRequest,
+    Versioned,
+};
 use crate::events::key;
 use crate::history::CommandsHistory;
-use crate::paging::{InteractiveList, PaginatedDataProvider, PaginatedList};
 use crate::status::{Severity, Status};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
 use actix::prelude::*;
 use crossterm::event::Event;
+use hedgehog_library::model::EpisodeSummary;
 use hedgehog_library::{EpisodeSummariesQuery, Library, QueryRequest, SizeRequest};
 use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
@@ -21,8 +25,7 @@ pub(crate) struct UI {
     commands_history: CommandsHistory,
     status: Option<Status>,
     library: Addr<Library>,
-    episodes_list:
-        Option<InteractiveList<hedgehog_library::model::EpisodeSummary, EpisodesListProvider>>,
+    episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
 }
 
 impl UI {
@@ -36,7 +39,7 @@ impl UI {
             commands_history: CommandsHistory::new(),
             status: None,
             library,
-            episodes_list: None,
+            episodes_list: InteractiveList::new(64),
         }
     }
 
@@ -49,11 +52,8 @@ impl UI {
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
             let library_rect = Rect::new(0, 0, area.width, area.height - 1);
-            if let Some(list) = episodes_list {
-                f.render_widget(
-                    List::new(EpisodesListRowRenderer, list.items.iter()),
-                    library_rect,
-                );
+            if let Some(iter) = episodes_list.iter() {
+                f.render_widget(List::new(EpisodesListRowRenderer, iter), library_rect);
             }
 
             let status_rect = Rect::new(0, area.height - 1, area.width, 1);
@@ -82,8 +82,10 @@ impl Actor for UI {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         ctx.add_stream(crossterm::event::EventStream::new());
-        ctx.address()
-            .do_send(EpisodesSizeRequest(EpisodeSummariesQuery { feed_id: None }));
+        self.episodes_list.set_provider(EpisodesListProvider {
+            query: EpisodeSummariesQuery { feed_id: None },
+            actor: ctx.address(),
+        });
         self.render();
     }
 }
@@ -151,86 +153,90 @@ struct EpisodesListProvider {
     actor: Addr<UI>,
 }
 
-impl PaginatedDataProvider for EpisodesListProvider {
-    fn request_page(&mut self, index: usize, offset: usize, size: usize) {
-        self.actor.clone().do_send(EpisodesDataRequest {
-            index,
-            offset,
-            count: size,
-            request: self.query.clone(),
-        })
+impl DataProvider for EpisodesListProvider {
+    type Request = PaginatedDataRequest;
+
+    fn request(&self, request: crate::dataview::Versioned<Self::Request>) {
+        self.actor
+            .do_send(DataFetchingRequest::Episodes(self.query.clone(), request));
     }
 }
 
-#[derive(Message)]
+#[derive(Debug, Message)]
 #[rtype(result = "()")]
-struct EpisodesDataRequest {
-    index: usize,
-    count: usize,
-    offset: usize,
-    request: EpisodeSummariesQuery,
+enum DataFetchingRequest {
+    Episodes(EpisodeSummariesQuery, Versioned<PaginatedDataRequest>),
 }
 
-impl Handler<EpisodesDataRequest> for UI {
+impl Handler<DataFetchingRequest> for UI {
     type Result = ResponseActFuture<Self, ()>;
 
-    fn handle(&mut self, msg: EpisodesDataRequest, _ctx: &mut Self::Context) -> Self::Result {
-        let index = msg.index;
-        let result_future = self
-            .library
-            .send(QueryRequest::new(msg.request, msg.count).with_offset(msg.offset))
-            .into_actor(self)
-            .map(move |result, actor, _ctx| {
-                if let Some(ref mut list) = actor.episodes_list {
-                    list.items.data_available(index, result.unwrap().unwrap())
+    fn handle(&mut self, msg: DataFetchingRequest, _ctx: &mut Self::Context) -> Self::Result {
+        match msg {
+            DataFetchingRequest::Episodes(query, request) => {
+                let version = request.version();
+                match request.unwrap() {
+                    PaginatedDataRequest::Size => {
+                        Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
+                            move |size, actor, _ctx| {
+                                let should_render = (actor.episodes_list).handle_data(
+                                    Versioned::new(PaginatedDataMessage::Size(
+                                        size.unwrap().unwrap(),
+                                    ))
+                                    .with_version(version),
+                                );
+                                if should_render {
+                                    actor.render();
+                                }
+                            },
+                        ))
+                    }
+                    PaginatedDataRequest::Page { index, range } => Box::pin(
+                        self.library
+                            .send(QueryRequest {
+                                data: query,
+                                offset: range.start,
+                                count: range.len(),
+                            })
+                            .into_actor(self)
+                            .map(move |data, actor, _ctx| {
+                                let should_render = (actor.episodes_list).handle_data(
+                                    Versioned::new(PaginatedDataMessage::Page {
+                                        index,
+                                        values: data.unwrap().unwrap(),
+                                    })
+                                    .with_version(version),
+                                );
+                                if should_render {
+                                    actor.render();
+                                }
+                            }),
+                    ),
                 }
-                actor.render();
-            });
-        Box::pin(result_future)
-    }
-}
-
-#[derive(Message)]
-#[rtype(result = "()")]
-struct EpisodesSizeRequest(EpisodeSummariesQuery);
-
-impl Handler<EpisodesSizeRequest> for UI {
-    type Result = ResponseActFuture<Self, ()>;
-
-    fn handle(&mut self, msg: EpisodesSizeRequest, _ctx: &mut Self::Context) -> Self::Result {
-        let query = msg.0;
-        let result_future = self
-            .library
-            .send(SizeRequest(query.clone()))
-            .into_actor(self)
-            .map(move |result, actor, ctx| {
-                let list = PaginatedList::new(
-                    32,
-                    result.unwrap().unwrap(),
-                    EpisodesListProvider {
-                        query,
-                        actor: ctx.address(),
-                    },
-                );
-                actor.episodes_list = Some(InteractiveList::new(list));
-                actor.render();
-            });
-        Box::pin(result_future)
+            }
+        }
     }
 }
 
 struct EpisodesListRowRenderer;
 
 impl<'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer {
-    type Item = Option<&'a hedgehog_library::model::EpisodeSummary>;
+    type Item = (Option<&'a hedgehog_library::model::EpisodeSummary>, bool);
 
     fn render_item(&self, area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
+        let (item, selected) = item;
+        let style = if selected {
+            Style::default().fg(Color::Yellow)
+        } else {
+            Style::default()
+        };
         match item {
             Some(item) => {
-                let paragraph = Paragraph::new(item.title.as_deref().unwrap_or("no title"));
+                let paragraph =
+                    Paragraph::new(item.title.as_deref().unwrap_or("no title")).style(style);
                 paragraph.render(area, buf);
             }
-            None => buf.set_string(0, 0, " . . . ", Style::default()),
+            None => buf.set_string(0, 0, " . . . ", style),
         }
     }
 }

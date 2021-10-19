@@ -27,7 +27,7 @@ impl fmt::Display for Status {
             Status::CommandParsingError(error) => {
                 f.write_fmt(format_args!("Invalid command: {}", error))
             }
-            Status::Custom(error, _) => f.write_str(&error),
+            Status::Custom(error, _) => f.write_str(error),
         }
     }
 }

@@ -69,7 +69,7 @@ impl FromStr for Key {
         };
 
         let mut modifiers = KeyModifiers::NONE;
-        while let Some(modifier_str) = split_iter.next() {
+        for modifier_str in split_iter {
             let modifier = match modifier_str {
                 "S" | "Shift" => KeyModifiers::SHIFT,
                 "C" | "Ctrl" | "Control" => KeyModifiers::CONTROL,

@@ -2,6 +2,7 @@ mod cmdparser;
 mod dataview;
 mod events;
 mod history;
+mod keymap;
 mod screen;
 mod status;
 mod view_model;

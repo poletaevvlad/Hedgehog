@@ -1,4 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use std::collections::HashMap;
 use std::str::FromStr;
 use thiserror::Error;
 
@@ -104,6 +105,43 @@ impl<'de> serde::de::Visitor<'de> for KeyDeserializerVisitor {
 impl<'de> serde::Deserialize<'de> for Key {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_str(KeyDeserializerVisitor)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct KeyMapping<T> {
+    mapping: HashMap<Key, T>,
+}
+
+impl<T> KeyMapping<T> {
+    pub(crate) fn new() -> Self {
+        KeyMapping::default()
+    }
+
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        KeyMapping {
+            mapping: HashMap::with_capacity(capacity),
+        }
+    }
+
+    pub(crate) fn map(&mut self, key: Key, value: T) {
+        self.mapping.insert(key, value);
+    }
+
+    pub(crate) fn unmap(&mut self, key: &Key) -> bool {
+        self.mapping.remove(key).is_some()
+    }
+
+    pub(crate) fn get(&self, key: &Key) -> Option<&T> {
+        self.mapping.get(key)
+    }
+}
+
+impl<T> Default for KeyMapping<T> {
+    fn default() -> Self {
+        KeyMapping {
+            mapping: HashMap::default(),
+        }
     }
 }
 

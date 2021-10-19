@@ -87,9 +87,30 @@ impl FromStr for Key {
     }
 }
 
+struct KeyDeserializerVisitor;
+
+impl<'de> serde::de::Visitor<'de> for KeyDeserializerVisitor {
+    type Value = Key;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("key")
+    }
+
+    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+        v.parse().map_err(E::custom)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Key {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_str(KeyDeserializerVisitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Key, KeyParsingError};
+    use crate::cmdparser;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     #[test]
@@ -131,6 +152,20 @@ mod tests {
         assert_eq!(
             "S-A-S-a".parse::<Key>(),
             Err(KeyParsingError::DuplicateModifier),
+        );
+    }
+
+    #[test]
+    fn deserialize_key() {
+        assert_eq!(
+            cmdparser::from_str::<Key>("C-a").unwrap(),
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL).into()
+        );
+        assert_eq!(
+            &cmdparser::from_str::<Key>("unknown")
+                .unwrap_err()
+                .to_string(),
+            "'unknown' is not a recognized key"
         );
     }
 }

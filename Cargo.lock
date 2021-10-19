@@ -555,6 +555,7 @@ name = "hedgehog-tui"
 version = "0.1.0"
 dependencies = [
  "actix",
+ "bitflags",
  "crossterm 0.20.0",
  "hedgehog-library",
  "serde",

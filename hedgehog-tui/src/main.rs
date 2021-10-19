@@ -5,6 +5,7 @@ mod history;
 mod keymap;
 mod screen;
 mod status;
+mod theming;
 mod view_model;
 mod widgets;
 

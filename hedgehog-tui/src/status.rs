@@ -38,7 +38,7 @@ impl From<cmdparser::Error> for Status {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub(crate) enum Severity {
     Error,
     Warning,

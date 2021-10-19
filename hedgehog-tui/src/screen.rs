@@ -117,6 +117,15 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     self.command = Some(CommandState::default());
                     true
                 }
+                crossterm::event::Event::Key(key_event) => {
+                    match self.view_model.key_mapping.get(&key_event.into()) {
+                        Some(command) => {
+                            self.view_model.handle_command(command.clone());
+                            true
+                        }
+                        None => false,
+                    }
+                }
                 _ => false,
             },
             Some(ref mut command_state) => {

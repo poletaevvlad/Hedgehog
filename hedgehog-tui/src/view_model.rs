@@ -1,6 +1,7 @@
 use super::screen::EpisodesListProvider;
 use crate::cmdparser;
 use crate::dataview::{CursorCommand, InteractiveList, PaginatedData};
+use crate::keymap::{Key, KeyMapping};
 use crate::status::Status;
 use actix::System;
 use hedgehog_library::model::EpisodeSummary;
@@ -9,6 +10,7 @@ use serde::Deserialize;
 pub(crate) struct ViewModel {
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
+    pub(crate) key_mapping: KeyMapping<Command>,
 }
 
 impl ViewModel {
@@ -16,6 +18,7 @@ impl ViewModel {
         ViewModel {
             episodes_list: InteractiveList::new(size.1 as usize - 1),
             status: None,
+            key_mapping: KeyMapping::new(),
         }
     }
 
@@ -38,15 +41,21 @@ impl ViewModel {
         match command {
             Command::Cursor(command) => self.episodes_list.handle_command(command),
             Command::Quit => System::current().stop(),
+            Command::Map(key, command) => self.key_mapping.map(key, *command),
+            Command::Unmap(key) => {
+                self.key_mapping.unmap(&key);
+            }
         }
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Command {
     #[serde(rename = "line")]
     Cursor(CursorCommand),
+    Map(Key, Box<Command>),
+    Unmap(Key),
     #[serde(alias = "q")]
     Quit,
 }

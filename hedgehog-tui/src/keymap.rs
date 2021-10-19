@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use thiserror::Error;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub(crate) struct Key(KeyEvent);
 
 impl From<KeyEvent> for Key {

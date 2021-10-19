@@ -382,7 +382,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone, Copy)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum CursorCommand {
     Next,

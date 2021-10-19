@@ -8,7 +8,7 @@ pub struct EpisodeDuration(u64);
 
 impl EpisodeDuration {
     pub fn from_seconds(seconds: u64) -> Self {
-        EpisodeDuration(seconds * 1000_000_000)
+        EpisodeDuration(seconds * 1_000_000_000)
     }
 
     pub fn from_nanoseconds(nanoseconds: u64) -> Self {
@@ -67,7 +67,7 @@ pub enum FeedStatus {
 }
 
 impl FeedStatus {
-    pub(crate) fn into_db(&self) -> (u32, u32) {
+    pub(crate) fn db_view(&self) -> (u32, u32) {
         match self {
             FeedStatus::Pending => (0, 0),
             FeedStatus::Loaded => (1, 0),

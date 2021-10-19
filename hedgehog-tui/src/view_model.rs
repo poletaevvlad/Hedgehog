@@ -2,7 +2,7 @@ use super::screen::EpisodesListProvider;
 use crate::cmdparser;
 use crate::dataview::{CursorCommand, InteractiveList, PaginatedData};
 use crate::keymap::{Key, KeyMapping};
-use crate::status::Status;
+use crate::status::{Severity, Status};
 use actix::System;
 use hedgehog_library::model::EpisodeSummary;
 use serde::Deserialize;
@@ -41,9 +41,22 @@ impl ViewModel {
         match command {
             Command::Cursor(command) => self.episodes_list.handle_command(command),
             Command::Quit => System::current().stop(),
-            Command::Map(key, command) => self.key_mapping.map(key, *command),
+            Command::Map(key, command) => {
+                if self.key_mapping.contains(&key) {
+                    self.status = Some(Status::new_custom(
+                        "Key mapping redefined",
+                        Severity::Information,
+                    ));
+                }
+                self.key_mapping.map(key, *command);
+            }
             Command::Unmap(key) => {
-                self.key_mapping.unmap(&key);
+                if !self.key_mapping.unmap(&key) {
+                    self.status = Some(Status::new_custom(
+                        "Key mapping is not defined",
+                        Severity::Warning,
+                    ));
+                }
             }
         }
     }

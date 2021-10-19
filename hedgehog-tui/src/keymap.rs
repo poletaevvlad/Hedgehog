@@ -132,6 +132,10 @@ impl<T> KeyMapping<T> {
         self.mapping.remove(key).is_some()
     }
 
+    pub(crate) fn contains(&self, key: &Key) -> bool {
+        self.mapping.contains_key(key)
+    }
+
     pub(crate) fn get(&self, key: &Key) -> Option<&T> {
         self.mapping.get(key)
     }

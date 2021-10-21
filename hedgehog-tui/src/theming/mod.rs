@@ -1,3 +1,5 @@
+mod style_parser;
+
 use crate::status::Severity;
 use bitflags::bitflags;
 use std::collections::HashMap;

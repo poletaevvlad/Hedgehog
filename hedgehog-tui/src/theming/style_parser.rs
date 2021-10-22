@@ -1,118 +1,159 @@
-use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_while_m_n};
-use nom::character::complete::multispace0;
-use nom::combinator::{map, map_res, value};
-use nom::error::Error;
-use nom::sequence::{delimited, preceded, tuple};
-use nom::IResult;
 use tui::style::{Color, Modifier, Style};
 
-fn modifier(i: &str) -> IResult<&str, Modifier> {
-    alt((
-        value(Modifier::BOLD, tag("bold")),
-        value(Modifier::CROSSED_OUT, tag("crossedout")),
-        value(Modifier::DIM, tag("dim")),
-        value(Modifier::HIDDEN, tag("hidden")),
-        value(Modifier::ITALIC, tag("italic")),
-        value(Modifier::RAPID_BLINK, tag("rapidblink")),
-        value(Modifier::REVERSED, tag("reversed")),
-        value(Modifier::SLOW_BLINK, tag("slowblink")),
-        value(Modifier::UNDERLINED, tag("underlined")),
-    ))(i)
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum Error {
+    #[error("character unexpected: '{0}'")]
+    UnexpectedCharacter(char),
+
+    #[error("modifier unknown: '{0}'")]
+    UnknownModifier(String),
+
+    #[error("color is invalid: '{0}'")]
+    InvalidColor(String),
 }
 
-fn color_rgb(i: &str) -> IResult<&str, Color> {
-    fn hex_color_component(i: &str) -> IResult<&str, u8> {
-        map_res(take_while_m_n(2, 2, |ch: char| ch.is_digit(16)), |hex| {
-            u8::from_str_radix(hex, 16)
-        })(i)
-    }
+#[derive(Clone)]
+struct ParsableStr<'a>(&'a str);
 
-    let color = map(
-        tuple((
-            hex_color_component,
-            hex_color_component,
-            hex_color_component,
-        )),
-        |(r, g, b)| Color::Rgb(r, g, b),
-    );
-    preceded(tag("#"), color)(i)
-}
-
-fn color_xterm(i: &str) -> IResult<&str, Color> {
-    let index = map_res(take_while(|ch: char| ch.is_digit(10)), str::parse);
-    let color = map(index, Color::Indexed);
-    preceded(tag("$"), color)(i)
-}
-
-fn color(i: &str) -> IResult<&str, Color> {
-    alt((
-        color_rgb,
-        color_xterm,
-        value(Color::Black, tag("black")),
-        value(Color::Blue, tag("blue")),
-        value(Color::Cyan, tag("cyan")),
-        value(Color::DarkGray, tag("darkgray")),
-        value(Color::Gray, tag("gray")),
-        value(Color::Green, tag("green")),
-        value(Color::LightBlue, tag("lightblue")),
-        value(Color::LightCyan, tag("lightcyan")),
-        value(Color::LightGreen, tag("lightgreen")),
-        value(Color::LightMagenta, tag("lightmagenta")),
-        value(Color::LightRed, tag("lightred")),
-        value(Color::LightYellow, tag("lightyellow")),
-        value(Color::Magenta, tag("magenta")),
-        value(Color::Red, tag("red")),
-        value(Color::Reset, tag("reset")),
-        value(Color::White, tag("white")),
-        value(Color::Yellow, tag("yellow")),
-    ))(i)
-}
-
-fn ws<'a, O>(
-    parser: impl Fn(&'a str) -> IResult<&'a str, O>,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O> {
-    delimited(multispace0, parser, multispace0)
-}
-
-enum StylePart {
-    AddMod(Modifier),
-    RemoveMod(Modifier),
-    SetFg(Color),
-    SetBg(Color),
-}
-
-fn style_part(i: &str) -> IResult<&str, StylePart> {
-    alt((
-        map(preceded(tag("+"), modifier), StylePart::AddMod),
-        map(preceded(tag("-"), modifier), StylePart::RemoveMod),
-        map(preceded(tag("bg:"), ws(color)), StylePart::SetBg),
-        map(preceded(tag("fg:"), ws(color)), StylePart::SetFg),
-    ))(i)
-}
-
-fn extend_style(style: Style, part: StylePart) -> Style {
-    match part {
-        StylePart::AddMod(modifier) => style.add_modifier(modifier),
-        StylePart::RemoveMod(modifier) => style.remove_modifier(modifier),
-        StylePart::SetFg(foreground) => style.fg(foreground),
-        StylePart::SetBg(background) => style.bg(background),
-    }
-}
-
-pub(crate) fn parse_style(mut input: &str) -> Result<Style, Error<&str>> {
-    let mut style = Style::default();
-    while !input.is_empty() {
-        match ws(style_part)(input) {
-            Ok((tail, part)) => {
-                style = extend_style(style, part);
-                input = tail;
+impl<'a> ParsableStr<'a> {
+    fn take_while(&mut self, predicate: impl Fn(&char) -> bool) -> &'a str {
+        let input = self.0;
+        loop {
+            let mut chars = self.0.chars();
+            match chars.next() {
+                Some(ch) if predicate(&ch) => self.0 = chars.as_str(),
+                _ => break,
             }
-            Err(nom::Err::Error(err)) => return Err(err),
-            Err(nom::Err::Failure(err)) => return Err(err),
-            Err(nom::Err::Incomplete(_)) => unreachable!(),
+        }
+
+        let taken_length = input.len() - self.0.len();
+        &input[..taken_length]
+    }
+
+    fn take_token(&mut self, token: &str) -> bool {
+        if self.0.starts_with(token) {
+            self.0 = &self.0[token.len()..];
+            true
+        } else {
+            false
         }
     }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn take(&mut self) -> Option<char> {
+        let mut chars = self.0.chars();
+        if let Some(ch) = chars.next() {
+            self.0 = chars.as_str();
+            Some(ch)
+        } else {
+            None
+        }
+    }
+}
+
+fn modifier(input: &mut ParsableStr<'_>) -> Result<Modifier, Error> {
+    let ident = input.take_while(char::is_ascii_alphanumeric);
+    let modifier = match ident {
+        "bold" => Modifier::BOLD,
+        "crossedout" => Modifier::CROSSED_OUT,
+        "dim" => Modifier::DIM,
+        "hidden" => Modifier::HIDDEN,
+        "italic" => Modifier::ITALIC,
+        "rapidblink" => Modifier::RAPID_BLINK,
+        "reversed" => Modifier::REVERSED,
+        "slowblink" => Modifier::SLOW_BLINK,
+        "underlined" => Modifier::UNDERLINED,
+        _ => return Err(Error::UnknownModifier(ident.to_string())),
+    };
+    Ok(modifier)
+}
+
+fn color_rgb(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
+    let color_str = input.take_while(|ch| ch.is_digit(16));
+    if color_str.len() != 6 {
+        return Err(Error::InvalidColor(format!("#{}", color_str)));
+    }
+
+    // Cannot fail because color_str contain only valid hex characters
+    let r = u8::from_str_radix(&color_str[0..2], 16).unwrap();
+    let g = u8::from_str_radix(&color_str[2..4], 16).unwrap();
+    let b = u8::from_str_radix(&color_str[4..6], 16).unwrap();
+    Ok(Color::Rgb(r, g, b))
+}
+
+fn color_xterm(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
+    let color_str = input.take_while(|ch| ch.is_digit(10));
+    color_str
+        .parse()
+        .map(Color::Indexed)
+        .map_err(|_| Error::InvalidColor(format!("${}", color_str)))
+}
+
+fn color_named(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
+    let color_str = input.take_while(char::is_ascii_alphanumeric);
+    let color = match color_str {
+        "black" => Color::Black,
+        "blue" => Color::Blue,
+        "cyan" => Color::Cyan,
+        "darkgray" => Color::DarkGray,
+        "gray" => Color::Gray,
+        "green" => Color::Green,
+        "lightblue" => Color::LightBlue,
+        "lightcyan" => Color::LightCyan,
+        "lightgreen" => Color::LightGreen,
+        "lightmagenta" => Color::LightMagenta,
+        "lightred" => Color::LightRed,
+        "lightyellow" => Color::LightYellow,
+        "magenta" => Color::Magenta,
+        "red" => Color::Red,
+        "reset" => Color::Reset,
+        "white" => Color::White,
+        "yellow" => Color::Yellow,
+        _ => return Err(Error::InvalidColor(color_str.to_string())),
+    };
+    Ok(color)
+}
+
+fn color(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
+    if input.take_token("#") {
+        color_rgb(input)
+    } else if input.take_token("$") {
+        color_xterm(input)
+    } else {
+        color_named(input)
+    }
+}
+
+pub(crate) fn parse_style(input: &str) -> Result<Style, Error> {
+    let mut input = ParsableStr(input);
+    let mut style = Style::default();
+
+    loop {
+        input.take_while(char::is_ascii_whitespace);
+        if input.is_empty() {
+            break;
+        }
+
+        if input.take_token("fg:") {
+            input.take_while(char::is_ascii_whitespace);
+            style = style.fg(color(&mut input)?);
+        } else if input.take_token("bg:") {
+            input.take_while(char::is_ascii_whitespace);
+            style = style.bg(color(&mut input)?);
+        } else if input.take_token("+") {
+            style = style.add_modifier(modifier(&mut input)?);
+        } else if input.take_token("-") {
+            style = style.remove_modifier(modifier(&mut input)?);
+        } else {
+            let ch = input.take();
+            // input is non-empty
+            return Err(Error::UnexpectedCharacter(ch.unwrap()));
+        }
+    }
+
     Ok(style)
 }
 

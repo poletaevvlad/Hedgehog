@@ -52,7 +52,20 @@ impl List {
         match_take! {
             input,
             "divider" => Ok(List::Divider),
-            "item" => Ok(List::Item(ListItem::empty())),
+            "item" => {
+                let mut state = ListItem::empty();
+                loop {
+                    let state_item = match_take! {
+                        input,
+                        ":focused" => ListItem::FOCUSED,
+                        ":active" => ListItem::ACTIVE,
+                        ":selected" => ListItem::SELECTED,
+                        _ => break,
+                    };
+                    state |= state_item;
+                }
+                Ok(List::Item(state))
+            },
             _ => Err(SelectorParsingError),
         }
     }
@@ -90,7 +103,7 @@ impl FromStr for Selector {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, Selector, StatusBar};
+    use super::{List, ListItem, Selector, StatusBar};
     use crate::status::Severity;
 
     #[test]
@@ -109,8 +122,27 @@ mod tests {
     }
 
     #[test]
+    fn parse_item_state() {
+        assert_eq!(
+            "list.item".parse(),
+            Ok(Selector::List(List::Item(ListItem::empty())))
+        );
+        assert_eq!(
+            "list.item:active".parse(),
+            Ok(Selector::List(List::Item(ListItem::ACTIVE)))
+        );
+        assert_eq!(
+            "list.item:focused:selected".parse(),
+            Ok(Selector::List(List::Item(
+                ListItem::FOCUSED | ListItem::SELECTED
+            )))
+        );
+    }
+
+    #[test]
     fn parse_error() {
         assert!("list.abcdef".parse::<Selector>().is_err());
         assert!("list.divider.unknown".parse::<Selector>().is_err());
+        assert!("list.item:unknown".parse::<Selector>().is_err());
     }
 }

@@ -4,6 +4,7 @@ use crate::history::CommandsHistory;
 use crossterm::event::Event;
 use tui::backend::Backend;
 use tui::layout::Rect;
+use tui::style::Style;
 use tui::text::Span;
 use tui::Frame;
 
@@ -96,6 +97,7 @@ impl Default for CommandState {
 pub(crate) struct CommandEditor<'a> {
     state: &'a mut CommandState,
     prefix: Option<Span<'a>>,
+    style: Style,
 }
 
 impl<'a> CommandEditor<'a> {
@@ -103,7 +105,13 @@ impl<'a> CommandEditor<'a> {
         CommandEditor {
             state,
             prefix: None,
+            style: Style::default(),
         }
+    }
+
+    pub(crate) fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
     }
 
     pub(crate) fn prefix(mut self, prefix: Span<'a>) -> Self {
@@ -122,10 +130,15 @@ impl<'a> CommandEditor<'a> {
             .history_index
             .and_then(|index| history.get(index));
         match history_index {
-            Some(text) => ReadonlyEntry::new(text).prefix(self.prefix).render(f, rect),
-            None => Entry::new()
+            Some(text) => ReadonlyEntry::new(text)
                 .prefix(self.prefix)
-                .render(f, rect, &mut self.state.buffer),
+                .style(self.style)
+                .render(f, rect),
+            None => Entry::new().prefix(self.prefix).style(self.style).render(
+                f,
+                rect,
+                &mut self.state.buffer,
+            ),
         }
     }
 }

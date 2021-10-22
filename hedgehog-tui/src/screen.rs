@@ -53,8 +53,11 @@ impl UI {
 
             let status_rect = Rect::new(0, area.height - 1, area.width, 1);
             if let Some(ref mut command_state) = command {
+                let style = view_model.theme.get(StatusBar::Command);
+                let prompt_style = view_model.theme.get(StatusBar::CommandPrompt);
                 CommandEditor::new(command_state)
-                    .prefix(Span::raw(":"))
+                    .prefix(Span::styled(":", prompt_style))
+                    .style(style)
                     .render(f, status_rect, history);
             } else if let Some(status) = &view_model.status {
                 let theme_selector = StatusBar::Status(Some(status.severity()));

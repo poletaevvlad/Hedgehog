@@ -2,6 +2,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use tui::backend::Backend;
 use tui::buffer;
 use tui::layout::Rect;
+use tui::style::Style;
 use tui::text::Span;
 use tui::widgets::Widget;
 use tui::Frame;
@@ -237,11 +238,17 @@ impl Default for Buffer {
 #[derive(Default)]
 pub(crate) struct Entry<'a> {
     prefix: Option<Span<'a>>,
+    style: Style,
 }
 
 impl<'a> Entry<'a> {
     pub(crate) fn new() -> Self {
         Entry::default()
+    }
+
+    pub(crate) fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
     }
 
     pub(crate) fn prefix(mut self, prefix: impl Into<Option<Span<'a>>>) -> Self {
@@ -281,6 +288,7 @@ impl<'a> Entry<'a> {
             prefix: self.prefix,
             display_offset: state.display_offset,
             text: state.text.as_str(),
+            style: self.style,
         };
         f.render_widget(widget, area);
         f.set_cursor(area.x + cursor_position as u16, area.y);
@@ -291,6 +299,7 @@ struct TextEntryWidget<'a> {
     prefix: Option<Span<'a>>,
     text: &'a str,
     display_offset: u16,
+    style: Style,
 }
 
 fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
@@ -309,8 +318,9 @@ fn skip_by_width(mut offset: u16, mut text: &str) -> (u16, &str) {
 
 impl<'a> Widget for TextEntryWidget<'a> {
     fn render(self, mut area: Rect, buf: &mut buffer::Buffer) {
-        let mut remaining_offset = self.display_offset as u16;
+        buf.set_style(area, self.style);
 
+        let mut remaining_offset = self.display_offset as u16;
         if let Some(ref prefix) = self.prefix {
             let (remaining, prefix_text) = skip_by_width(remaining_offset, &prefix.content);
             let (x, _) = buf.set_span(
@@ -331,15 +341,25 @@ impl<'a> Widget for TextEntryWidget<'a> {
 pub(crate) struct ReadonlyEntry<'a> {
     prefix: Option<Span<'a>>,
     text: &'a str,
+    style: Style,
 }
 
 impl<'a> ReadonlyEntry<'a> {
     pub(crate) fn new(text: &'a str) -> Self {
-        ReadonlyEntry { prefix: None, text }
+        ReadonlyEntry {
+            prefix: None,
+            text,
+            style: Style::default(),
+        }
     }
 
     pub(crate) fn prefix(mut self, prefix: impl Into<Option<Span<'a>>>) -> Self {
         self.prefix = prefix.into();
+        self
+    }
+
+    pub(crate) fn style(mut self, style: Style) -> Self {
+        self.style = style;
         self
     }
 
@@ -359,6 +379,7 @@ impl<'a> ReadonlyEntry<'a> {
             prefix: self.prefix,
             display_offset,
             text: self.text,
+            style: self.style,
         };
         f.render_widget(widget, area);
         f.set_cursor(area.x + cursor_position as u16, area.y);

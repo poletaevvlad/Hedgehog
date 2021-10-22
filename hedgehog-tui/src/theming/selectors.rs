@@ -21,8 +21,8 @@ impl StatusBar {
         match_take! {
             input,
             "empty" => Ok(StatusBar::Empty),
-            "command" => Ok(StatusBar::Command),
             "command.prompt" => Ok(StatusBar::CommandPrompt),
+            "command" => Ok(StatusBar::Command),
             "status.error" => Ok(StatusBar::Status(Some(Severity::Error))),
             "status.warning" => Ok(StatusBar::Status(Some(Severity::Warning))),
             "status.information" => Ok(StatusBar::Status(Some(Severity::Information))),

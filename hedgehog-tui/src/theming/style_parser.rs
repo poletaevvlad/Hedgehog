@@ -1,3 +1,4 @@
+use super::parser::ParsableStr;
 use tui::style::{Color, Modifier, Style};
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -10,48 +11,6 @@ pub(crate) enum Error {
 
     #[error("color is invalid: '{0}'")]
     InvalidColor(String),
-}
-
-#[derive(Clone)]
-struct ParsableStr<'a>(&'a str);
-
-impl<'a> ParsableStr<'a> {
-    fn take_while(&mut self, predicate: impl Fn(&char) -> bool) -> &'a str {
-        let input = self.0;
-        loop {
-            let mut chars = self.0.chars();
-            match chars.next() {
-                Some(ch) if predicate(&ch) => self.0 = chars.as_str(),
-                _ => break,
-            }
-        }
-
-        let taken_length = input.len() - self.0.len();
-        &input[..taken_length]
-    }
-
-    fn take_token(&mut self, token: &str) -> bool {
-        if self.0.starts_with(token) {
-            self.0 = &self.0[token.len()..];
-            true
-        } else {
-            false
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    fn take(&mut self) -> Option<char> {
-        let mut chars = self.0.chars();
-        if let Some(ch) = chars.next() {
-            self.0 = chars.as_str();
-            Some(ch)
-        } else {
-            None
-        }
-    }
 }
 
 fn modifier(input: &mut ParsableStr<'_>) -> Result<Modifier, Error> {
@@ -128,7 +87,7 @@ fn color(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
 }
 
 pub(crate) fn parse_style(input: &str) -> Result<Style, Error> {
-    let mut input = ParsableStr(input);
+    let mut input = ParsableStr::new(input);
     let mut style = Style::default();
 
     loop {

@@ -1,31 +1,10 @@
+mod parser;
+mod selectors;
 mod style_parser;
 
-use crate::status::Severity;
-use bitflags::bitflags;
+pub(crate) use selectors::{List, ListItem, Selector, StatusBar};
 use std::collections::HashMap;
 use tui::style::Style;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum StatusBar {
-    Empty,
-    Command,
-    CommandPrompt,
-    Status(Option<Severity>),
-}
-
-bitflags! {
-    struct ListItem: usize {
-        const FOCUSED = 0b001;
-        const ACTIVE = 0b010;
-        const SELECTED = 0b100;
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum List {
-    Divider,
-    Item(ListItem),
-}
 
 #[derive(Debug, Clone, Copy)]
 struct OverridableStyle {
@@ -93,7 +72,23 @@ impl StyleProvider<List> for Theme {
     fn get(&self, selector: List) -> Style {
         match selector {
             List::Divider => self.divider.unwrap_or_default(),
-            List::Item(item) => self.list_items[item.bits].style,
+            List::Item(item) => self.list_items[item.bits()].style,
+        }
+    }
+}
+
+impl StyleProvider<Selector> for Theme {
+    fn set(&mut self, selector: Selector, style: Style) {
+        match selector {
+            Selector::StatusBar(statusbar) => self.set(statusbar, style),
+            Selector::List(list) => self.set(list, style),
+        }
+    }
+
+    fn get(&self, selector: Selector) -> Style {
+        match selector {
+            Selector::StatusBar(statusbar) => self.get(statusbar),
+            Selector::List(list) => self.get(list),
         }
     }
 }

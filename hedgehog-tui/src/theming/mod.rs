@@ -21,10 +21,19 @@ impl Default for OverridableStyle {
     }
 }
 
-struct Theme {
+pub(crate) struct Theme {
     status_bar: HashMap<StatusBar, Style>,
     divider: Option<Style>,
     list_items: [OverridableStyle; 8],
+}
+
+impl Theme {
+    pub(crate) fn handle_command(&mut self, command: ThemeCommand) {
+        match command {
+            ThemeCommand::Reset => *self = Theme::default(),
+            ThemeCommand::Set(selector, style) => self.set(selector, style),
+        }
+    }
 }
 
 impl Default for Theme {
@@ -91,6 +100,16 @@ impl StyleProvider<Selector> for Theme {
             Selector::List(list) => self.get(list),
         }
     }
+}
+
+#[derive(serde::Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum ThemeCommand {
+    Reset,
+    Set(
+        Selector,
+        #[serde(deserialize_with = "style_parser::deserialize")] Style,
+    ),
 }
 
 #[cfg(test)]

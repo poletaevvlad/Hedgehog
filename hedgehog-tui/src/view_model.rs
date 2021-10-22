@@ -3,6 +3,7 @@ use crate::cmdparser;
 use crate::dataview::{CursorCommand, InteractiveList, PaginatedData};
 use crate::keymap::{Key, KeyMapping};
 use crate::status::{Severity, Status};
+use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use hedgehog_library::model::EpisodeSummary;
 use serde::Deserialize;
@@ -11,6 +12,7 @@ pub(crate) struct ViewModel {
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
     pub(crate) key_mapping: KeyMapping<Command>,
+    pub(crate) theme: Theme,
 }
 
 impl ViewModel {
@@ -19,6 +21,7 @@ impl ViewModel {
             episodes_list: InteractiveList::new(size.1 as usize - 1),
             status: None,
             key_mapping: KeyMapping::new(),
+            theme: Theme::default(),
         }
     }
 
@@ -58,6 +61,7 @@ impl ViewModel {
                     ));
                 }
             }
+            Command::Theme(command) => self.theme.handle_command(command),
         }
     }
 }
@@ -69,6 +73,7 @@ pub(crate) enum Command {
     Cursor(CursorCommand),
     Map(Key, Box<Command>),
     Unmap(Key),
+    Theme(ThemeCommand),
     #[serde(alias = "q")]
     Quit,
 }

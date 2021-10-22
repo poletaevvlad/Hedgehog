@@ -116,6 +116,26 @@ pub(crate) fn parse_style(input: &str) -> Result<Style, Error> {
     Ok(style)
 }
 
+struct StyleDeseralizeVisitor;
+
+impl<'de> serde::de::Visitor<'de> for StyleDeseralizeVisitor {
+    type Value = Style;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("style")
+    }
+
+    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+        parse_style(v).map_err(E::custom)
+    }
+}
+
+pub(crate) fn deserialize<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Style, D::Error> {
+    deserializer.deserialize_str(StyleDeseralizeVisitor)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{parse_style, Error};

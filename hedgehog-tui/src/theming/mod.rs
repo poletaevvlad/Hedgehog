@@ -46,7 +46,7 @@ impl Default for Theme {
     }
 }
 
-trait StyleProvider<S> {
+pub(crate) trait StyleProvider<S> {
     fn set(&mut self, selector: S, style: Style);
     fn get(&self, selector: S) -> Style;
 }
@@ -57,7 +57,15 @@ impl StyleProvider<StatusBar> for Theme {
     }
 
     fn get(&self, selector: StatusBar) -> Style {
-        self.status_bar.get(&selector).cloned().unwrap_or_default()
+        match selector {
+            selector @ StatusBar::Status(Some(_)) => self
+                .status_bar
+                .get(&StatusBar::Status(None))
+                .cloned()
+                .unwrap_or_default()
+                .patch(self.status_bar.get(&selector).cloned().unwrap_or_default()),
+            selector => self.status_bar.get(&selector).cloned().unwrap_or_default(),
+        }
     }
 }
 
@@ -114,6 +122,8 @@ pub(crate) enum ThemeCommand {
 
 #[cfg(test)]
 mod tests {
+    use crate::status::Severity;
+
     use super::{List, ListItem, StatusBar, StyleProvider, Theme};
     use tui::style::{Color, Modifier, Style};
 
@@ -123,6 +133,24 @@ mod tests {
         assert_eq!(theme.get(StatusBar::Empty), Style::default());
         theme.set(StatusBar::Empty, Style::default().fg(Color::Red));
         assert_eq!(theme.get(StatusBar::Empty), Style::default().fg(Color::Red));
+    }
+
+    #[test]
+    fn status_bar_status() {
+        let mut theme = Theme::default();
+        theme.set(StatusBar::Status(None), Style::default().bg(Color::Red));
+        theme.set(
+            StatusBar::Status(Some(Severity::Error)),
+            Style::default().fg(Color::White),
+        );
+        assert_eq!(
+            theme.get(StatusBar::Status(Some(Severity::Error))),
+            Style::default().bg(Color::Red).fg(Color::White)
+        );
+        assert_eq!(
+            theme.get(StatusBar::Status(Some(Severity::Information))),
+            Style::default().bg(Color::Red)
+        );
     }
 
     #[test]

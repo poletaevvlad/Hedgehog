@@ -1,7 +1,7 @@
 use crate::dataview::{DataProvider, PaginatedDataMessage, PaginatedDataRequest, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
-use crate::status::Severity;
+use crate::theming::{StatusBar, StyleProvider};
 use crate::view_model::{Command, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
@@ -12,7 +12,7 @@ use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Span;
-use tui::widgets::{Paragraph, Widget};
+use tui::widgets::{Block, Paragraph, Widget};
 use tui::Terminal;
 
 pub(crate) struct UI {
@@ -57,13 +57,12 @@ impl UI {
                     .prefix(Span::raw(":"))
                     .render(f, status_rect, history);
             } else if let Some(status) = &view_model.status {
-                let color = match status.severity() {
-                    Severity::Error => Color::Red,
-                    Severity::Warning => Color::Yellow,
-                    Severity::Information => Color::LightBlue,
-                };
+                let theme_selector = StatusBar::Status(Some(status.severity()));
+                let style = view_model.theme.get(theme_selector);
+                f.render_widget(Paragraph::new(status.to_string()).style(style), status_rect);
+            } else {
                 f.render_widget(
-                    Paragraph::new(status.to_string()).style(Style::default().fg(color)),
+                    Block::default().style(view_model.theme.get(StatusBar::Empty)),
                     status_rect,
                 );
             }

@@ -1,6 +1,6 @@
 use tui::style::{Color, Modifier, Style};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub(crate) enum Error {
     #[error("character unexpected: '{0}'")]
     UnexpectedCharacter(char),
@@ -159,7 +159,7 @@ pub(crate) fn parse_style(input: &str) -> Result<Style, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_style;
+    use super::{parse_style, Error};
     use tui::style::{Color, Modifier, Style};
 
     #[test]
@@ -199,5 +199,37 @@ mod tests {
                 sub_modifier: Modifier::empty()
             }
         );
+    }
+
+    #[test]
+    fn unknown_modifier_error() {
+        assert_eq!(
+            parse_style("+nonexistant"),
+            Err(Error::UnknownModifier("nonexistant".to_string()))
+        )
+    }
+
+    #[test]
+    fn invalid_color_rgb() {
+        assert_eq!(
+            parse_style("fg: #0011"),
+            Err(Error::InvalidColor("#0011".to_string()))
+        );
+    }
+
+    #[test]
+    fn invalid_color_xterm() {
+        assert_eq!(
+            parse_style("bg: $12345 +bold"),
+            Err(Error::InvalidColor("$12345".to_string()))
+        );
+    }
+
+    #[test]
+    fn invalid_color_named() {
+        assert_eq!(
+            parse_style("bg:abcdef-bold"),
+            Err(Error::InvalidColor("abcdef".to_string()))
+        )
     }
 }

@@ -110,10 +110,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
 
         let should_render = match self.command {
             None => match event {
-                key!('c', CONTROL) => {
-                    self.view_model.handle_command(Command::Quit);
-                    false
-                }
+                key!('c', CONTROL) => self.view_model.handle_command_interactive(Command::Quit),
                 key!(':') => {
                     self.view_model.clear_status();
                     self.command = Some(CommandState::default());
@@ -123,8 +120,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     match self.view_model.key_mapping.get(&key_event.into()) {
                         Some(command) => {
                             let command = command.clone();
-                            self.view_model.handle_command(command);
-                            true
+                            self.view_model.handle_command_interactive(command)
                         }
                         None => false,
                     }

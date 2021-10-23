@@ -35,36 +35,60 @@ impl ViewModel {
 
     pub(crate) fn handle_command_str(&mut self, command: &str) {
         match cmdparser::from_str(command) {
-            Ok(command) => self.handle_command(command),
+            Ok(command) => {
+                self.handle_command_interactive(command);
+            }
             Err(error) => self.status = Some(Status::CommandParsingError(error)),
         }
     }
 
-    pub(crate) fn handle_command(&mut self, command: Command) {
+    fn handle_command(&mut self, command: Command) -> Result<bool, Status> {
         match command {
-            Command::Cursor(command) => self.episodes_list.handle_command(command),
-            Command::Quit => System::current().stop(),
+            Command::Cursor(command) => {
+                self.episodes_list.handle_command(command);
+                Ok(true)
+            }
+            Command::Quit => {
+                System::current().stop();
+                Ok(false)
+            }
             Command::Map(key, command) => {
-                if self.key_mapping.contains(&key) {
-                    self.status = Some(Status::new_custom(
+                let redefined = self.key_mapping.contains(&key);
+                self.key_mapping.map(key, *command);
+
+                if redefined {
+                    Err(Status::new_custom(
                         "Key mapping redefined",
                         Severity::Information,
-                    ));
+                    ))
+                } else {
+                    Ok(false)
                 }
-                self.key_mapping.map(key, *command);
             }
             Command::Unmap(key) => {
                 if !self.key_mapping.unmap(&key) {
-                    self.status = Some(Status::new_custom(
+                    Err(Status::new_custom(
                         "Key mapping is not defined",
                         Severity::Warning,
-                    ));
+                    ))
+                } else {
+                    Ok(false)
                 }
             }
-            Command::Theme(command) => {
-                if let Err(error) = self.theme.handle_command(command) {
-                    self.status = Some(Status::new_custom(format!("{}", error), Severity::Error));
-                }
+            Command::Theme(command) => self
+                .theme
+                .handle_command(command)
+                .map(|_| true)
+                .map_err(|error| Status::new_custom(format!("{}", error), Severity::Error)),
+        }
+    }
+
+    pub(crate) fn handle_command_interactive(&mut self, command: Command) -> bool {
+        match self.handle_command(command) {
+            Ok(should_redraw) => should_redraw,
+            Err(status) => {
+                self.status = Some(status);
+                true
             }
         }
     }

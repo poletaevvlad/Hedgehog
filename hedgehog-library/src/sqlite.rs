@@ -1,5 +1,6 @@
 use crate::datasource::{
     DataProvider, EpisodeSummariesQuery, FeedSummariesQuery, PagedQueryHandler, QueryError,
+    QueryHandler,
 };
 use crate::model::{
     Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
@@ -121,22 +122,12 @@ impl DataProvider for SqliteDataProvider {
     }
 }
 
-impl PagedQueryHandler<FeedSummariesQuery> for SqliteDataProvider {
-    fn get_size(&self, _request: FeedSummariesQuery) -> Result<usize, QueryError> {
-        let mut select = self.connection.prepare("SELECT COUNT(id) FROM feeds")?;
-        Ok(select.query_row([], |row| row.get(0))?)
-    }
-
-    fn query(
-        &self,
-        _request: FeedSummariesQuery,
-        offset: usize,
-        count: usize,
-    ) -> Result<Vec<FeedSummary>, QueryError> {
-        let mut select = self.connection.prepare(
-            "SELECT id, title, source, status, error_code FROM feeds LIMIT :limit OFFSET :offset",
-        )?;
-        let rows = select.query_map(named_params![":limit": count, ":offset": offset,], |row| {
+impl QueryHandler<FeedSummariesQuery> for SqliteDataProvider {
+    fn query(&self, _request: FeedSummariesQuery) -> Result<Vec<FeedSummary>, QueryError> {
+        let mut select = self
+            .connection
+            .prepare("SELECT id, title, source, status, error_code FROM feeds")?;
+        let rows = select.query_map([], |row| {
             Ok(FeedSummary {
                 id: row.get(0)?,
                 title: row.get(1)?,
@@ -173,7 +164,7 @@ impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
         Ok(statement.query_row(&*params, |row| row.get(0))?)
     }
 
-    fn query(
+    fn query_page(
         &self,
         request: EpisodeSummariesQuery,
         offset: usize,

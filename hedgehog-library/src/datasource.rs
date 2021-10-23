@@ -27,6 +27,7 @@ pub trait QueryHandler<P: ListQuery> {
     fn query(&self, request: P) -> Result<Vec<P::Item>, QueryError>;
 }
 
+#[derive(Debug, Clone)]
 pub struct FeedSummariesQuery;
 
 impl ListQuery for FeedSummariesQuery {

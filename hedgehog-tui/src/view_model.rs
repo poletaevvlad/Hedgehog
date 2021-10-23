@@ -1,16 +1,17 @@
-use super::screen::EpisodesListProvider;
 use crate::cmdparser;
 use crate::cmdreader::{CommandReader, FileResolver};
-use crate::dataview::{CursorCommand, InteractiveList, PaginatedData};
+use crate::dataview::{CursorCommand, InteractiveList, ListData, PaginatedData};
 use crate::keymap::{Key, KeyMapping};
+use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
-use hedgehog_library::model::EpisodeSummary;
+use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use serde::Deserialize;
 use std::path::PathBuf;
 
 pub(crate) struct ViewModel {
+    pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
     pub(crate) key_mapping: KeyMapping<Command>,
@@ -20,6 +21,7 @@ pub(crate) struct ViewModel {
 impl ViewModel {
     pub(crate) fn new(size: (u16, u16)) -> Self {
         ViewModel {
+            feeds_list: InteractiveList::new(size.1 as usize - 1),
             episodes_list: InteractiveList::new(size.1 as usize - 1),
             status: None,
             key_mapping: KeyMapping::new(),

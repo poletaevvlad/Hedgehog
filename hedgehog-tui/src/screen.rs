@@ -1,4 +1,6 @@
-use crate::dataview::{DataProvider, PaginatedDataMessage, PaginatedDataRequest, Versioned};
+use crate::dataview::{
+    DataProvider, ListDataRequest, PaginatedDataMessage, PaginatedDataRequest, Versioned,
+};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::theming::{StatusBar, StyleProvider};
@@ -7,7 +9,10 @@ use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
 use actix::prelude::*;
 use crossterm::event::Event;
-use hedgehog_library::{EpisodeSummariesQuery, Library, PagedQueryRequest, SizeRequest};
+use hedgehog_library::{
+    EpisodeSummariesQuery, FeedSummariesQuery, Library, PagedQueryRequest, QueryRequest,
+    SizeRequest,
+};
 use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
@@ -166,10 +171,25 @@ impl DataProvider for EpisodesListProvider {
     }
 }
 
+pub(crate) struct FeedsListProvider {
+    query: FeedSummariesQuery,
+    actor: Addr<UI>,
+}
+
+impl DataProvider for FeedsListProvider {
+    type Request = ListDataRequest;
+
+    fn request(&self, request: Versioned<Self::Request>) {
+        self.actor
+            .do_send(DataFetchingRequest::Feeds(self.query.clone(), request));
+    }
+}
+
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 enum DataFetchingRequest {
     Episodes(EpisodeSummariesQuery, Versioned<PaginatedDataRequest>),
+    Feeds(FeedSummariesQuery, Versioned<ListDataRequest>),
 }
 
 impl Handler<DataFetchingRequest> for UI {
@@ -217,6 +237,17 @@ impl Handler<DataFetchingRequest> for UI {
                             }),
                     ),
                 }
+            }
+            DataFetchingRequest::Feeds(query, request) => {
+                Box::pin(self.library.send(QueryRequest(query)).into_actor(self).map(
+                    move |data, actor, _ctx| {
+                        let should_render = (actor.view_model.feeds_list)
+                            .handle_data(request.with_data(data.unwrap().unwrap()));
+                        if should_render {
+                            actor.render();
+                        }
+                    },
+                ))
             }
         }
     }

@@ -288,7 +288,7 @@ impl<'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer {
                     Paragraph::new(item.title.as_deref().unwrap_or("no title")).style(style);
                 paragraph.render(area, buf);
             }
-            None => buf.set_string(0, 0, " . . . ", style),
+            None => buf.set_string(area.x, area.y, " . . . ", style),
         }
     }
 }
@@ -311,7 +311,7 @@ impl<'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer {
                     Paragraph::new(item.title.as_deref().unwrap_or("no title")).style(style);
                 paragraph.render(area, buf);
             }
-            None => buf.set_string(0, 0, " . . . ", style),
+            None => buf.set_string(area.x, area.y, " . . . ", style),
         }
     }
 }

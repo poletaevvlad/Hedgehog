@@ -5,19 +5,39 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
+struct OptionalRev<I>(I, bool);
+
+impl<I: DoubleEndedIterator> Iterator for OptionalRev<I> {
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.1 {
+            true => self.0.next_back(),
+            false => self.0.next(),
+        }
+    }
+}
+
 pub(crate) struct FileResolver {
     suffixes: Vec<&'static str>,
+    reverse_order: bool,
 }
 
 impl FileResolver {
     pub(crate) fn new() -> Self {
         FileResolver {
             suffixes: Vec::new(),
+            reverse_order: false,
         }
     }
 
     pub(crate) fn with_suffix(mut self, suffix: &'static str) -> Self {
         self.suffixes.push(suffix);
+        self
+    }
+
+    pub(crate) fn with_reversed_order(mut self) -> Self {
+        self.reverse_order = true;
         self
     }
 
@@ -37,7 +57,7 @@ impl FileResolver {
         // TODO: Non-UNIX OS paths
         let paths_env =
             env::var("HEDGEHOG_PATH").unwrap_or_else(|_| "/usr/share/hedgehog".to_string());
-        let paths = paths_env.split(':');
+        let paths = OptionalRev(paths_env.split(':'), self.reverse_order);
 
         for path in paths {
             let mut path: PathBuf = path.to_string().into();
@@ -224,5 +244,40 @@ mod tests {
         }
 
         assert!(resolver.resolve("file").is_none());
+    }
+
+    #[test]
+    fn visiting_reversed() {
+        let dir1 = tempdir().unwrap();
+        let dir2 = tempdir().unwrap();
+        let env_path = format!("{}:{}", dir1.path().display(), dir2.path().display());
+        std::env::set_var("HEDGEHOG_PATH", env_path);
+
+        let resolver = FileResolver::new()
+            .with_suffix(".txt")
+            .with_reversed_order();
+
+        fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
+            let mut path = dir.to_path_buf();
+            path.push(filename);
+            order.push(path);
+        }
+
+        let mut resolution_order = vec![];
+        push_order_entry(&mut resolution_order, dir2.path(), "file");
+        push_order_entry(&mut resolution_order, dir2.path(), "file.txt");
+        push_order_entry(&mut resolution_order, dir1.path(), "file");
+        push_order_entry(&mut resolution_order, dir1.path(), "file.txt");
+
+        for path in &resolution_order {
+            File::create(path).unwrap();
+        }
+
+        let mut visited = vec![];
+        resolver.visit_all("file", |path| {
+            visited.push(path.to_path_buf());
+            false
+        });
+        assert_eq!(resolution_order, visited);
     }
 }

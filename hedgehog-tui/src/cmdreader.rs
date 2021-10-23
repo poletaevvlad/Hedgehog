@@ -100,16 +100,22 @@ impl CommandReader {
     }
 
     pub(crate) fn read<'de, C: Deserialize<'de>>(&'de mut self) -> Result<Option<C>, Error> {
-        self.buffer.clear();
-        let read_count = self.reader.read_line(&mut self.buffer)?;
-        if read_count == 0 {
-            return Ok(None);
-        }
+        loop {
+            self.buffer.clear();
+            let read_count = self.reader.read_line(&mut self.buffer)?;
+            if read_count == 0 {
+                return Ok(None);
+            }
 
-        self.line_no += 1;
-        match cmdparser::from_str(&self.buffer) {
-            Ok(command) => Ok(Some(command)),
-            Err(error) => Err(Error::Parsing(error, self.line_no)),
+            if self.buffer.trim().is_empty() {
+                continue;
+            }
+
+            self.line_no += 1;
+            return match cmdparser::from_str(&self.buffer) {
+                Ok(command) => Ok(Some(command)),
+                Err(error) => Err(Error::Parsing(error, self.line_no)),
+            };
         }
     }
 }
@@ -135,6 +141,7 @@ mod tests {
 
         let mut file = File::create(&path).unwrap();
         writeln!(file, "First 4").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "Second four").unwrap();
         drop(file);
 

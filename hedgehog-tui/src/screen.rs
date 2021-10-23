@@ -14,10 +14,10 @@ use hedgehog_library::{
     SizeRequest,
 };
 use tui::backend::CrosstermBackend;
-use tui::layout::Rect;
+use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
 use tui::text::Span;
-use tui::widgets::{Block, Paragraph, Widget};
+use tui::widgets::{Block, Borders, Paragraph, Widget};
 use tui::Terminal;
 
 pub(crate) struct UI {
@@ -52,8 +52,21 @@ impl UI {
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
             let library_rect = Rect::new(0, 0, area.width, area.height - 1);
+
+            let layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Min(24), Constraint::Percentage(75)].as_ref())
+                .split(library_rect);
+
+            let feeds_border = Block::default().borders(Borders::RIGHT);
+            let feeds_area = feeds_border.inner(layout[0]);
+            f.render_widget(feeds_border, layout[0]);
+
+            if let Some(iter) = view_model.feeds_list.iter() {
+                f.render_widget(List::new(FeedsListRowRenderer, iter), feeds_area);
+            }
             if let Some(iter) = episodes_list.iter() {
-                f.render_widget(List::new(EpisodesListRowRenderer, iter), library_rect);
+                f.render_widget(List::new(EpisodesListRowRenderer, iter), layout[1]);
             }
 
             let status_rect = Rect::new(0, area.height - 1, area.width, 1);
@@ -90,6 +103,10 @@ impl Actor for UI {
                 query: EpisodeSummariesQuery { feed_id: None },
                 actor: ctx.address(),
             });
+        self.view_model.feeds_list.set_provider(FeedsListProvider {
+            query: FeedSummariesQuery,
+            actor: ctx.address(),
+        });
         self.view_model.init_rc();
         self.render();
     }
@@ -257,6 +274,29 @@ struct EpisodesListRowRenderer;
 
 impl<'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer {
     type Item = (Option<&'a hedgehog_library::model::EpisodeSummary>, bool);
+
+    fn render_item(&self, area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
+        let (item, selected) = item;
+        let style = if selected {
+            Style::default().fg(Color::Yellow)
+        } else {
+            Style::default()
+        };
+        match item {
+            Some(item) => {
+                let paragraph =
+                    Paragraph::new(item.title.as_deref().unwrap_or("no title")).style(style);
+                paragraph.render(area, buf);
+            }
+            None => buf.set_string(0, 0, " . . . ", style),
+        }
+    }
+}
+
+struct FeedsListRowRenderer;
+
+impl<'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer {
+    type Item = (Option<&'a hedgehog_library::model::FeedSummary>, bool);
 
     fn render_item(&self, area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;

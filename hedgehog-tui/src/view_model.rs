@@ -61,7 +61,11 @@ impl ViewModel {
                     ));
                 }
             }
-            Command::Theme(command) => self.theme.handle_command(command),
+            Command::Theme(command) => {
+                if let Err(error) = self.theme.handle_command(command) {
+                    self.status = Some(Status::new_custom(format!("{}", error), Severity::Error));
+                }
+            }
         }
     }
 }

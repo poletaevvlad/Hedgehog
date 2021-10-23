@@ -21,7 +21,7 @@ pub(crate) struct CommandReader {
 }
 
 impl CommandReader {
-    fn open<P: AsRef<Path>>(path: P) -> io::Result<CommandReader> {
+    pub(crate) fn open<P: AsRef<Path>>(path: P) -> io::Result<CommandReader> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         Ok(CommandReader {
@@ -31,7 +31,7 @@ impl CommandReader {
         })
     }
 
-    fn read<'de, C: Deserialize<'de>>(&'de mut self) -> Result<Option<C>, Error> {
+    pub(crate) fn read<'de, C: Deserialize<'de>>(&'de mut self) -> Result<Option<C>, Error> {
         self.buffer.clear();
         let read_count = self.reader.read_line(&mut self.buffer)?;
         if read_count == 0 {

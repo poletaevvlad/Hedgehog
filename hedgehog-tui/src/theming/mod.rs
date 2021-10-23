@@ -2,8 +2,10 @@ mod parser;
 mod selectors;
 mod style_parser;
 
+use crate::cmdreader::{self, CommandReader};
 pub(crate) use selectors::{List, ListItem, Selector, StatusBar};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use tui::style::Style;
 
 #[derive(Debug, Clone, Copy)]
@@ -28,11 +30,21 @@ pub(crate) struct Theme {
 }
 
 impl Theme {
-    pub(crate) fn handle_command(&mut self, command: ThemeCommand) {
+    pub(crate) fn handle_command(&mut self, command: ThemeCommand) -> Result<(), cmdreader::Error> {
         match command {
             ThemeCommand::Reset => *self = Theme::default(),
             ThemeCommand::Set(selector, style) => self.set(selector, style),
+            ThemeCommand::Load(path, loading_option) => {
+                if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
+                    *self = Theme::default();
+                }
+                let mut reader = CommandReader::open(path)?;
+                while let Some(command) = reader.read()? {
+                    self.handle_command(command)?;
+                }
+            }
         }
+        Ok(())
     }
 }
 
@@ -112,12 +124,26 @@ impl StyleProvider<Selector> for Theme {
 
 #[derive(serde::Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub(crate) enum ThemeLoadingMode {
+    Reset,
+    NoReset,
+}
+
+impl Default for ThemeLoadingMode {
+    fn default() -> Self {
+        ThemeLoadingMode::Reset
+    }
+}
+
+#[derive(serde::Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) enum ThemeCommand {
     Reset,
     Set(
         Selector,
         #[serde(deserialize_with = "style_parser::deserialize")] Style,
     ),
+    Load(PathBuf, Option<ThemeLoadingMode>),
 }
 
 #[cfg(test)]

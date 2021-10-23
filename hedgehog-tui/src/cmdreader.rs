@@ -21,9 +21,17 @@ impl FileResolver {
         self
     }
 
-    pub(crate) fn resolve<P: AsRef<Path>>(&self, file_path: P) -> Option<PathBuf> {
+    pub(crate) fn visit_all<P: AsRef<Path>>(
+        &self,
+        file_path: P,
+        mut visitor: impl FnMut(&Path) -> bool,
+    ) -> Option<PathBuf> {
         if file_path.as_ref().is_absolute() {
-            return Some(file_path.as_ref().into());
+            return if visitor(file_path.as_ref()) {
+                Some(file_path.as_ref().to_path_buf())
+            } else {
+                None
+            };
         }
 
         // TODO: Non-UNIX OS paths
@@ -34,7 +42,7 @@ impl FileResolver {
         for path in paths {
             let mut path: PathBuf = path.to_string().into();
             path.push(file_path.as_ref());
-            if path.is_file() {
+            if path.is_file() && visitor(&path) {
                 return Some(path);
             }
 
@@ -48,12 +56,16 @@ impl FileResolver {
                 file_name_with_suffix.push(suffix);
 
                 path.set_file_name(file_name_with_suffix.clone());
-                if path.is_file() {
+                if path.is_file() && visitor(&path) {
                     return Some(path);
                 }
             }
         }
         None
+    }
+
+    pub(crate) fn resolve<P: AsRef<Path>>(&self, file_path: P) -> Option<PathBuf> {
+        self.visit_all(file_path, |_| true)
     }
 }
 
@@ -190,6 +202,13 @@ mod tests {
         for path in &resolution_order {
             File::create(path).unwrap();
         }
+
+        let mut visited = vec![];
+        resolver.visit_all("file", |path| {
+            visited.push(path.to_path_buf());
+            false
+        });
+        assert_eq!(resolution_order, visited);
 
         while !resolution_order.is_empty() {
             let path = resolver.resolve("file");

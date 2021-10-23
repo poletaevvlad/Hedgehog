@@ -174,11 +174,8 @@ mod tests {
     fn init_rc() {
         let global_data = tempdir().unwrap();
         let user_data = tempdir().unwrap();
-        let env_path = format!(
-            "{}:{}",
-            global_data.path().display(),
-            user_data.path().display()
-        );
+        let env_path = std::env::join_paths([global_data.path(), user_data.path()]).unwrap();
+        // TODO: changes global state, environment variable cannot be set by multiple tests
         std::env::set_var("HEDGEHOG_PATH", env_path);
 
         write_file(

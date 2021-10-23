@@ -5,22 +5,10 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-struct OptionalRev<I>(I, bool);
-
-impl<I: DoubleEndedIterator> Iterator for OptionalRev<I> {
-    type Item = I::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.1 {
-            true => self.0.next_back(),
-            false => self.0.next(),
-        }
-    }
-}
-
 pub(crate) struct FileResolver {
     suffixes: Vec<&'static str>,
     reverse_order: bool,
+    paths: Option<String>,
 }
 
 impl FileResolver {
@@ -28,6 +16,7 @@ impl FileResolver {
         FileResolver {
             suffixes: Vec::new(),
             reverse_order: false,
+            paths: None,
         }
     }
 
@@ -38,6 +27,12 @@ impl FileResolver {
 
     pub(crate) fn with_reversed_order(mut self) -> Self {
         self.reverse_order = true;
+        self
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_paths(mut self, paths: String) -> Self {
+        self.paths = Some(paths);
         self
     }
 
@@ -55,12 +50,15 @@ impl FileResolver {
         }
 
         // TODO: Non-UNIX OS paths
-        let paths_env =
-            env::var("HEDGEHOG_PATH").unwrap_or_else(|_| "/usr/share/hedgehog".to_string());
-        let paths = OptionalRev(paths_env.split(':'), self.reverse_order);
+        let paths_env = self.paths.as_ref().cloned().unwrap_or_else(|| {
+            env::var("HEDGEHOG_PATH").unwrap_or_else(|_| "/usr/share/hedgehog".to_string())
+        });
+        let mut paths: Vec<PathBuf> = env::split_paths(&paths_env).collect();
+        if self.reverse_order {
+            paths.reverse();
+        }
 
-        for path in paths {
-            let mut path: PathBuf = path.to_string().into();
+        for mut path in paths {
             path.push(file_path.as_ref());
             if path.is_file() && visitor(&path) {
                 return Some(path);
@@ -205,12 +203,15 @@ mod tests {
     fn resolving_path_relative() {
         let dir1 = tempdir().unwrap();
         let dir2 = tempdir().unwrap();
-        let env_path = format!("{}:{}", dir1.path().display(), dir2.path().display());
-        std::env::set_var("HEDGEHOG_PATH", env_path);
+        let env_path = std::env::join_paths([dir1.path(), dir2.path()])
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
 
         let resolver = FileResolver::new()
             .with_suffix(".theme")
-            .with_suffix(".style");
+            .with_suffix(".style")
+            .with_paths(env_path);
 
         fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
             let mut path = dir.to_path_buf();
@@ -250,12 +251,15 @@ mod tests {
     fn visiting_reversed() {
         let dir1 = tempdir().unwrap();
         let dir2 = tempdir().unwrap();
-        let env_path = format!("{}:{}", dir1.path().display(), dir2.path().display());
-        std::env::set_var("HEDGEHOG_PATH", env_path);
+        let env_path = std::env::join_paths([dir1.path(), dir2.path()])
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
 
         let resolver = FileResolver::new()
             .with_suffix(".txt")
-            .with_reversed_order();
+            .with_reversed_order()
+            .with_paths(env_path);
 
         fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
             let mut path = dir.to_path_buf();

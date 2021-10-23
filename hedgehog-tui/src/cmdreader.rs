@@ -64,6 +64,9 @@ pub(crate) enum Error {
 
     #[error("invalid command at line {1}: {0}")]
     Parsing(#[source] cmdparser::Error, usize),
+
+    #[error("cannot find file")]
+    Resolution,
 }
 
 #[derive(Debug)]

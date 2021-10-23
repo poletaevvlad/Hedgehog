@@ -2,7 +2,7 @@ mod parser;
 mod selectors;
 mod style_parser;
 
-use crate::cmdreader::{self, CommandReader};
+use crate::cmdreader::{self, CommandReader, FileResolver};
 pub(crate) use selectors::{List, ListItem, Selector, StatusBar};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -38,6 +38,9 @@ impl Theme {
                 if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
                     *self = Theme::default();
                 }
+                let resolver = FileResolver::new().with_suffix(".theme");
+                let path = resolver.resolve(path).ok_or(cmdreader::Error::Resolution)?;
+
                 let mut reader = CommandReader::open(path)?;
                 while let Some(command) = reader.read()? {
                     self.handle_command(command)?;

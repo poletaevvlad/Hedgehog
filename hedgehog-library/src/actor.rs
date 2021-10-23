@@ -1,18 +1,18 @@
-use crate::datasource::{DataProvider, ListQuery, QueryError, QueryHandler};
+use crate::datasource::{DataProvider, ListQuery, PagedQueryHandler, QueryError};
 use crate::sqlite::SqliteDataProvider;
 use actix::{Actor, Context, Handler, Message};
 
 #[derive(Message)]
 #[rtype(result = "Result<Vec<Q::Item>, QueryError>")]
-pub struct QueryRequest<Q: ListQuery> {
+pub struct PagedQueryRequest<Q: ListQuery> {
     pub data: Q,
     pub count: usize,
     pub offset: usize,
 }
 
-impl<Q: ListQuery> QueryRequest<Q> {
+impl<Q: ListQuery> PagedQueryRequest<Q> {
     pub fn new(data: Q, count: usize) -> Self {
-        QueryRequest {
+        PagedQueryRequest {
             data,
             count,
             offset: 0,
@@ -43,21 +43,21 @@ impl<D: DataProvider + 'static> Actor for Library<D> {
     type Context = Context<Self>;
 }
 
-impl<D, Q> Handler<QueryRequest<Q>> for Library<D>
+impl<D, Q> Handler<PagedQueryRequest<Q>> for Library<D>
 where
-    D: DataProvider + QueryHandler<Q> + 'static,
+    D: DataProvider + PagedQueryHandler<Q> + 'static,
     Q: ListQuery,
 {
     type Result = Result<Vec<Q::Item>, QueryError>;
 
-    fn handle(&mut self, msg: QueryRequest<Q>, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: PagedQueryRequest<Q>, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider.query(msg.data, msg.offset, msg.count)
     }
 }
 
 impl<D, Q> Handler<SizeRequest<Q>> for Library<D>
 where
-    D: DataProvider + QueryHandler<Q> + 'static,
+    D: DataProvider + PagedQueryHandler<Q> + 'static,
     Q: ListQuery,
 {
     type Result = Result<usize, QueryError>;

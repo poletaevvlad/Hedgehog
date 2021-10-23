@@ -1,5 +1,5 @@
 use crate::datasource::{
-    DataProvider, EpisodeSummariesQuery, FeedSummariesQuery, QueryError, QueryHandler,
+    DataProvider, EpisodeSummariesQuery, FeedSummariesQuery, PagedQueryHandler, QueryError,
 };
 use crate::model::{
     Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
@@ -121,7 +121,7 @@ impl DataProvider for SqliteDataProvider {
     }
 }
 
-impl QueryHandler<FeedSummariesQuery> for SqliteDataProvider {
+impl PagedQueryHandler<FeedSummariesQuery> for SqliteDataProvider {
     fn get_size(&self, _request: FeedSummariesQuery) -> Result<usize, QueryError> {
         let mut select = self.connection.prepare("SELECT COUNT(id) FROM feeds")?;
         Ok(select.query_row([], |row| row.get(0))?)
@@ -162,7 +162,7 @@ impl EpisodeSummariesQuery {
     }
 }
 
-impl QueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
+impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
     fn get_size(&self, request: EpisodeSummariesQuery) -> Result<usize, QueryError> {
         let mut sql = "SELECT COUNT(id) FROM episodes".to_string();
         request.build_where_clause(&mut sql);

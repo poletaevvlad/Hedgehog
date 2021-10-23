@@ -12,7 +12,7 @@ pub trait ListQuery: Send {
     type Item: 'static + Send;
 }
 
-pub trait QueryHandler<P: ListQuery> {
+pub trait PagedQueryHandler<P: ListQuery> {
     fn get_size(&self, request: P) -> Result<usize, QueryError>;
 
     fn query(&self, request: P, offset: usize, count: usize) -> Result<Vec<P::Item>, QueryError>;
@@ -34,7 +34,9 @@ impl ListQuery for EpisodeSummariesQuery {
 }
 
 pub trait DataProvider:
-    std::marker::Unpin + QueryHandler<FeedSummariesQuery> + QueryHandler<EpisodeSummariesQuery>
+    std::marker::Unpin
+    + PagedQueryHandler<FeedSummariesQuery>
+    + PagedQueryHandler<EpisodeSummariesQuery>
 {
     fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, QueryError>;
     fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError>;

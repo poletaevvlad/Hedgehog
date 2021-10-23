@@ -7,7 +7,7 @@ use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
 use actix::prelude::*;
 use crossterm::event::Event;
-use hedgehog_library::{EpisodeSummariesQuery, Library, QueryRequest, SizeRequest};
+use hedgehog_library::{EpisodeSummariesQuery, Library, PagedQueryRequest, SizeRequest};
 use tui::backend::CrosstermBackend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
@@ -197,7 +197,7 @@ impl Handler<DataFetchingRequest> for UI {
                     }
                     PaginatedDataRequest::Page { index, range } => Box::pin(
                         self.library
-                            .send(QueryRequest {
+                            .send(PagedQueryRequest {
                                 data: query,
                                 offset: range.start,
                                 count: range.len(),

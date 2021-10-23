@@ -1,5 +1,8 @@
+use std::path::PathBuf;
+
 use super::screen::EpisodesListProvider;
 use crate::cmdparser;
+use crate::cmdreader::{CommandReader, FileResolver};
 use crate::dataview::{CursorCommand, InteractiveList, PaginatedData};
 use crate::keymap::{Key, KeyMapping};
 use crate::status::{Severity, Status};
@@ -80,6 +83,30 @@ impl ViewModel {
                 .handle_command(command)
                 .map(|_| true)
                 .map_err(|error| Status::new_custom(format!("{}", error), Severity::Error)),
+            Command::Exec(path) => {
+                let mut reader = match CommandReader::open(path) {
+                    Ok(reader) => reader,
+                    Err(error) => {
+                        return Err(Status::new_custom(format!("{}", error), Severity::Error))
+                    }
+                };
+
+                loop {
+                    match reader.read() {
+                        Ok(None) => break Ok(true),
+                        Ok(Some(command)) => {
+                            if let Err(status) = self.handle_command(command) {
+                                if status.severity() == Severity::Error {
+                                    return Err(status);
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            return Err(Status::new_custom(format!("{}", error), Severity::Error))
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -92,6 +119,23 @@ impl ViewModel {
             }
         }
     }
+
+    pub(crate) fn init_rc(&mut self) {
+        let resolver = FileResolver::new();
+        resolver.visit_all("rc", |path| {
+            match self.handle_command(Command::Exec(path.to_path_buf())) {
+                Ok(_) => false,
+                Err(status) => {
+                    if status.severity() == Severity::Error {
+                        self.status = Some(status);
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        });
+    }
 }
 
 #[derive(Deserialize, Clone)]
@@ -102,6 +146,7 @@ pub(crate) enum Command {
     Map(Key, Box<Command>),
     Unmap(Key),
     Theme(ThemeCommand),
+    Exec(PathBuf),
     #[serde(alias = "q")]
     Quit,
 }

@@ -85,6 +85,7 @@ impl Actor for UI {
                 query: EpisodeSummariesQuery { feed_id: None },
                 actor: ctx.address(),
             });
+        self.view_model.init_rc();
         self.render();
     }
 }

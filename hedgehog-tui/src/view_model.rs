@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use super::screen::EpisodesListProvider;
 use crate::cmdparser;
 use crate::cmdreader::{CommandReader, FileResolver};
@@ -10,6 +8,7 @@ use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use hedgehog_library::model::EpisodeSummary;
 use serde::Deserialize;
+use std::path::PathBuf;
 
 pub(crate) struct ViewModel {
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
@@ -138,7 +137,7 @@ impl ViewModel {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Command {
     #[serde(rename = "line")]
@@ -149,4 +148,89 @@ pub(crate) enum Command {
     Exec(PathBuf),
     #[serde(alias = "q")]
     Quit,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Command, ViewModel};
+    use crate::dataview::CursorCommand;
+    use crate::theming::{List, StatusBar, StyleProvider};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
+    use tempfile::tempdir;
+    use tui::style::{Color, Style};
+
+    fn write_file(dir: impl AsRef<Path>, filename: impl AsRef<Path>, content: &str) {
+        let mut path = dir.as_ref().to_path_buf();
+        path.push(filename);
+
+        let mut file = File::create(path).unwrap();
+        write!(file, "{}", content).unwrap();
+    }
+
+    #[test]
+    fn init_rc() {
+        let global_data = tempdir().unwrap();
+        let user_data = tempdir().unwrap();
+        let env_path = format!(
+            "{}:{}",
+            global_data.path().display(),
+            user_data.path().display()
+        );
+        std::env::set_var("HEDGEHOG_PATH", env_path);
+
+        write_file(
+            global_data.path(),
+            "rc",
+            "map Up line previous\nmap Down line next\ntheme load default",
+        );
+        write_file(
+            global_data.path(),
+            "default.theme",
+            "load another no-reset\nset statusbar.empty bg:red",
+        );
+        write_file(
+            global_data.path(),
+            "another.theme",
+            "set list.divider bg:blue",
+        );
+
+        write_file(
+            user_data.path(),
+            "another.theme",
+            "set statusbar.command bg:yellow",
+        );
+        write_file(user_data.path(), "rc", "map Down line last");
+
+        let mut view_model = ViewModel::new((32, 32));
+        view_model.init_rc();
+
+        assert!(view_model.status.is_none());
+        assert_eq!(
+            view_model
+                .key_mapping
+                .get(&KeyEvent::new(KeyCode::Up, KeyModifiers::empty()).into())
+                .unwrap(),
+            &Command::Cursor(CursorCommand::Previous)
+        );
+        assert_eq!(
+            view_model
+                .key_mapping
+                .get(&KeyEvent::new(KeyCode::Down, KeyModifiers::empty()).into())
+                .unwrap(),
+            &Command::Cursor(CursorCommand::Last)
+        );
+
+        assert_eq!(
+            view_model.theme.get(StatusBar::Command),
+            Style::default().bg(Color::Yellow)
+        );
+        assert_eq!(
+            view_model.theme.get(StatusBar::Empty),
+            Style::default().bg(Color::Red)
+        );
+        assert_eq!(view_model.theme.get(List::Divider), Style::default());
+    }
 }

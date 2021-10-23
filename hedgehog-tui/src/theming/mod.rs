@@ -38,7 +38,9 @@ impl Theme {
                 if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
                     *self = Theme::default();
                 }
-                let resolver = FileResolver::new().with_suffix(".theme");
+                let resolver = FileResolver::new()
+                    .with_suffix(".theme")
+                    .with_reversed_order();
                 let path = resolver.resolve(path).ok_or(cmdreader::Error::Resolution)?;
 
                 let mut reader = CommandReader::open(path)?;
@@ -125,7 +127,7 @@ impl StyleProvider<Selector> for Theme {
     }
 }
 
-#[derive(serde::Deserialize, Clone)]
+#[derive(Debug, serde::Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ThemeLoadingMode {
     Reset,
@@ -138,7 +140,7 @@ impl Default for ThemeLoadingMode {
     }
 }
 
-#[derive(serde::Deserialize, Clone)]
+#[derive(Debug, serde::Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ThemeCommand {
     Reset,

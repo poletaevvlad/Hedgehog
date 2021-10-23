@@ -1,0 +1,6 @@
+theme load default
+
+map Up line previous
+map Down line next
+map Home line first
+map End line last

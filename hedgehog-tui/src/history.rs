@@ -64,7 +64,8 @@ impl CommandsHistory {
         None
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &str> {
+    #[cfg(test)]
+    fn iter(&self) -> impl Iterator<Item = &str> {
         self.items.iter().map(String::as_str)
     }
 }

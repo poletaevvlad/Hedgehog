@@ -29,6 +29,7 @@ pub(crate) struct Buffer {
 }
 
 impl Buffer {
+    #[cfg(test)]
     pub(crate) fn new(text: String, cursor_position: usize) -> Buffer {
         Buffer {
             text,
@@ -50,6 +51,7 @@ impl Buffer {
         self.text.is_empty()
     }
 
+    #[cfg(test)]
     pub(crate) fn cursor_position(&self) -> usize {
         self.cursor_position
     }

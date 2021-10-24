@@ -6,10 +6,6 @@ impl<'a> ParsableStr<'a> {
         ParsableStr(string)
     }
 
-    pub(crate) fn as_str(&self) -> &'a str {
-        self.0
-    }
-
     pub(crate) fn take_while(&mut self, predicate: impl Fn(&char) -> bool) -> &'a str {
         let input = self.0;
         loop {

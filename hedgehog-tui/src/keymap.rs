@@ -118,12 +118,6 @@ impl<T> KeyMapping<T> {
         KeyMapping::default()
     }
 
-    pub(crate) fn with_capacity(capacity: usize) -> Self {
-        KeyMapping {
-            mapping: HashMap::with_capacity(capacity),
-        }
-    }
-
     pub(crate) fn map(&mut self, key: Key, value: T) {
         self.mapping.insert(key, value);
     }

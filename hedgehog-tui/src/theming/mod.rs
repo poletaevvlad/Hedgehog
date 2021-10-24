@@ -4,7 +4,7 @@ mod style_parser;
 
 use crate::cmdreader::{self, CommandReader, FileResolver};
 use selectors::StyleSelector;
-pub(crate) use selectors::{List, ListItem, Selector, StatusBar};
+pub(crate) use selectors::{List, ListState, Selector, StatusBar};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tui::style::Style;
@@ -107,7 +107,7 @@ pub(crate) enum ThemeCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListItem, StatusBar, Theme};
+    use super::{List, ListState, StatusBar, Theme};
     use crate::status::Severity;
     use tui::style::{Color, Modifier, Style};
 
@@ -149,23 +149,23 @@ mod tests {
     fn list_item_style() {
         let mut theme = Theme::default();
         theme.set(
-            List::Item(ListItem::empty()),
+            List::Item(ListState::empty()),
             Style::default().fg(Color::White),
         );
         theme.set(
-            List::Item(ListItem::SELECTED),
+            List::Item(ListState::SELECTED),
             Style::default().bg(Color::Red),
         );
         theme.set(
-            List::Item(ListItem::FOCUSED),
+            List::Item(ListState::FOCUSED),
             Style::default().add_modifier(Modifier::BOLD),
         );
         theme.set(
-            List::Item(ListItem::ACTIVE),
+            List::Item(ListState::ACTIVE),
             Style::default().add_modifier(Modifier::UNDERLINED),
         );
 
-        let selected_focused = theme.get(List::Item(ListItem::SELECTED | ListItem::FOCUSED));
+        let selected_focused = theme.get(List::Item(ListState::SELECTED | ListState::FOCUSED));
         assert_eq!(
             selected_focused,
             Style {
@@ -176,7 +176,7 @@ mod tests {
             }
         );
 
-        let focused_active = theme.get(List::Item(ListItem::FOCUSED | ListItem::ACTIVE));
+        let focused_active = theme.get(List::Item(ListState::FOCUSED | ListState::ACTIVE));
         assert_eq!(
             focused_active,
             Style {

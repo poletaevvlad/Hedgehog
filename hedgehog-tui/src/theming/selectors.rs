@@ -53,7 +53,7 @@ impl StyleSelector for StatusBar {
 }
 
 bitflags! {
-    pub(crate) struct ListItem: usize {
+    pub(crate) struct ListState: usize {
         const FOCUSED = 0b001;
         const ACTIVE = 0b010;
         const SELECTED = 0b100;
@@ -63,7 +63,7 @@ bitflags! {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum List {
     Divider,
-    Item(ListItem),
+    Item(ListState),
 }
 
 impl List {
@@ -73,13 +73,13 @@ impl List {
             input,
             "divider" => Ok(List::Divider),
             "item" => {
-                let mut state = ListItem::empty();
+                let mut state = ListState::empty();
                 loop {
                     let state_item = match_take! {
                         input,
-                        ":focused" => ListItem::FOCUSED,
-                        ":active" => ListItem::ACTIVE,
-                        ":selected" => ListItem::SELECTED,
+                        ":focused" => ListState::FOCUSED,
+                        ":active" => ListState::ACTIVE,
+                        ":selected" => ListState::SELECTED,
                         _ => break,
                     };
                     state |= state_item;
@@ -94,8 +94,8 @@ impl List {
 impl StyleSelector for List {
     fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
         if let List::Item(item) = self {
-            for bits in 0..ListItem::all().bits {
-                let current = ListItem::from_bits_truncate(bits);
+            for bits in 0..ListState::all().bits {
+                let current = ListState::from_bits_truncate(bits);
                 if current != *item && current.contains(*item) {
                     callback(List::Item(current))
                 }
@@ -181,7 +181,7 @@ impl<'de> serde::Deserialize<'de> for Selector {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListItem, Selector, StatusBar};
+    use super::{List, ListState, Selector, StatusBar};
     use crate::cmdparser;
     use crate::status::Severity;
 
@@ -209,16 +209,16 @@ mod tests {
     fn parse_item_state() {
         assert_eq!(
             "list.item".parse(),
-            Ok(Selector::List(List::Item(ListItem::empty())))
+            Ok(Selector::List(List::Item(ListState::empty())))
         );
         assert_eq!(
             "list.item:active".parse(),
-            Ok(Selector::List(List::Item(ListItem::ACTIVE)))
+            Ok(Selector::List(List::Item(ListState::ACTIVE)))
         );
         assert_eq!(
             "list.item:focused:selected".parse(),
             Ok(Selector::List(List::Item(
-                ListItem::FOCUSED | ListItem::SELECTED
+                ListState::FOCUSED | ListState::SELECTED
             )))
         );
     }

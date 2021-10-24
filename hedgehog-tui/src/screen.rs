@@ -291,7 +291,7 @@ impl Handler<DataFetchingRequest> for UI {
 
 struct EpisodesListRowRenderer<'t> {
     theme: &'t theming::Theme,
-    default_item_state: theming::ListItem,
+    default_item_state: theming::ListState,
 }
 
 impl<'t> EpisodesListRowRenderer<'t> {
@@ -299,9 +299,9 @@ impl<'t> EpisodesListRowRenderer<'t> {
         EpisodesListRowRenderer {
             theme,
             default_item_state: if is_focused {
-                theming::ListItem::FOCUSED
+                theming::ListState::FOCUSED
             } else {
-                theming::ListItem::empty()
+                theming::ListState::empty()
             },
         }
     }
@@ -315,7 +315,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
 
         let mut item_state = self.default_item_state;
         if selected {
-            item_state |= theming::ListItem::SELECTED;
+            item_state |= theming::ListState::SELECTED;
         }
         let style = self.theme.get(theming::List::Item(item_state));
 
@@ -332,7 +332,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
 
 struct FeedsListRowRenderer<'t> {
     theme: &'t theming::Theme,
-    default_item_state: theming::ListItem,
+    default_item_state: theming::ListState,
 }
 
 impl<'t> FeedsListRowRenderer<'t> {
@@ -340,9 +340,9 @@ impl<'t> FeedsListRowRenderer<'t> {
         FeedsListRowRenderer {
             theme,
             default_item_state: if is_focused {
-                theming::ListItem::FOCUSED
+                theming::ListState::FOCUSED
             } else {
-                theming::ListItem::empty()
+                theming::ListState::empty()
             },
         }
     }
@@ -356,7 +356,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
 
         let mut item_state = self.default_item_state;
         if selected {
-            item_state |= theming::ListItem::SELECTED;
+            item_state |= theming::ListState::SELECTED;
         }
         let style = self.theme.get(theming::List::Item(item_state));
 

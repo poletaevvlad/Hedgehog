@@ -80,6 +80,16 @@ pub(crate) enum PaginatedDataMessage<T> {
     Page { index: usize, values: Vec<T> },
 }
 
+impl<T> PaginatedDataMessage<T> {
+    pub(crate) fn size(size: usize) -> Self {
+        PaginatedDataMessage::Size(size)
+    }
+
+    pub(crate) fn page(index: usize, values: Vec<T>) -> Self {
+        PaginatedDataMessage::Page { index, values }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct PaginatedData<T> {
     page_size: usize,

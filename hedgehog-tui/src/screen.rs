@@ -10,6 +10,8 @@ use crate::widgets::library_rows::{EpisodesListRowRenderer, FeedsListRowRenderer
 use crate::widgets::list::List;
 use actix::prelude::*;
 use crossterm::event::Event;
+use hedgehog_library::datasource::QueryError;
+use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use hedgehog_library::{
     EpisodeSummariesQuery, FeedSummariesQuery, Library, PagedQueryRequest, QueryRequest,
     SizeRequest,
@@ -244,6 +246,59 @@ enum DataFetchingRequest {
     Feeds(FeedSummariesQuery, Versioned<ListDataRequest>),
 }
 
+type LibraryQueryResult<T> = Result<Result<T, QueryError>, MailboxError>;
+
+impl UI {
+    fn handle_library_response<T>(
+        &mut self,
+        data: LibraryQueryResult<T>,
+        handler: impl FnOnce(&mut Self, T) -> bool,
+    ) {
+        let data = self.handle_error(data).and_then(|r| self.handle_error(r));
+        let should_render = match data {
+            Some(data) => handler(self, data),
+            None => true,
+        };
+        if should_render {
+            self.render();
+        }
+    }
+
+    fn handle_episode_size_response(&mut self, version: usize, size: LibraryQueryResult<usize>) {
+        self.handle_library_response(size, move |actor, size| {
+            actor.view_model.set_episodes_list_data(
+                Versioned::new(PaginatedDataMessage::size(size)).with_version(version),
+            )
+        });
+    }
+
+    fn handle_episode_data_response(
+        &mut self,
+        version: usize,
+        data: LibraryQueryResult<Vec<EpisodeSummary>>,
+        page_index: usize,
+    ) {
+        self.handle_library_response(data, move |actor, data| {
+            let message = PaginatedDataMessage::page(page_index, data);
+            actor
+                .view_model
+                .set_episodes_list_data(Versioned::new(message).with_version(version))
+        });
+    }
+
+    fn handle_feeds_data_response(
+        &mut self,
+        version: usize,
+        data: LibraryQueryResult<Vec<FeedSummary>>,
+    ) {
+        self.handle_library_response(data, move |actor, data| {
+            actor
+                .view_model
+                .set_feeds_list_data(Versioned::new(data).with_version(version))
+        });
+    }
+}
+
 impl Handler<DataFetchingRequest> for UI {
     type Result = ResponseActFuture<Self, ()>;
 
@@ -255,62 +310,28 @@ impl Handler<DataFetchingRequest> for UI {
                     PaginatedDataRequest::Size => {
                         Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
                             move |size, actor, _ctx| {
-                                let size =
-                                    actor.handle_error(size).and_then(|r| actor.handle_error(r));
-                                let should_render = match size {
-                                    Some(size) => actor.view_model.set_episodes_list_data(
-                                        Versioned::new(PaginatedDataMessage::Size(size))
-                                            .with_version(version),
-                                    ),
-                                    None => true,
-                                };
-                                if should_render {
-                                    actor.render();
-                                }
+                                actor.handle_episode_size_response(version, size)
                             },
                         ))
                     }
-                    PaginatedDataRequest::Page { index, range } => Box::pin(
-                        self.library
-                            .send(PagedQueryRequest {
-                                data: query,
-                                offset: range.start,
-                                count: range.len(),
-                            })
-                            .into_actor(self)
-                            .map(move |data, actor, _ctx| {
-                                let data =
-                                    actor.handle_error(data).and_then(|r| actor.handle_error(r));
-                                let should_render = match data {
-                                    Some(data) => actor.view_model.set_episodes_list_data(
-                                        Versioned::new(PaginatedDataMessage::Page {
-                                            index,
-                                            values: data,
-                                        })
-                                        .with_version(version),
-                                    ),
-                                    None => true,
-                                };
-                                if should_render {
-                                    actor.render();
-                                }
-                            }),
-                    ),
+                    PaginatedDataRequest::Page { index, range } => {
+                        let request = PagedQueryRequest {
+                            data: query,
+                            offset: range.start,
+                            count: range.len(),
+                        };
+                        Box::pin(self.library.send(request).into_actor(self).map(
+                            move |data, actor, _ctx| {
+                                actor.handle_episode_data_response(version, data, index)
+                            },
+                        ))
+                    }
                 }
             }
             DataFetchingRequest::Feeds(query, request) => {
                 Box::pin(self.library.send(QueryRequest(query)).into_actor(self).map(
                     move |data, actor, _ctx| {
-                        let data = actor.handle_error(data).and_then(|r| actor.handle_error(r));
-                        let should_render = match data {
-                            Some(data) => actor
-                                .view_model
-                                .set_feeds_list_data(request.with_data(data)),
-                            None => true,
-                        };
-                        if should_render {
-                            actor.render();
-                        }
+                        actor.handle_feeds_data_response(request.version(), data)
                     },
                 ))
             }

@@ -3,7 +3,7 @@ use crate::dataview::{
 };
 use crate::events::key;
 use crate::history::CommandsHistory;
-use crate::theming::{self, StyleProvider};
+use crate::theming;
 use crate::view_model::{Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};

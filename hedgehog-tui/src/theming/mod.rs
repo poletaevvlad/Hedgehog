@@ -3,6 +3,7 @@ mod selectors;
 mod style_parser;
 
 use crate::cmdreader::{self, CommandReader, FileResolver};
+use selectors::StyleSelector;
 pub(crate) use selectors::{List, ListItem, Selector, StatusBar};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -24,9 +25,7 @@ impl Default for OverridableStyle {
 }
 
 pub(crate) struct Theme {
-    status_bar: HashMap<StatusBar, Style>,
-    divider: Option<Style>,
-    list_items: [OverridableStyle; 8],
+    styles: HashMap<Selector, Style>,
 }
 
 impl Theme {
@@ -51,78 +50,33 @@ impl Theme {
         }
         Ok(())
     }
+
+    pub(crate) fn get(&self, selector: impl Into<Selector>) -> Style {
+        self.styles
+            .get(&selector.into())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn set(&mut self, selector: impl Into<Selector>, style: Style) {
+        let styles = &mut self.styles;
+        let mut override_style = move |selector: Selector| {
+            styles
+                .entry(selector)
+                .and_modify(|current| *current = current.patch(style))
+                .or_insert(style);
+        };
+
+        let selector = selector.into();
+        override_style(selector);
+        selector.for_each_overrides(override_style);
+    }
 }
 
 impl Default for Theme {
     fn default() -> Self {
         Theme {
-            status_bar: HashMap::new(),
-            divider: None,
-            list_items: [OverridableStyle::default(); 8],
-        }
-    }
-}
-
-pub(crate) trait StyleProvider<S> {
-    fn set(&mut self, selector: S, style: Style);
-    fn get(&self, selector: S) -> Style;
-}
-
-impl StyleProvider<StatusBar> for Theme {
-    fn set(&mut self, selector: StatusBar, style: Style) {
-        self.status_bar.insert(selector, style);
-    }
-
-    fn get(&self, selector: StatusBar) -> Style {
-        match selector {
-            selector @ StatusBar::Status(Some(_)) => self
-                .status_bar
-                .get(&StatusBar::Status(None))
-                .cloned()
-                .unwrap_or_default()
-                .patch(self.status_bar.get(&selector).cloned().unwrap_or_default()),
-            selector => self.status_bar.get(&selector).cloned().unwrap_or_default(),
-        }
-    }
-}
-
-impl StyleProvider<List> for Theme {
-    fn set(&mut self, selector: List, style: Style) {
-        match selector {
-            List::Divider => self.divider = Some(style),
-            List::Item(item) => {
-                for (current_item, overridable) in self.list_items.iter_mut().enumerate() {
-                    let current_item = ListItem::from_bits_truncate(current_item);
-                    if current_item & item != item {
-                        continue;
-                    }
-                    overridable.style = overridable.style.patch(style);
-                    overridable.inherited = item != current_item;
-                }
-            }
-        }
-    }
-
-    fn get(&self, selector: List) -> Style {
-        match selector {
-            List::Divider => self.divider.unwrap_or_default(),
-            List::Item(item) => self.list_items[item.bits()].style,
-        }
-    }
-}
-
-impl StyleProvider<Selector> for Theme {
-    fn set(&mut self, selector: Selector, style: Style) {
-        match selector {
-            Selector::StatusBar(statusbar) => self.set(statusbar, style),
-            Selector::List(list) => self.set(list, style),
-        }
-    }
-
-    fn get(&self, selector: Selector) -> Style {
-        match selector {
-            Selector::StatusBar(statusbar) => self.get(statusbar),
-            Selector::List(list) => self.get(list),
+            styles: HashMap::new(),
         }
     }
 }
@@ -153,9 +107,8 @@ pub(crate) enum ThemeCommand {
 
 #[cfg(test)]
 mod tests {
+    use super::{List, ListItem, StatusBar, Theme};
     use crate::status::Severity;
-
-    use super::{List, ListItem, StatusBar, StyleProvider, Theme};
     use tui::style::{Color, Modifier, Style};
 
     #[test]

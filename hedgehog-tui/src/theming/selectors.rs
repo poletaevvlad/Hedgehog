@@ -3,6 +3,12 @@ use crate::status::Severity;
 use bitflags::bitflags;
 use std::str::FromStr;
 
+pub(crate) trait StyleSelector {
+    fn for_each_overrides(&self, callback: impl FnMut(Self))
+    where
+        Self: Sized;
+}
+
 #[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
 #[error("selector is not recognized")]
 pub(crate) struct SelectorParsingError;
@@ -28,6 +34,20 @@ impl StatusBar {
             "status.information" => Ok(StatusBar::Status(Some(Severity::Information))),
             "status" => Ok(StatusBar::Status(None)),
             _ => Err(SelectorParsingError),
+        }
+    }
+}
+
+impl StyleSelector for StatusBar {
+    fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
+        match self {
+            StatusBar::Command => callback(StatusBar::CommandPrompt),
+            StatusBar::Status(None) => {
+                for severity in Severity::enumerate() {
+                    callback(StatusBar::Status(Some(severity)));
+                }
+            }
+            _ => (),
         }
     }
 }
@@ -71,6 +91,19 @@ impl List {
     }
 }
 
+impl StyleSelector for List {
+    fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
+        if let List::Item(item) = self {
+            for bits in 0..ListItem::all().bits {
+                let current = ListItem::from_bits_truncate(bits);
+                if current != *item && current.contains(*item) {
+                    callback(List::Item(current))
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Selector {
     StatusBar(StatusBar),
@@ -88,6 +121,19 @@ impl Selector {
     }
 }
 
+impl StyleSelector for Selector {
+    fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
+        match self {
+            Selector::StatusBar(selector) => {
+                selector.for_each_overrides(|sel| callback(Selector::StatusBar(sel)))
+            }
+            Selector::List(selector) => {
+                selector.for_each_overrides(|sel| callback(Selector::List(sel)))
+            }
+        }
+    }
+}
+
 impl FromStr for Selector {
     type Err = SelectorParsingError;
 
@@ -98,6 +144,18 @@ impl FromStr for Selector {
             return Err(SelectorParsingError);
         }
         Ok(selector)
+    }
+}
+
+impl From<StatusBar> for Selector {
+    fn from(status_bar: StatusBar) -> Self {
+        Selector::StatusBar(status_bar)
+    }
+}
+
+impl From<List> for Selector {
+    fn from(list: List) -> Self {
+        Selector::List(list)
     }
 }
 

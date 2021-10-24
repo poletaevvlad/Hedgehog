@@ -176,7 +176,7 @@ pub(crate) enum Command {
 mod tests {
     use super::{Command, ViewModel};
     use crate::dataview::CursorCommand;
-    use crate::theming::{List, StatusBar, StyleProvider};
+    use crate::theming::{List, StatusBar};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use std::fs::File;
     use std::io::Write;

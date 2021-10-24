@@ -44,3 +44,9 @@ pub(crate) enum Severity {
     Warning,
     Information,
 }
+
+impl Severity {
+    pub(crate) fn enumerate() -> impl IntoIterator<Item = Severity> {
+        [Severity::Error, Severity::Warning, Severity::Information]
+    }
+}

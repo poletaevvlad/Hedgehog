@@ -3,8 +3,8 @@ use crate::dataview::{
 };
 use crate::events::key;
 use crate::history::CommandsHistory;
-use crate::theming::{StatusBar, StyleProvider};
-use crate::view_model::{Command, ViewModel};
+use crate::theming::{self, StyleProvider};
+use crate::view_model::{Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::list::{List, ListItemRenderingDelegate};
 use actix::prelude::*;
@@ -15,7 +15,6 @@ use hedgehog_library::{
 };
 use tui::backend::CrosstermBackend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
 use tui::text::Span;
 use tui::widgets::{Block, Borders, Paragraph, Widget};
 use tui::Terminal;
@@ -58,32 +57,52 @@ impl UI {
                 .constraints([Constraint::Min(24), Constraint::Percentage(75)].as_ref())
                 .split(library_rect);
 
-            let feeds_border = Block::default().borders(Borders::RIGHT);
+            let feeds_border = Block::default()
+                .borders(Borders::RIGHT)
+                .border_style(view_model.theme.get(theming::List::Divider));
             let feeds_area = feeds_border.inner(layout[0]);
             f.render_widget(feeds_border, layout[0]);
 
             if let Some(iter) = view_model.feeds_list.iter() {
-                f.render_widget(List::new(FeedsListRowRenderer, iter), feeds_area);
+                f.render_widget(
+                    List::new(
+                        FeedsListRowRenderer::new(
+                            &view_model.theme,
+                            view_model.focus == FocusedPane::FeedsList,
+                        ),
+                        iter,
+                    ),
+                    feeds_area,
+                );
             }
             if let Some(iter) = episodes_list.iter() {
-                f.render_widget(List::new(EpisodesListRowRenderer, iter), layout[1]);
+                f.render_widget(
+                    List::new(
+                        EpisodesListRowRenderer::new(
+                            &view_model.theme,
+                            view_model.focus == FocusedPane::EpisodesList,
+                        ),
+                        iter,
+                    ),
+                    layout[1],
+                );
             }
 
             let status_rect = Rect::new(0, area.height - 1, area.width, 1);
             if let Some(ref mut command_state) = command {
-                let style = view_model.theme.get(StatusBar::Command);
-                let prompt_style = view_model.theme.get(StatusBar::CommandPrompt);
+                let style = view_model.theme.get(theming::StatusBar::Command);
+                let prompt_style = view_model.theme.get(theming::StatusBar::CommandPrompt);
                 CommandEditor::new(command_state)
                     .prefix(Span::styled(":", prompt_style))
                     .style(style)
                     .render(f, status_rect, history);
             } else if let Some(status) = &view_model.status {
-                let theme_selector = StatusBar::Status(Some(status.severity()));
+                let theme_selector = theming::StatusBar::Status(Some(status.severity()));
                 let style = view_model.theme.get(theme_selector);
                 f.render_widget(Paragraph::new(status.to_string()).style(style), status_rect);
             } else {
                 f.render_widget(
-                    Block::default().style(view_model.theme.get(StatusBar::Empty)),
+                    Block::default().style(view_model.theme.get(theming::StatusBar::Empty)),
                     status_rect,
                 );
             }
@@ -270,18 +289,36 @@ impl Handler<DataFetchingRequest> for UI {
     }
 }
 
-struct EpisodesListRowRenderer;
+struct EpisodesListRowRenderer<'t> {
+    theme: &'t theming::Theme,
+    default_item_state: theming::ListItem,
+}
 
-impl<'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer {
+impl<'t> EpisodesListRowRenderer<'t> {
+    fn new(theme: &'t theming::Theme, is_focused: bool) -> Self {
+        EpisodesListRowRenderer {
+            theme,
+            default_item_state: if is_focused {
+                theming::ListItem::FOCUSED
+            } else {
+                theming::ListItem::empty()
+            },
+        }
+    }
+}
+
+impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
     type Item = (Option<&'a hedgehog_library::model::EpisodeSummary>, bool);
 
     fn render_item(&self, area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
-        let style = if selected {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default()
-        };
+
+        let mut item_state = self.default_item_state;
+        if selected {
+            item_state |= theming::ListItem::SELECTED;
+        }
+        let style = self.theme.get(theming::List::Item(item_state));
+
         match item {
             Some(item) => {
                 let paragraph =
@@ -293,18 +330,36 @@ impl<'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer {
     }
 }
 
-struct FeedsListRowRenderer;
+struct FeedsListRowRenderer<'t> {
+    theme: &'t theming::Theme,
+    default_item_state: theming::ListItem,
+}
 
-impl<'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer {
+impl<'t> FeedsListRowRenderer<'t> {
+    fn new(theme: &'t theming::Theme, is_focused: bool) -> Self {
+        FeedsListRowRenderer {
+            theme,
+            default_item_state: if is_focused {
+                theming::ListItem::FOCUSED
+            } else {
+                theming::ListItem::empty()
+            },
+        }
+    }
+}
+
+impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
     type Item = (Option<&'a hedgehog_library::model::FeedSummary>, bool);
 
     fn render_item(&self, area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
-        let style = if selected {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default()
-        };
+
+        let mut item_state = self.default_item_state;
+        if selected {
+            item_state |= theming::ListItem::SELECTED;
+        }
+        let style = self.theme.get(theming::List::Item(item_state));
+
         match item {
             Some(item) => {
                 let paragraph =

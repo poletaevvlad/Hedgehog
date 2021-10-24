@@ -2,3 +2,8 @@ set statusbar.status.error fg:red
 set statusbar.status.warning fg:yellow
 set statusbar.status.information fg:blue
 set statusbar.command.prompt fg:cyan
+
+set list.item fg:darkgray
+set list.item:focused fg:white
+set list.item:selected "bg:darkgray fg:black"
+set list.item:focused:selected "bg:white fg:black"

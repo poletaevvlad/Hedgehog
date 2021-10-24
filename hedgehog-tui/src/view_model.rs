@@ -50,6 +50,10 @@ impl ViewModel {
         self.status = None;
     }
 
+    pub(crate) fn error(&mut self, error: impl std::error::Error) {
+        self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
+    }
+
     pub(crate) fn handle_command_str(&mut self, command: &str) {
         match cmdparser::from_str(command) {
             Ok(command) => {

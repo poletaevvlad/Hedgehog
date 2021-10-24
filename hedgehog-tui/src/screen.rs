@@ -109,6 +109,19 @@ impl UI {
         };
         self.terminal.draw(draw).unwrap();
     }
+
+    fn handle_error<T, E>(&mut self, result: Result<T, E>) -> Option<T>
+    where
+        E: std::error::Error,
+    {
+        match result {
+            Ok(value) => Some(value),
+            Err(error) => {
+                self.view_model.error(error);
+                None
+            }
+        }
+    }
 }
 
 impl Actor for UI {
@@ -241,12 +254,15 @@ impl Handler<DataFetchingRequest> for UI {
                     PaginatedDataRequest::Size => {
                         Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
                             move |size, actor, _ctx| {
-                                let should_render = actor.view_model.set_episodes_list_data(
-                                    Versioned::new(PaginatedDataMessage::Size(
-                                        size.unwrap().unwrap(),
-                                    ))
-                                    .with_version(version),
-                                );
+                                let size =
+                                    actor.handle_error(size).and_then(|r| actor.handle_error(r));
+                                let should_render = match size {
+                                    Some(size) => actor.view_model.set_episodes_list_data(
+                                        Versioned::new(PaginatedDataMessage::Size(size))
+                                            .with_version(version),
+                                    ),
+                                    None => true,
+                                };
                                 if should_render {
                                     actor.render();
                                 }
@@ -262,13 +278,18 @@ impl Handler<DataFetchingRequest> for UI {
                             })
                             .into_actor(self)
                             .map(move |data, actor, _ctx| {
-                                let should_render = actor.view_model.set_episodes_list_data(
-                                    Versioned::new(PaginatedDataMessage::Page {
-                                        index,
-                                        values: data.unwrap().unwrap(),
-                                    })
-                                    .with_version(version),
-                                );
+                                let data =
+                                    actor.handle_error(data).and_then(|r| actor.handle_error(r));
+                                let should_render = match data {
+                                    Some(data) => actor.view_model.set_episodes_list_data(
+                                        Versioned::new(PaginatedDataMessage::Page {
+                                            index,
+                                            values: data,
+                                        })
+                                        .with_version(version),
+                                    ),
+                                    None => true,
+                                };
                                 if should_render {
                                     actor.render();
                                 }
@@ -279,9 +300,13 @@ impl Handler<DataFetchingRequest> for UI {
             DataFetchingRequest::Feeds(query, request) => {
                 Box::pin(self.library.send(QueryRequest(query)).into_actor(self).map(
                     move |data, actor, _ctx| {
-                        let should_render = actor
-                            .view_model
-                            .set_feeds_list_data(request.with_data(data.unwrap().unwrap()));
+                        let data = actor.handle_error(data).and_then(|r| actor.handle_error(r));
+                        let should_render = match data {
+                            Some(data) => actor
+                                .view_model
+                                .set_feeds_list_data(request.with_data(data)),
+                            None => true,
+                        };
                         if should_render {
                             actor.render();
                         }

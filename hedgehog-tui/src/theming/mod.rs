@@ -4,7 +4,7 @@ mod style_parser;
 
 use crate::cmdreader::{self, CommandReader, FileResolver};
 use selectors::StyleSelector;
-pub(crate) use selectors::{List, ListState, Selector, StatusBar};
+pub(crate) use selectors::{List, ListState, ListSubitem, Selector, StatusBar};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tui::style::Style;
@@ -107,7 +107,7 @@ pub(crate) enum ThemeCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListState, StatusBar, Theme};
+    use super::{List, ListState, ListSubitem, StatusBar, Theme};
     use crate::status::Severity;
     use tui::style::{Color, Modifier, Style};
 
@@ -149,23 +149,28 @@ mod tests {
     fn list_item_style() {
         let mut theme = Theme::default();
         theme.set(
-            List::Item(ListState::empty()),
+            List::Item(ListState::empty(), None),
             Style::default().fg(Color::White),
         );
         theme.set(
-            List::Item(ListState::SELECTED),
+            List::Item(ListState::empty(), Some(ListSubitem::MissingTitle)),
+            Style::default().add_modifier(Modifier::RAPID_BLINK),
+        );
+        theme.set(
+            List::Item(ListState::SELECTED, None),
             Style::default().bg(Color::Red),
         );
         theme.set(
-            List::Item(ListState::FOCUSED),
+            List::Item(ListState::FOCUSED, None),
             Style::default().add_modifier(Modifier::BOLD),
         );
         theme.set(
-            List::Item(ListState::ACTIVE),
+            List::Item(ListState::ACTIVE, None),
             Style::default().add_modifier(Modifier::UNDERLINED),
         );
 
-        let selected_focused = theme.get(List::Item(ListState::SELECTED | ListState::FOCUSED));
+        let selected_focused =
+            theme.get(List::Item(ListState::SELECTED | ListState::FOCUSED, None));
         assert_eq!(
             selected_focused,
             Style {
@@ -176,13 +181,27 @@ mod tests {
             }
         );
 
-        let focused_active = theme.get(List::Item(ListState::FOCUSED | ListState::ACTIVE));
+        let focused_active = theme.get(List::Item(ListState::FOCUSED | ListState::ACTIVE, None));
         assert_eq!(
             focused_active,
             Style {
                 fg: Some(Color::White),
                 bg: None,
                 add_modifier: Modifier::BOLD | Modifier::UNDERLINED,
+                sub_modifier: Modifier::empty(),
+            }
+        );
+
+        let focused_active_missing = theme.get(List::Item(
+            ListState::FOCUSED | ListState::ACTIVE,
+            Some(ListSubitem::MissingTitle),
+        ));
+        assert_eq!(
+            focused_active_missing,
+            Style {
+                fg: Some(Color::White),
+                bg: None,
+                add_modifier: Modifier::BOLD | Modifier::UNDERLINED | Modifier::RAPID_BLINK,
                 sub_modifier: Modifier::empty(),
             }
         );

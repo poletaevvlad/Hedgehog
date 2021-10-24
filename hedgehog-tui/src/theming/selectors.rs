@@ -61,9 +61,20 @@ bitflags! {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum ListSubitem {
+    MissingTitle,
+}
+
+impl ListSubitem {
+    pub(crate) fn enumerate() -> impl IntoIterator<Item = Self> {
+        [ListSubitem::MissingTitle]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum List {
     Divider,
-    Item(ListState),
+    Item(ListState, Option<ListSubitem>),
 }
 
 impl List {
@@ -84,7 +95,13 @@ impl List {
                     };
                     state |= state_item;
                 }
-                Ok(List::Item(state))
+
+                let subitem = match_take! {
+                    input,
+                    ".missing" => Some(ListSubitem::MissingTitle),
+                    _ => None,
+                };
+                Ok(List::Item(state, subitem))
             },
             _ => Err(SelectorParsingError),
         }
@@ -93,11 +110,24 @@ impl List {
 
 impl StyleSelector for List {
     fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
-        if let List::Item(item) = self {
+        let mut callback = |selector| {
+            if &selector != self {
+                callback(selector);
+            }
+        };
+
+        if let List::Item(item, subitem) = self {
             for bits in 0..ListState::all().bits {
                 let current = ListState::from_bits_truncate(bits);
-                if current != *item && current.contains(*item) {
-                    callback(List::Item(current))
+                if current.contains(*item) {
+                    if subitem.is_some() {
+                        callback(List::Item(current, *subitem));
+                    } else {
+                        callback(List::Item(current, None));
+                        for subitem in ListSubitem::enumerate() {
+                            callback(List::Item(current, Some(subitem)));
+                        }
+                    }
                 }
             }
         }
@@ -181,7 +211,7 @@ impl<'de> serde::Deserialize<'de> for Selector {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListState, Selector, StatusBar};
+    use super::{List, ListState, ListSubitem, Selector, StatusBar};
     use crate::cmdparser;
     use crate::status::Severity;
 
@@ -209,16 +239,31 @@ mod tests {
     fn parse_item_state() {
         assert_eq!(
             "list.item".parse(),
-            Ok(Selector::List(List::Item(ListState::empty())))
+            Ok(Selector::List(List::Item(ListState::empty(), None)))
         );
         assert_eq!(
             "list.item:active".parse(),
-            Ok(Selector::List(List::Item(ListState::ACTIVE)))
+            Ok(Selector::List(List::Item(ListState::ACTIVE, None)))
         );
         assert_eq!(
             "list.item:focused:selected".parse(),
             Ok(Selector::List(List::Item(
-                ListState::FOCUSED | ListState::SELECTED
+                ListState::FOCUSED | ListState::SELECTED,
+                None
+            )))
+        );
+        assert_eq!(
+            "list.item.missing".parse(),
+            Ok(Selector::List(List::Item(
+                ListState::empty(),
+                Some(ListSubitem::MissingTitle)
+            )))
+        );
+        assert_eq!(
+            "list.item:selected.missing".parse(),
+            Ok(Selector::List(List::Item(
+                ListState::SELECTED,
+                Some(ListSubitem::MissingTitle)
             )))
         );
     }

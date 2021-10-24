@@ -317,7 +317,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         if selected {
             item_state |= theming::ListState::SELECTED;
         }
-        let style = self.theme.get(theming::List::Item(item_state));
+        let style = self.theme.get(theming::List::Item(item_state, None));
 
         match item {
             Some(item) => {
@@ -358,7 +358,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
         if selected {
             item_state |= theming::ListState::SELECTED;
         }
-        let style = self.theme.get(theming::List::Item(item_state));
+        let style = self.theme.get(theming::List::Item(item_state, None));
 
         match item {
             Some(item) => {

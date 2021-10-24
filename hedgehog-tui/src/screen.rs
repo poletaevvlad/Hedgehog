@@ -1,5 +1,5 @@
 use crate::dataview::{
-    DataProvider, ListDataRequest, PaginatedDataMessage, PaginatedDataRequest, Versioned,
+    DataProvider, ListDataRequest, PaginatedDataMessage, PaginatedDataRequest, Version, Versioned,
 };
 use crate::events::key;
 use crate::history::CommandsHistory;
@@ -264,7 +264,7 @@ impl UI {
         }
     }
 
-    fn handle_episode_size_response(&mut self, version: usize, size: LibraryQueryResult<usize>) {
+    fn handle_episode_size_response(&mut self, version: Version, size: LibraryQueryResult<usize>) {
         self.handle_library_response(size, move |actor, size| {
             actor.view_model.set_episodes_list_data(
                 Versioned::new(PaginatedDataMessage::size(size)).with_version(version),
@@ -274,7 +274,7 @@ impl UI {
 
     fn handle_episode_data_response(
         &mut self,
-        version: usize,
+        version: Version,
         data: LibraryQueryResult<Vec<EpisodeSummary>>,
         page_index: usize,
     ) {
@@ -288,7 +288,7 @@ impl UI {
 
     fn handle_feeds_data_response(
         &mut self,
-        version: usize,
+        version: Version,
         data: LibraryQueryResult<Vec<FeedSummary>>,
     ) {
         self.handle_library_response(data, move |actor, data| {
@@ -305,8 +305,8 @@ impl Handler<DataFetchingRequest> for UI {
     fn handle(&mut self, msg: DataFetchingRequest, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
             DataFetchingRequest::Episodes(query, request) => {
-                let version = request.version();
-                match request.unwrap() {
+                let (version, request) = request.deconstruct();
+                match request {
                     PaginatedDataRequest::Size => {
                         Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
                             move |size, actor, _ctx| {

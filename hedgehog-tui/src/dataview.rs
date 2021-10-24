@@ -206,21 +206,37 @@ impl<T> DataView for PaginatedData<T> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[repr(transparent)]
+pub(crate) struct Version(usize);
+
+impl Version {
+    fn advanced(&self) -> Version {
+        Version(self.0.wrapping_add(1))
+    }
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Version(0)
+    }
+}
+
 #[derive(Debug, Clone)]
-pub(crate) struct Versioned<T>(usize, T);
+pub(crate) struct Versioned<T>(Version, T);
 
 impl<T> Versioned<T> {
     pub(crate) fn new(value: T) -> Self {
-        Versioned(0, value)
+        Versioned(Version::default(), value)
     }
 
-    pub(crate) fn with_version(mut self, version: usize) -> Self {
+    pub(crate) fn with_version(mut self, version: Version) -> Self {
         self.0 = version;
         self
     }
 
     pub(crate) fn update<R>(&self, new_value: R) -> Versioned<R> {
-        Versioned(self.0.wrapping_add(1), new_value)
+        Versioned(self.0.advanced(), new_value)
     }
 
     pub(crate) fn with_data<R>(&self, new_value: R) -> Versioned<R> {
@@ -239,16 +255,21 @@ impl<T> Versioned<T> {
         Versioned(self.0, f(self.1))
     }
 
-    pub(crate) fn get(&self) -> &T {
+    #[cfg(test)]
+    pub(crate) fn as_inner(&self) -> &T {
         &self.1
     }
 
-    pub(crate) fn version(&self) -> usize {
+    pub(crate) fn version(&self) -> Version {
         self.0
     }
 
-    pub(crate) fn unwrap(self) -> T {
+    pub(crate) fn into_inner(self) -> T {
         self.1
+    }
+
+    pub(crate) fn deconstruct(self) -> (Version, T) {
+        (self.0, self.1)
     }
 }
 
@@ -324,7 +345,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
 
     pub(crate) fn handle_data(&mut self, msg: Versioned<T::Message>) -> bool {
         let previous_size = self.data.size();
-        if !self.provider.same_version(&msg) || !self.data.handle(msg.unwrap()) {
+        if !self.provider.same_version(&msg) || !self.data.handle(msg.into_inner()) {
             return false;
         };
         if previous_size.is_none() && self.data.size().is_some() {
@@ -587,7 +608,7 @@ mod tests {
         assert!(scroll_list.iter().is_none());
 
         let request = requests.borrow_mut().pop_front().unwrap();
-        assert_eq!(request.get(), &PaginatedDataRequest::Size);
+        assert_eq!(request.as_inner(), &PaginatedDataRequest::Size);
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(20)));
 
         assert_list(
@@ -603,15 +624,15 @@ mod tests {
         );
 
         assert_eq!(
-            requests.borrow_mut().pop_front().unwrap().get(),
-            &PaginatedDataRequest::Page {
+            requests.borrow_mut().pop_front().unwrap().into_inner(),
+            PaginatedDataRequest::Page {
                 index: 0,
                 range: 0..4
             }
         );
         assert_eq!(
-            requests.borrow_mut().pop_front().unwrap().get(),
-            &PaginatedDataRequest::Page {
+            requests.borrow_mut().pop_front().unwrap().into_inner(),
+            PaginatedDataRequest::Page {
                 index: 1,
                 range: 4..8
             }
@@ -662,8 +683,8 @@ mod tests {
             ],
         );
         assert_eq!(
-            requests.borrow_mut().pop_front().unwrap().get(),
-            &PaginatedDataRequest::Page {
+            requests.borrow_mut().pop_front().unwrap().into_inner(),
+            PaginatedDataRequest::Page {
                 index: 2,
                 range: 8..12
             }
@@ -696,7 +717,7 @@ mod tests {
         assert!(scroll_list.iter().is_none());
 
         let request = requests.borrow_mut().pop_front().unwrap();
-        assert_eq!(request.get(), &PaginatedDataRequest::Size);
+        assert_eq!(request.as_inner(), &PaginatedDataRequest::Size);
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(100)));
 
         let scrolling_data = vec![
@@ -713,7 +734,7 @@ mod tests {
         ];
         for (page_index, offset, expected) in scrolling_data {
             while let Some(request) = requests.borrow_mut().pop_front() {
-                match request.get() {
+                match request.as_inner() {
                     PaginatedDataRequest::Size => panic!(),
                     PaginatedDataRequest::Page { index, range } => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
@@ -746,7 +767,7 @@ mod tests {
         ];
         for (page_index, offset, expected) in scrolling_backwards_data {
             while let Some(request) = requests.borrow_mut().pop_front() {
-                match request.get() {
+                match request.as_inner() {
                     PaginatedDataRequest::Size => panic!(),
                     PaginatedDataRequest::Page { index, range } => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {

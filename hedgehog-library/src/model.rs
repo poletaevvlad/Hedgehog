@@ -88,9 +88,9 @@ impl FeedStatus {
 
 pub struct FeedSummary {
     pub id: FeedId,
-    pub title: Option<String>,
+    pub title: String,
+    pub has_title: bool,
     pub status: FeedStatus,
-    pub source: String,
 }
 
 pub struct Feed {

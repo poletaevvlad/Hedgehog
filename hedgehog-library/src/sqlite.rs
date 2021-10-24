@@ -126,12 +126,12 @@ impl QueryHandler<FeedSummariesQuery> for SqliteDataProvider {
     fn query(&self, _request: FeedSummariesQuery) -> Result<Vec<FeedSummary>, QueryError> {
         let mut select = self
             .connection
-            .prepare("SELECT id, title, source, status, error_code FROM feeds")?;
+            .prepare("SELECT id, CASE WHEN title IS NOT NULL THEN title ELSE source END, title IS NOT NULL, status, error_code FROM feeds ORDER BY title, source")?;
         let rows = select.query_map([], |row| {
             Ok(FeedSummary {
                 id: row.get(0)?,
                 title: row.get(1)?,
-                source: row.get(2)?,
+                has_title: row.get(2)?,
                 status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
             })
         })?;

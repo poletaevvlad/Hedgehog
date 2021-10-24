@@ -1,7 +1,9 @@
 theme load default
 
 map Up line previous
+map k line previous
 map Down line next
+map j line next
 map Home line first
 map End line last
 map Tab toggle-focus

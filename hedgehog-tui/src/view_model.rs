@@ -10,12 +10,19 @@ use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use serde::Deserialize;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FocusedPane {
+    FeedsList,
+    EpisodesList,
+}
+
 pub(crate) struct ViewModel {
     pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
     pub(crate) key_mapping: KeyMapping<Command>,
     pub(crate) theme: Theme,
+    pub(crate) focus: FocusedPane,
 }
 
 impl ViewModel {
@@ -26,6 +33,7 @@ impl ViewModel {
             status: None,
             key_mapping: KeyMapping::new(),
             theme: Theme::default(),
+            focus: FocusedPane::FeedsList,
         }
     }
 
@@ -49,7 +57,17 @@ impl ViewModel {
     fn handle_command(&mut self, command: Command) -> Result<bool, Status> {
         match command {
             Command::Cursor(command) => {
-                self.episodes_list.handle_command(command);
+                match self.focus {
+                    FocusedPane::FeedsList => self.feeds_list.handle_command(command),
+                    FocusedPane::EpisodesList => self.episodes_list.handle_command(command),
+                }
+                Ok(true)
+            }
+            Command::ToggleFocus => {
+                match self.focus {
+                    FocusedPane::FeedsList => self.focus = FocusedPane::EpisodesList,
+                    FocusedPane::EpisodesList => self.focus = FocusedPane::FeedsList,
+                }
                 Ok(true)
             }
             Command::Quit => {
@@ -150,6 +168,8 @@ pub(crate) enum Command {
     Exec(PathBuf),
     #[serde(alias = "q")]
     Quit,
+
+    ToggleFocus,
 }
 
 #[cfg(test)]

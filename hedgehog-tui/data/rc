@@ -4,3 +4,4 @@ map Up line previous
 map Down line next
 map Home line first
 map End line last
+map Tab toggle-focus

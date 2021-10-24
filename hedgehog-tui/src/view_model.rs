@@ -1,12 +1,15 @@
 use crate::cmdparser;
 use crate::cmdreader::{CommandReader, FileResolver};
-use crate::dataview::{CursorCommand, InteractiveList, ListData, PaginatedData};
+use crate::dataview::{
+    CursorCommand, InteractiveList, ListData, PaginatedData, PaginatedDataMessage, Versioned,
+};
 use crate::keymap::{Key, KeyMapping};
 use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
-use hedgehog_library::model::{EpisodeSummary, FeedSummary};
+use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
+use hedgehog_library::EpisodeSummariesQuery;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -23,6 +26,7 @@ pub(crate) struct ViewModel {
     pub(crate) key_mapping: KeyMapping<Command>,
     pub(crate) theme: Theme,
     pub(crate) focus: FocusedPane,
+    selected_feed: Option<FeedId>,
 }
 
 impl ViewModel {
@@ -34,6 +38,7 @@ impl ViewModel {
             key_mapping: KeyMapping::new(),
             theme: Theme::default(),
             focus: FocusedPane::FeedsList,
+            selected_feed: None,
         }
     }
 
@@ -58,7 +63,10 @@ impl ViewModel {
         match command {
             Command::Cursor(command) => {
                 match self.focus {
-                    FocusedPane::FeedsList => self.feeds_list.handle_command(command),
+                    FocusedPane::FeedsList => {
+                        self.feeds_list.handle_command(command);
+                        self.update_current_feed();
+                    }
                     FocusedPane::EpisodesList => self.episodes_list.handle_command(command),
                 }
                 Ok(true)
@@ -154,6 +162,36 @@ impl ViewModel {
                 }
             }
         });
+    }
+
+    pub(crate) fn set_episodes_list_data(
+        &mut self,
+        data: Versioned<PaginatedDataMessage<EpisodeSummary>>,
+    ) -> bool {
+        self.episodes_list.handle_data(data)
+    }
+
+    fn update_current_feed(&mut self) {
+        let selected_id = self.feeds_list.selection().map(|item| item.id);
+        if selected_id == self.selected_feed {
+            return;
+        }
+
+        if let Some(selected_id) = selected_id {
+            self.episodes_list.update_provider(|provider| {
+                provider.query = Some(EpisodeSummariesQuery::default().with_feed_id(selected_id));
+            });
+            self.selected_feed = Some(selected_id);
+        }
+    }
+
+    pub(crate) fn set_feeds_list_data(&mut self, data: Versioned<Vec<FeedSummary>>) -> bool {
+        if self.feeds_list.handle_data(data) {
+            self.update_current_feed();
+            true
+        } else {
+            false
+        }
     }
 }
 

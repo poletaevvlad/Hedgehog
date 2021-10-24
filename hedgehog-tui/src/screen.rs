@@ -119,7 +119,7 @@ impl Actor for UI {
         self.view_model
             .episodes_list
             .set_provider(EpisodesListProvider {
-                query: EpisodeSummariesQuery { feed_id: None },
+                query: None,
                 actor: ctx.address(),
             });
         self.view_model.feeds_list.set_provider(FeedsListProvider {
@@ -194,7 +194,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
 }
 
 pub(crate) struct EpisodesListProvider {
-    query: EpisodeSummariesQuery,
+    pub(crate) query: Option<EpisodeSummariesQuery>,
     actor: Addr<UI>,
 }
 
@@ -202,8 +202,10 @@ impl DataProvider for EpisodesListProvider {
     type Request = PaginatedDataRequest;
 
     fn request(&self, request: crate::dataview::Versioned<Self::Request>) {
-        self.actor
-            .do_send(DataFetchingRequest::Episodes(self.query.clone(), request));
+        if let Some(query) = &self.query {
+            self.actor
+                .do_send(DataFetchingRequest::Episodes(query.clone(), request));
+        }
     }
 }
 
@@ -239,7 +241,7 @@ impl Handler<DataFetchingRequest> for UI {
                     PaginatedDataRequest::Size => {
                         Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
                             move |size, actor, _ctx| {
-                                let should_render = (actor.view_model.episodes_list).handle_data(
+                                let should_render = actor.view_model.set_episodes_list_data(
                                     Versioned::new(PaginatedDataMessage::Size(
                                         size.unwrap().unwrap(),
                                     ))
@@ -260,7 +262,7 @@ impl Handler<DataFetchingRequest> for UI {
                             })
                             .into_actor(self)
                             .map(move |data, actor, _ctx| {
-                                let should_render = (actor.view_model.episodes_list).handle_data(
+                                let should_render = actor.view_model.set_episodes_list_data(
                                     Versioned::new(PaginatedDataMessage::Page {
                                         index,
                                         values: data.unwrap().unwrap(),
@@ -277,8 +279,9 @@ impl Handler<DataFetchingRequest> for UI {
             DataFetchingRequest::Feeds(query, request) => {
                 Box::pin(self.library.send(QueryRequest(query)).into_actor(self).map(
                     move |data, actor, _ctx| {
-                        let should_render = (actor.view_model.feeds_list)
-                            .handle_data(request.with_data(data.unwrap().unwrap()));
+                        let should_render = actor
+                            .view_model
+                            .set_feeds_list_data(request.with_data(data.unwrap().unwrap()));
                         if should_render {
                             actor.render();
                         }

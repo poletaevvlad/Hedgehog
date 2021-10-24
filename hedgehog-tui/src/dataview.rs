@@ -277,10 +277,26 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     pub(crate) fn set_provider(&mut self, provider: P) {
         self.provider = self.provider.update(Some(provider));
         self.offset = 0;
+        self.selection = 0;
         self.data = T::init(
             |request| request_data(&self.provider, request),
             self.options.clone(),
         );
+    }
+
+    pub(crate) fn update_provider(&mut self, update: impl FnOnce(&mut P)) -> bool {
+        let provider = self.provider.1.take();
+        if let Some(mut provider) = provider {
+            update(&mut provider);
+            self.set_provider(provider);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn selection(&self) -> Option<&T::Item> {
+        self.data.item_at(self.selection)
     }
 
     fn update(&mut self) {
@@ -498,6 +514,7 @@ mod tests {
             assert_list(&scroll_list, &expected);
             scroll_list.move_cursor(1);
         }
+        assert_eq!(scroll_list.selection(), Some(&6));
 
         let expected_backward = vec![
             [item!(3), item!(4), item!(5), item!(6, selected)],
@@ -512,6 +529,7 @@ mod tests {
             assert_list(&scroll_list, &expected);
             scroll_list.move_cursor(-1);
         }
+        assert_eq!(scroll_list.selection(), Some(&1));
     }
 
     #[test]

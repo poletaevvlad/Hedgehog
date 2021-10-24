@@ -34,9 +34,16 @@ impl ListQuery for FeedSummariesQuery {
     type Item = FeedSummary;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct EpisodeSummariesQuery {
     pub feed_id: Option<FeedId>,
+}
+
+impl EpisodeSummariesQuery {
+    pub fn with_feed_id(mut self, feed_id: impl Into<Option<FeedId>>) -> Self {
+        self.feed_id = feed_id.into();
+        self
+    }
 }
 
 impl ListQuery for EpisodeSummariesQuery {

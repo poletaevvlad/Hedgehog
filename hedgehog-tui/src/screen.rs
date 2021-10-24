@@ -317,13 +317,24 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         if selected {
             item_state |= theming::ListState::SELECTED;
         }
-        let style = self.theme.get(theming::List::Item(item_state, None));
+        let subitem = match item.map(|item| item.title.is_some()) {
+            Some(false) => Some(theming::ListSubitem::MissingTitle),
+            _ => None,
+        };
+        let style = self.theme.get(theming::List::Item(item_state, subitem));
 
+        buf.set_style(Rect::new(area.x, area.y, 1, area.height), style);
+        buf.set_style(
+            Rect::new(area.x + area.width - 1, area.y, 1, area.height),
+            style,
+        );
+
+        let inner_area = Rect::new(area.x + 1, area.y, area.width - 2, area.height);
         match item {
             Some(item) => {
                 let paragraph =
                     Paragraph::new(item.title.as_deref().unwrap_or("no title")).style(style);
-                paragraph.render(area, buf);
+                paragraph.render(inner_area, buf);
             }
             None => buf.set_string(area.x, area.y, " . . . ", style),
         }

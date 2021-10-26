@@ -81,11 +81,14 @@ impl<'de> Deserialize<'de> for Volume {
 
 #[derive(Debug, Deserialize, Copy, Clone, Message)]
 #[rtype(result = "Option<Volume>")]
+#[serde(rename_all = "kebab-case")]
 pub enum VolumeCommand {
     Mute,
     Unmute,
     ToggleMute,
+    #[serde(rename = "set")]
     SetVolume(Volume),
+    #[serde(rename = "adjust")]
     AdjustVolume(f64),
 }
 

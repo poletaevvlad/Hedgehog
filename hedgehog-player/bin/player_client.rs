@@ -1,4 +1,5 @@
 use actix::Actor;
+use hedgehog_player::volume::{Volume, VolumeCommand};
 use hedgehog_player::{PlaybackControll, Player};
 use std::io::{self, BufRead, Write};
 
@@ -28,6 +29,23 @@ async fn main() {
                     .await
             ),
             ("stop", _) => print!("{:?}", player_addr.send(PlaybackControll::Stop).await),
+            ("mute", _) => print!("{:?}", player_addr.send(VolumeCommand::Mute).await),
+            ("unmute", _) => print!("{:?}", player_addr.send(VolumeCommand::Unmute).await),
+            ("toggle_mute", _) => print!("{:?}", player_addr.send(VolumeCommand::ToggleMute).await),
+            ("set_volume", volume) => match volume.parse().map(Volume::from_cubic) {
+                Ok(volume) => print!(
+                    "{:?}",
+                    player_addr.send(VolumeCommand::SetVolume(volume)).await
+                ),
+                Err(error) => print!("{:?}", error),
+            },
+            ("adj_volume", delta) => match delta.parse() {
+                Ok(delta) => print!(
+                    "{:?}",
+                    player_addr.send(VolumeCommand::AdjustVolume(delta)).await
+                ),
+                Err(error) => print!("{:?}", error),
+            },
             (_, _) => print!("command unknown"),
         }
 

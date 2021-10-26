@@ -24,8 +24,9 @@ impl Player {
         }
     }
 
-    pub fn emit_error<E: std::error::Error>(&mut self, _error: E) {
-        todo!()
+    pub fn emit_error<E: std::error::Error>(&mut self, error: E) {
+        // TODO
+        println!("{:?}", error);
     }
 
     fn set_volume(&mut self, volume: Volume, is_muted: bool) {
@@ -34,8 +35,8 @@ impl Player {
 
         let result = self
             .element
-            .set_property("muted", self.is_muted)
-            .and_then(|_| self.element.set_property("value", self.volume.linear()));
+            .set_property("mute", self.is_muted)
+            .and_then(|_| self.element.set_property("volume", self.volume.linear()));
         if let Err(error) = result {
             self.emit_error(error)
         }
@@ -87,7 +88,7 @@ impl Handler<VolumeCommand> for Player {
         let mut is_muted = self.is_muted;
         match msg {
             VolumeCommand::Mute => is_muted = true,
-            VolumeCommand::Unmute => is_muted = true,
+            VolumeCommand::Unmute => is_muted = false,
             VolumeCommand::ToggleMute => is_muted = !is_muted,
             VolumeCommand::SetVolume(new_volume) => volume = new_volume,
             VolumeCommand::AdjustVolume(delta) => volume = volume.add_cubic(delta),

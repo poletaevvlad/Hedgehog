@@ -1,3 +1,5 @@
+use actix::Message;
+use serde::{de, Deserialize, Deserializer};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy)]
@@ -26,7 +28,7 @@ impl Volume {
     }
 
     pub fn add_cubic(self, delta: f64) -> Self {
-        Volume::from_cubic(self.0 + delta)
+        Volume::from_cubic_clip(self.0 + delta)
     }
 }
 
@@ -42,37 +44,47 @@ impl fmt::Display for Volume {
 
 struct VolumeVisitor;
 
-impl<'de> serde::de::Visitor<'de> for VolumeVisitor {
+impl<'de> de::Visitor<'de> for VolumeVisitor {
     type Value = Volume;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("volume (percentage)")
     }
 
-    fn visit_f64<E: serde::de::Error>(self, v: f64) -> Result<Self::Value, E> {
+    fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
         if v.is_finite() {
             Ok(Volume::from_cubic_clip(v / 100.0))
         } else {
             Err(E::invalid_value(
-                serde::de::Unexpected::Float(v),
+                de::Unexpected::Float(v),
                 &"finate floating point number",
             ))
         }
     }
 
-    fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
+    fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
         Ok(Volume::from_cubic_clip(v as f64 / 100.0))
     }
 
-    fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
+    fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
         Ok(Volume::from_cubic_clip(v as f64 / 100.0))
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Volume {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+impl<'de> Deserialize<'de> for Volume {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_f64(VolumeVisitor)
     }
+}
+
+#[derive(Debug, Deserialize, Copy, Clone, Message)]
+#[rtype(result = "Option<Volume>")]
+pub enum VolumeCommand {
+    Mute,
+    Unmute,
+    ToggleMute,
+    SetVolume(Volume),
+    AdjustVolume(f64),
 }
 
 #[cfg(test)]

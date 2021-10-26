@@ -1,4 +1,4 @@
-pub mod state;
+pub mod volume;
 
 use actix::prelude::*;
 use gstreamer::prelude::*;

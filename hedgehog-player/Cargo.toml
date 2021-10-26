@@ -6,6 +6,7 @@ edition = "2018"
 [dependencies]
 gstreamer = "0.17"
 actix = "0.12"
+serde = "1.0"
 
 [[bin]]
 name = "player-client"

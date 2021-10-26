@@ -6,7 +6,7 @@ use std::io::{self, BufRead, Write};
 #[actix::main]
 async fn main() {
     Player::initialize().unwrap();
-    let player_addr = Player::new().start();
+    let player_addr = Player::init().unwrap().start();
 
     let stdin = io::stdin();
     print!("> ");

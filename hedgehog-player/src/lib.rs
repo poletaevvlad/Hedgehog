@@ -2,9 +2,13 @@ pub mod volume;
 
 use actix::prelude::*;
 use gstreamer::prelude::*;
+use volume::{Volume, VolumeCommand};
 
 pub struct Player {
     element: gstreamer::Element,
+
+    volume: Volume,
+    is_muted: bool,
 }
 
 impl Player {
@@ -15,6 +19,33 @@ impl Player {
     pub fn new() -> Self {
         Player {
             element: gstreamer::ElementFactory::make("playbin", None).unwrap(),
+            volume: Volume::FULL,
+            is_muted: false,
+        }
+    }
+
+    pub fn emit_error<E: std::error::Error>(&mut self, _error: E) {
+        todo!()
+    }
+
+    fn set_volume(&mut self, volume: Volume, is_muted: bool) {
+        self.volume = volume;
+        self.is_muted = is_muted;
+
+        let result = self
+            .element
+            .set_property("muted", self.is_muted)
+            .and_then(|_| self.element.set_property("value", self.volume.linear()));
+        if let Err(error) = result {
+            self.emit_error(error)
+        }
+    }
+
+    fn volume(&self) -> Option<Volume> {
+        if self.is_muted {
+            None
+        } else {
+            Some(self.volume)
         }
     }
 }
@@ -45,5 +76,24 @@ impl Handler<PlaybackControll> for Player {
             }
         }
         true
+    }
+}
+
+impl Handler<VolumeCommand> for Player {
+    type Result = Option<Volume>;
+
+    fn handle(&mut self, msg: VolumeCommand, _ctx: &mut Self::Context) -> Self::Result {
+        let mut volume = self.volume;
+        let mut is_muted = self.is_muted;
+        match msg {
+            VolumeCommand::Mute => is_muted = true,
+            VolumeCommand::Unmute => is_muted = true,
+            VolumeCommand::ToggleMute => is_muted = !is_muted,
+            VolumeCommand::SetVolume(new_volume) => volume = new_volume,
+            VolumeCommand::AdjustVolume(delta) => volume = volume.add_cubic(delta),
+        }
+
+        self.set_volume(volume, is_muted);
+        self.volume()
     }
 }

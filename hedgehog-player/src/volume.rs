@@ -7,6 +7,8 @@ use std::fmt;
 pub struct Volume(f64);
 
 impl Volume {
+    pub const FULL: Volume = Volume(1.0);
+
     pub fn from_cubic(cubic: f64) -> Self {
         Volume(cubic)
     }

@@ -1,8 +1,20 @@
 pub mod volume;
 
 use actix::prelude::*;
+use gstreamer::glib::FlagsClass;
 use gstreamer::prelude::*;
 use volume::{Volume, VolumeCommand};
+
+#[derive(Debug)]
+struct GstError(&'static str);
+
+impl std::error::Error for GstError {}
+
+impl std::fmt::Display for GstError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
 
 pub struct Player {
     element: gstreamer::Element,
@@ -15,6 +27,17 @@ impl Player {
 
     pub fn init() -> Result<Self, Box<dyn std::error::Error>> {
         let element = gstreamer::ElementFactory::make("playbin", None)?;
+
+        let flags = element.property("flags")?;
+        let flags_class =
+            FlagsClass::new(flags.type_()).ok_or(GstError("GstPlayFlags not found"))?;
+        let flags = flags_class
+            .builder()
+            .set_by_nick("audio")
+            .build()
+            .ok_or(GstError("Cannot construct GstPlayFlags"))?;
+        element.set_property_from_value("flags", &flags)?;
+
         Ok(Player { element })
     }
 

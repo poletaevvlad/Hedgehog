@@ -68,27 +68,33 @@ impl Actor for Player {
 }
 
 #[derive(Debug, Message)]
-#[rtype(result = "bool")]
+#[rtype(result = "()")]
 pub enum PlaybackControll {
     Play(String),
     Stop,
 }
 
 impl Handler<PlaybackControll> for Player {
-    type Result = bool;
+    type Result = ();
 
     fn handle(&mut self, msg: PlaybackControll, _ctx: &mut Self::Context) -> Self::Result {
-        match msg {
-            PlaybackControll::Play(url) => {
-                self.element.set_state(gstreamer::State::Null).unwrap();
-                self.element.set_property("uri", url).unwrap();
-                self.element.set_state(gstreamer::State::Playing).unwrap();
+        let result: Result<(), Box<dyn std::error::Error>> = (|| {
+            match msg {
+                PlaybackControll::Play(url) => {
+                    self.element.set_state(gstreamer::State::Null)?;
+                    self.element.set_property("uri", url)?;
+                    self.element.set_state(gstreamer::State::Playing)?;
+                }
+                PlaybackControll::Stop => {
+                    self.element.set_state(gstreamer::State::Null)?;
+                }
             }
-            PlaybackControll::Stop => {
-                self.element.set_state(gstreamer::State::Null).unwrap();
-            }
+            Ok(())
+        })();
+
+        if let Err(error) = result {
+            self.emit_error(&*error)
         }
-        true
     }
 }
 

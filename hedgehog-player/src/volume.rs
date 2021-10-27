@@ -1,4 +1,5 @@
 use actix::Message;
+use gstreamer::glib::{ToValue, Type, Value};
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
 
@@ -41,6 +42,16 @@ impl fmt::Display for Volume {
             self.0.abs() * 100.0,
             precision = f.precision().unwrap_or(0)
         ))
+    }
+}
+
+impl ToValue for Volume {
+    fn to_value(&self) -> Value {
+        self.linear().to_value()
+    }
+
+    fn value_type(&self) -> Type {
+        Type::F64
     }
 }
 

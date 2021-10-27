@@ -3,12 +3,13 @@ pub mod volume;
 use actix::prelude::*;
 use gstreamer::glib::FlagsClass;
 use gstreamer::prelude::*;
+use std::error::Error;
 use volume::{Volume, VolumeCommand};
 
 #[derive(Debug)]
 struct GstError(&'static str);
 
-impl std::error::Error for GstError {}
+impl Error for GstError {}
 
 impl std::fmt::Display for GstError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,16 +17,22 @@ impl std::fmt::Display for GstError {
     }
 }
 
+fn box_err(err: impl Error + Send + 'static) -> Box<dyn Error + Send + 'static> {
+    Box::new(err)
+}
+
 pub struct Player {
     element: gstreamer::Element,
+    volume: Option<Volume>,
+    muted: Option<bool>,
 }
 
 impl Player {
-    pub fn initialize() -> Result<(), Box<dyn std::error::Error + 'static>> {
-        gstreamer::init().map_err(|error| Box::new(error) as Box<dyn std::error::Error>)
+    pub fn initialize() -> Result<(), Box<dyn Error + 'static>> {
+        gstreamer::init().map_err(|error| Box::new(error) as Box<dyn Error>)
     }
 
-    pub fn init() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn init() -> Result<Self, Box<dyn Error>> {
         let element = gstreamer::ElementFactory::make("playbin", None)?;
 
         let flags = element.property("flags")?;
@@ -38,33 +45,51 @@ impl Player {
             .ok_or(GstError("Cannot construct GstPlayFlags"))?;
         element.set_property_from_value("flags", &flags)?;
 
-        Ok(Player { element })
+        Ok(Player {
+            element,
+            volume: None,
+            muted: None,
+        })
     }
 
-    pub fn emit_error<E: std::error::Error + ?Sized>(&mut self, error: &E) {
+    pub fn emit_error<E: Error + ?Sized>(&mut self, error: &E) {
         // TODO
         println!("{:?}", error);
-    }
-
-    fn set_volume(
-        &mut self,
-        volume: Volume,
-        is_muted: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.element.set_property("mute", is_muted)?;
-        self.element.set_property("volume", volume.linear())?;
-        Ok(())
-    }
-
-    fn volume(&self) -> Result<(Volume, bool), Box<dyn std::error::Error>> {
-        let is_muted = self.element.property("mute")?.get()?;
-        let volume = self.element.property("volume")?.get()?;
-        Ok((Volume::from_linear(volume), is_muted))
     }
 }
 
 impl Actor for Player {
     type Context = Context<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        let addr = ctx.address();
+        self.element
+            .connect_notify(Some("volume"), move |element, _| {
+                let volume = element
+                    .property("volume")
+                    .map_err(box_err)
+                    .and_then(|volume| volume.get().map_err(box_err));
+                let message = match volume {
+                    Ok(volume) => InternalEvent::VolumeChanged(Volume::from_linear(volume)),
+                    Err(error) => InternalEvent::Error(error),
+                };
+                addr.do_send(message)
+            });
+
+        let addr = ctx.address();
+        self.element
+            .connect_notify(Some("mute"), move |element, _| {
+                let muted = element
+                    .property("mute")
+                    .map_err(box_err)
+                    .and_then(|muted| muted.get().map_err(box_err));
+                let message = match muted {
+                    Ok(muted) => InternalEvent::MutedChanged(muted),
+                    Err(error) => InternalEvent::Error(error),
+                };
+                addr.do_send(message);
+            });
+    }
 }
 
 #[derive(Debug, Message)]
@@ -78,7 +103,7 @@ impl Handler<PlaybackControll> for Player {
     type Result = ();
 
     fn handle(&mut self, msg: PlaybackControll, _ctx: &mut Self::Context) -> Self::Result {
-        let result: Result<(), Box<dyn std::error::Error>> = (|| {
+        let result: Result<(), Box<dyn Error>> = (|| {
             match msg {
                 PlaybackControll::Play(url) => {
                     self.element.set_state(gstreamer::State::Null)?;
@@ -102,24 +127,49 @@ impl Handler<VolumeCommand> for Player {
     type Result = ();
 
     fn handle(&mut self, msg: VolumeCommand, _ctx: &mut Self::Context) -> Self::Result {
-        let (mut volume, mut is_muted) = match self.volume() {
-            Ok(result) => result,
-            Err(error) => {
-                self.emit_error(&*error);
-                return;
-            }
-        };
-
-        match msg {
-            VolumeCommand::Mute => is_muted = true,
-            VolumeCommand::Unmute => is_muted = false,
-            VolumeCommand::ToggleMute => is_muted = !is_muted,
-            VolumeCommand::SetVolume(new_volume) => volume = new_volume,
-            VolumeCommand::AdjustVolume(delta) => volume = volume.add_cubic(delta),
+        macro_rules! set_property {
+            ($name:ident, $property:literal, |$var:pat| $result:expr) => {
+                if let Some($var) = self.$name.take() {
+                    let new_value = $result;
+                    if let Err(error) = self.element.set_property($property, new_value) {
+                        self.emit_error(&error);
+                    } else {
+                        self.$name = Some(new_value);
+                    }
+                }
+            };
         }
 
-        if let Err(error) = self.set_volume(volume, is_muted) {
-            self.emit_error(&*error)
+        match msg {
+            VolumeCommand::Mute => set_property!(muted, "mute", |_| true),
+            VolumeCommand::Unmute => set_property!(muted, "mute", |_| false),
+            VolumeCommand::ToggleMute => set_property!(muted, "mute", |muted| !muted),
+            VolumeCommand::SetVolume(new_volume) => {
+                set_property!(volume, "volume", |_| new_volume)
+            }
+            VolumeCommand::AdjustVolume(delta) => {
+                set_property!(volume, "volume", |volume| volume.add_cubic(delta))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+enum InternalEvent {
+    VolumeChanged(Volume),
+    MutedChanged(bool),
+    Error(Box<dyn Error + Send + 'static>),
+}
+
+impl Handler<InternalEvent> for Player {
+    type Result = ();
+
+    fn handle(&mut self, msg: InternalEvent, _ctx: &mut Self::Context) -> Self::Result {
+        match msg {
+            InternalEvent::VolumeChanged(volume) => self.volume = Some(volume),
+            InternalEvent::MutedChanged(muted) => self.muted = Some(muted),
+            InternalEvent::Error(error) => self.emit_error(&*error),
         }
     }
 }

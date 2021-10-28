@@ -1,11 +1,11 @@
-use gstreamer as gst;
 use gstreamer::prelude::*;
+use gstreamer::{self as gst, glib};
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 
 #[derive(Debug)]
-pub(crate) enum GstError {
+pub enum GstError {
     Error(Box<dyn Error + Send + 'static>),
     Text(Cow<'static, str>),
 }
@@ -33,7 +33,7 @@ impl fmt::Display for GstError {
 
 pub(crate) fn get_property<T>(element: &gst::Element, name: &str) -> Result<T, GstError>
 where
-    for<'a> T: gstreamer::glib::value::FromValue<'a>,
+    for<'a> T: glib::value::FromValue<'a>,
 {
     element
         .property(name)
@@ -47,9 +47,28 @@ pub(crate) fn set_property<V>(
     value: V,
 ) -> Result<(), GstError>
 where
-    V: gstreamer::glib::value::ToValue,
+    V: glib::value::ToValue,
 {
     element
         .set_property(name, value)
         .map_err(GstError::from_err)
+}
+
+pub(crate) fn build_flags<'a>(
+    type_name: &str,
+    flags: impl IntoIterator<Item = &'a str>,
+) -> Result<glib::Value, GstError> {
+    let flags_type = glib::Type::from_name(type_name)
+        .ok_or_else(|| GstError::from_str(format!("{} type not found", type_name)))?;
+    let flags_class = glib::FlagsClass::new(flags_type)
+        .ok_or_else(|| GstError::from_str(format!("Cannot construct flags from {}", type_name)))?;
+
+    let mut builder = flags_class.builder();
+    for flag in flags {
+        builder = builder.set_by_nick(flag);
+    }
+
+    builder
+        .build()
+        .ok_or(GstError::from_str("Cannot construct flags"))
 }

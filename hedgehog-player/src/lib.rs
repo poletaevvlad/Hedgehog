@@ -2,9 +2,8 @@ mod gst_utils;
 pub mod volume;
 
 use actix::prelude::*;
-use gst_utils::{get_property, set_property, GstError};
+use gst_utils::{build_flags, get_property, set_property, GstError};
 use gstreamer as gst;
-use gstreamer::glib::FlagsClass;
 use gstreamer::prelude::*;
 use std::error::Error;
 use volume::{Volume, VolumeCommand};
@@ -16,22 +15,16 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn initialize() -> Result<(), Box<dyn Error + 'static>> {
-        gstreamer::init().map_err(|error| Box::new(error) as Box<dyn Error>)
+    pub fn initialize() -> Result<(), GstError> {
+        gstreamer::init().map_err(GstError::from_err)
     }
 
-    pub fn init() -> Result<Self, Box<dyn Error>> {
-        let element = gstreamer::ElementFactory::make("playbin", None)?;
+    pub fn init() -> Result<Self, GstError> {
+        let mut element =
+            gstreamer::ElementFactory::make("playbin", None).map_err(GstError::from_err)?;
 
-        let flags = element.property("flags")?;
-        let flags_class =
-            FlagsClass::new(flags.type_()).ok_or(GstError::from_str("GstPlayFlags not found"))?;
-        let flags = flags_class
-            .builder()
-            .set_by_nick("audio")
-            .build()
-            .ok_or(GstError::from_str("Cannot construct GstPlayFlags"))?;
-        element.set_property_from_value("flags", &flags)?;
+        let flags = build_flags("GstPlayFlags", ["audio"])?;
+        set_property(&mut element, "flags", flags)?;
 
         Ok(Player {
             element,

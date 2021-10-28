@@ -91,6 +91,12 @@ impl Actor for Player {
     }
 }
 
+#[derive(Debug)]
+pub enum SeekDirection {
+    Forward,
+    Backward,
+}
+
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub enum PlaybackControll {
@@ -99,6 +105,7 @@ pub enum PlaybackControll {
     Pause,
     Resume,
     Seek(Duration),
+    SeekRelative(Duration, SeekDirection),
     Subscribe(Recipient<PlayerNotification>),
 }
 
@@ -129,6 +136,22 @@ impl Handler<PlaybackControll> for Player {
                             gst::ClockTime::from_nseconds(position.as_nanos() as u64),
                         )
                         .map_err(GstError::from_err)?;
+                }
+                PlaybackControll::SeekRelative(duration, direction) => {
+                    if let Some(current_position) = self.element.query_position::<gst::ClockTime>()
+                    {
+                        let delta = gst::ClockTime::from_nseconds(duration.as_nanos() as u64);
+                        let new_position = match direction {
+                            SeekDirection::Forward => current_position.saturating_add(delta),
+                            SeekDirection::Backward => current_position.saturating_sub(delta),
+                        };
+                        self.element
+                            .seek_simple(
+                                gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
+                                new_position,
+                            )
+                            .unwrap();
+                    }
                 }
                 PlaybackControll::Subscribe(recipient) => self.subscribers.push(recipient),
             }

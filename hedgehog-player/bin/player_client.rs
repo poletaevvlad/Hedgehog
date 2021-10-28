@@ -1,6 +1,6 @@
 use actix::prelude::*;
 use hedgehog_player::volume::{Volume, VolumeCommand};
-use hedgehog_player::{PlaybackControll, Player, PlayerNotification};
+use hedgehog_player::{PlaybackControll, Player, PlayerNotification, SeekDirection};
 use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
@@ -69,6 +69,24 @@ async fn main() {
                 ),
                 Err(error) => print!("{:?}", error),
             },
+            ("seek_fwd", duration) | ("seek_bck", duration) => {
+                match duration.parse().map(Duration::from_secs) {
+                    Ok(duration) => print!(
+                        "{:?}",
+                        player_addr
+                            .send(PlaybackControll::SeekRelative(
+                                duration,
+                                if command == "seek_fwd" {
+                                    SeekDirection::Forward
+                                } else {
+                                    SeekDirection::Backward
+                                }
+                            ))
+                            .await
+                    ),
+                    Err(error) => print!("{:?}", error),
+                }
+            }
             ("set_volume", volume) => match volume.parse().map(Volume::from_cubic) {
                 Ok(volume) => print!(
                     "{:?}",

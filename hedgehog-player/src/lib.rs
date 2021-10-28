@@ -95,6 +95,8 @@ impl Actor for Player {
 pub enum PlaybackControll {
     Play(String),
     Stop,
+    Pause,
+    Resume,
     Subscribe(Recipient<PlayerNotification>),
 }
 
@@ -111,6 +113,12 @@ impl Handler<PlaybackControll> for Player {
                 }
                 PlaybackControll::Stop => {
                     self.element.set_state(gst::State::Null)?;
+                }
+                PlaybackControll::Pause => {
+                    self.element.set_state(gst::State::Paused)?;
+                }
+                PlaybackControll::Resume => {
+                    self.element.set_state(gst::State::Playing)?;
                 }
                 PlaybackControll::Subscribe(recipient) => self.subscribers.push(recipient),
             }

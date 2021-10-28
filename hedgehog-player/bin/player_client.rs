@@ -56,6 +56,8 @@ async fn main() {
                     .await
             ),
             ("stop", _) => print!("{:?}", player_addr.send(PlaybackControll::Stop).await),
+            ("pause", _) => print!("{:?}", player_addr.send(PlaybackControll::Pause).await),
+            ("resume", _) => print!("{:?}", player_addr.send(PlaybackControll::Resume).await),
             ("mute", _) => print!("{:?}", player_addr.send(VolumeCommand::Mute).await),
             ("unmute", _) => print!("{:?}", player_addr.send(VolumeCommand::Unmute).await),
             ("toggle_mute", _) => print!("{:?}", player_addr.send(VolumeCommand::ToggleMute).await),

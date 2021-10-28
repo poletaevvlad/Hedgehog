@@ -99,7 +99,7 @@ pub enum SeekDirection {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub enum PlaybackControll {
+pub enum PlaybackControl {
     Play(String),
     Stop,
     Pause,
@@ -109,27 +109,27 @@ pub enum PlaybackControll {
     Subscribe(Recipient<PlayerNotification>),
 }
 
-impl Handler<PlaybackControll> for Player {
+impl Handler<PlaybackControl> for Player {
     type Result = ();
 
-    fn handle(&mut self, msg: PlaybackControll, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: PlaybackControl, _ctx: &mut Self::Context) -> Self::Result {
         let result: Result<(), Box<dyn Error>> = (|| {
             match msg {
-                PlaybackControll::Play(url) => {
+                PlaybackControl::Play(url) => {
                     self.element.set_state(gst::State::Null)?;
                     self.element.set_property("uri", url)?;
                     self.element.set_state(gst::State::Playing)?;
                 }
-                PlaybackControll::Stop => {
+                PlaybackControl::Stop => {
                     self.element.set_state(gst::State::Null)?;
                 }
-                PlaybackControll::Pause => {
+                PlaybackControl::Pause => {
                     self.element.set_state(gst::State::Paused)?;
                 }
-                PlaybackControll::Resume => {
+                PlaybackControl::Resume => {
                     self.element.set_state(gst::State::Playing)?;
                 }
-                PlaybackControll::Seek(position) => {
+                PlaybackControl::Seek(position) => {
                     self.element
                         .seek_simple(
                             gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
@@ -137,7 +137,7 @@ impl Handler<PlaybackControll> for Player {
                         )
                         .map_err(GstError::from_err)?;
                 }
-                PlaybackControll::SeekRelative(duration, direction) => {
+                PlaybackControl::SeekRelative(duration, direction) => {
                     if let Some(current_position) = self.element.query_position::<gst::ClockTime>()
                     {
                         let delta = gst::ClockTime::from_nseconds(duration.as_nanos() as u64);
@@ -153,7 +153,7 @@ impl Handler<PlaybackControll> for Player {
                             .unwrap();
                     }
                 }
-                PlaybackControll::Subscribe(recipient) => self.subscribers.push(recipient),
+                PlaybackControl::Subscribe(recipient) => self.subscribers.push(recipient),
             }
             Ok(())
         })();

@@ -5,6 +5,7 @@ use actix::prelude::*;
 use gst_utils::{build_flags, get_property, set_property, GstError};
 use gstreamer_base::{gst, gst::prelude::*, BaseParse};
 use std::error::Error;
+use std::time::Duration;
 use volume::{Volume, VolumeCommand};
 
 pub struct Player {
@@ -97,6 +98,7 @@ pub enum PlaybackControll {
     Stop,
     Pause,
     Resume,
+    Seek(Duration),
     Subscribe(Recipient<PlayerNotification>),
 }
 
@@ -119,6 +121,14 @@ impl Handler<PlaybackControll> for Player {
                 }
                 PlaybackControll::Resume => {
                     self.element.set_state(gst::State::Playing)?;
+                }
+                PlaybackControll::Seek(position) => {
+                    self.element
+                        .seek_simple(
+                            gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
+                            gst::ClockTime::from_nseconds(position.as_nanos() as u64),
+                        )
+                        .map_err(GstError::from_err)?;
                 }
                 PlaybackControll::Subscribe(recipient) => self.subscribers.push(recipient),
             }
@@ -200,10 +210,7 @@ impl StreamHandler<gst::Message> for Player {
                         .query_duration::<gst::ClockTime>()
                 });
                 if let Some(src) = clock_time {
-                    println!(
-                        "duration: {:?}",
-                        std::time::Duration::from_nanos(src.nseconds())
-                    );
+                    println!("duration: {:?}", Duration::from_nanos(src.nseconds()));
                 }
             }
             _ => (),

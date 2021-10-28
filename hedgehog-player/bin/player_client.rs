@@ -2,6 +2,7 @@ use actix::prelude::*;
 use hedgehog_player::volume::{Volume, VolumeCommand};
 use hedgehog_player::{PlaybackControll, Player, PlayerNotification};
 use std::io::{self, BufRead, Write};
+use std::time::Duration;
 
 struct NotificationListener;
 
@@ -61,6 +62,13 @@ async fn main() {
             ("mute", _) => print!("{:?}", player_addr.send(VolumeCommand::Mute).await),
             ("unmute", _) => print!("{:?}", player_addr.send(VolumeCommand::Unmute).await),
             ("toggle_mute", _) => print!("{:?}", player_addr.send(VolumeCommand::ToggleMute).await),
+            ("seek", duration) => match duration.parse().map(Duration::from_secs) {
+                Ok(duration) => print!(
+                    "{:?}",
+                    player_addr.send(PlaybackControll::Seek(duration)).await
+                ),
+                Err(error) => print!("{:?}", error),
+            },
             ("set_volume", volume) => match volume.parse().map(Volume::from_cubic) {
                 Ok(volume) => print!(
                     "{:?}",

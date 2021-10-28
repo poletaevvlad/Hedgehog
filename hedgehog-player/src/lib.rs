@@ -81,6 +81,21 @@ impl Actor for Player {
             .connect_notify(Some("mute"), move |element, _| {
                 handle_volume_changed(element, &addr)
             });
+
+        if let Some(bus) = self.element.bus() {
+            ctx.add_stream(bus.stream_filtered(&[
+                gst::MessageType::Eos,
+                gst::MessageType::Error,
+                gst::MessageType::Buffering,
+                gst::MessageType::StateChanged,
+                gst::MessageType::DurationChanged,
+            ]));
+        } else {
+            ctx.address()
+                .do_send(InternalEvent::Error(GstError::from_str(
+                    "element does not have a bus",
+                )));
+        }
     }
 }
 
@@ -171,4 +186,17 @@ impl Handler<InternalEvent> for Player {
 #[rtype(result = "()")]
 pub enum PlayerNotification {
     VolumeChanged(Option<Volume>),
+}
+
+impl StreamHandler<gst::Message> for Player {
+    fn handle(&mut self, item: gst::Message, _ctx: &mut Self::Context) {
+        match item.type_() {
+            gst::MessageType::Eos => println!("eos"),
+            gst::MessageType::Error => println!("error"),
+            gst::MessageType::Buffering => println!("buffering"),
+            gst::MessageType::StateChanged => println!("state changed"),
+            gst::MessageType::DurationChanged => println!("duration changed"),
+            _ => (),
+        }
+    }
 }

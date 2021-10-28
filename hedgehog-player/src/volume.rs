@@ -3,7 +3,7 @@ use gstreamer::glib::{ToValue, Type, Value};
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(transparent)]
 pub struct Volume(f64);
 

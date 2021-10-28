@@ -1,12 +1,39 @@
-use actix::Actor;
+use actix::prelude::*;
 use hedgehog_player::volume::{Volume, VolumeCommand};
-use hedgehog_player::{PlaybackControll, Player};
+use hedgehog_player::{PlaybackControll, Player, PlayerNotification};
 use std::io::{self, BufRead, Write};
+
+struct NotificationListener;
+
+impl Actor for NotificationListener {
+    type Context = Context<Self>;
+}
+
+impl Handler<PlayerNotification> for NotificationListener {
+    type Result = ();
+
+    fn handle(&mut self, msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {
+        println!("@ {:?}", msg);
+    }
+}
 
 #[actix::main]
 async fn main() {
     Player::initialize().unwrap();
-    let player_addr = Player::init().unwrap().start();
+    let arbiter = Arbiter::new();
+    let handle = arbiter.handle();
+
+    let player = Player::init().unwrap();
+    let player_addr = Player::start_in_arbiter(&handle, move |_| player);
+
+    let notification_listener =
+        NotificationListener::start_in_arbiter(&handle, |_| NotificationListener);
+    player_addr
+        .send(PlaybackControll::Subscribe(
+            notification_listener.recipient(),
+        ))
+        .await
+        .unwrap();
 
     let stdin = io::stdin();
     print!("> ");

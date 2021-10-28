@@ -1,5 +1,5 @@
-use gstreamer::prelude::*;
-use gstreamer::{self as gst, glib};
+use gstreamer_base::gst::prelude::*;
+use gstreamer_base::{glib, gst};
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;

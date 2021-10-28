@@ -3,8 +3,7 @@ pub mod volume;
 
 use actix::prelude::*;
 use gst_utils::{build_flags, get_property, set_property, GstError};
-use gstreamer as gst;
-use gstreamer::prelude::*;
+use gstreamer_base::{gst, gst::prelude::*, BaseParse};
 use std::error::Error;
 use volume::{Volume, VolumeCommand};
 
@@ -16,12 +15,11 @@ pub struct Player {
 
 impl Player {
     pub fn initialize() -> Result<(), GstError> {
-        gstreamer::init().map_err(GstError::from_err)
+        gst::init().map_err(GstError::from_err)
     }
 
     pub fn init() -> Result<Self, GstError> {
-        let mut element =
-            gstreamer::ElementFactory::make("playbin", None).map_err(GstError::from_err)?;
+        let mut element = gst::ElementFactory::make("playbin", None).map_err(GstError::from_err)?;
 
         let flags = build_flags("GstPlayFlags", ["audio"])?;
         set_property(&mut element, "flags", flags)?;
@@ -52,7 +50,7 @@ impl Actor for Player {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        fn handle_volume_changed(element: &gstreamer::Element, addr: &Addr<Player>) {
+        fn handle_volume_changed(element: &gst::Element, addr: &Addr<Player>) {
             let volume = get_property(element, "volume").map(Volume::from_linear);
             let muted = get_property(element, "mute");
             let message = match (volume, muted) {
@@ -187,8 +185,19 @@ impl StreamHandler<gst::Message> for Player {
             gst::MessageType::Eos => println!("eos"),
             gst::MessageType::Error => println!("error"),
             gst::MessageType::Buffering => println!("buffering"),
-            gst::MessageType::StateChanged => println!("state changed"),
-            gst::MessageType::DurationChanged => println!("duration changed"),
+            gst::MessageType::StateChanged => (),
+            gst::MessageType::DurationChanged => {
+                let clock_time = item.src().and_then(|src| {
+                    src.downcast_ref::<BaseParse>()?
+                        .query_duration::<gst::ClockTime>()
+                });
+                if let Some(src) = clock_time {
+                    println!(
+                        "duration: {:?}",
+                        std::time::Duration::from_nanos(src.nseconds())
+                    );
+                }
+            }
             _ => (),
         }
     }

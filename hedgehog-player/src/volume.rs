@@ -1,5 +1,5 @@
 use actix::Message;
-use gstreamer::glib::{ToValue, Type, Value};
+use gstreamer_base::glib::{ToValue, Type, Value};
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
 

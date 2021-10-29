@@ -1,4 +1,5 @@
 mod gst_utils;
+pub mod state;
 pub mod volume;
 
 use actix::prelude::*;
@@ -232,6 +233,7 @@ impl Handler<InternalEvent> for Player {
 #[rtype(result = "()")]
 pub enum PlayerNotification {
     VolumeChanged(Option<Volume>),
+    StateUpdate(state::StateUpdate),
 }
 
 impl StreamHandler<gst::Message> for Player {
@@ -247,7 +249,10 @@ impl StreamHandler<gst::Message> for Player {
                         .query_duration::<gst::ClockTime>()
                 });
                 if let Some(src) = clock_time {
-                    println!("duration: {:?}", Duration::from_nanos(src.nseconds()));
+                    let duration = Duration::from_nanos(src.nseconds());
+                    self.notify_subscribers(PlayerNotification::StateUpdate(
+                        state::StateUpdate::DurationSet(duration),
+                    ));
                 }
             }
             _ => (),

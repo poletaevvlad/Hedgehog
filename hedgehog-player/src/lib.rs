@@ -13,6 +13,7 @@ pub struct Player {
     element: gst::Element,
     subscribers: Vec<Recipient<PlayerNotification>>,
     reported_volume: Option<Option<Volume>>,
+    is_buffering: bool,
 }
 
 impl Player {
@@ -30,6 +31,7 @@ impl Player {
             element,
             reported_volume: None,
             subscribers: Vec::new(),
+            is_buffering: false,
         })
     }
 
@@ -186,16 +188,17 @@ impl Handler<VolumeCommand> for Player {
         let result = match msg {
             VolumeCommand::Mute => set_property(&mut self.element, "mute", true),
             VolumeCommand::Unmute => set_property(&mut self.element, "mute", false),
-            VolumeCommand::ToggleMute => get_property(&mut self.element, "mute")
+            VolumeCommand::ToggleMute => get_property(&self.element, "mute")
                 .and_then(|muted: bool| set_property(&mut self.element, "mute", !muted)),
             VolumeCommand::SetVolume(new_volume) => {
                 set_property(&mut self.element, "volume", new_volume)
             }
-            VolumeCommand::AdjustVolume(delta) => get_property(&mut self.element, "volume")
-                .and_then(|volume| {
+            VolumeCommand::AdjustVolume(delta) => {
+                get_property(&self.element, "volume").and_then(|volume| {
                     let volume = Volume::from_linear(volume).add_cubic(delta);
                     set_property(&mut self.element, "volume", volume)
-                }),
+                })
+            }
         };
 
         if let Err(error) = result {
@@ -238,13 +241,21 @@ pub enum PlayerNotification {
 
 impl StreamHandler<gst::Message> for Player {
     fn handle(&mut self, item: gst::Message, _ctx: &mut Self::Context) {
-        match item.type_() {
-            gst::MessageType::Eos => println!("eos"),
-            gst::MessageType::Error => println!("error"),
-            gst::MessageType::Buffering => println!("buffering"),
-            gst::MessageType::StateChanged => (),
-            gst::MessageType::DurationChanged => {
-                let clock_time = item.src().and_then(|src| {
+        match item.view() {
+            gst::MessageView::Eos(_) => println!("eos"),
+            gst::MessageView::Error(_) => println!("error"),
+            gst::MessageView::Buffering(buffering) => {
+                let is_buffering = buffering.percent() != 100;
+                if self.is_buffering != is_buffering {
+                    self.notify_subscribers(PlayerNotification::StateUpdate(
+                        state::StateUpdate::BufferingChanged(is_buffering),
+                    ))
+                }
+                self.is_buffering = is_buffering;
+            }
+            gst::MessageView::StateChanged(_) => (),
+            gst::MessageView::DurationChanged(duration_changed) => {
+                let clock_time = duration_changed.src().and_then(|src| {
                     src.downcast_ref::<BaseParse>()?
                         .query_duration::<gst::ClockTime>()
                 });

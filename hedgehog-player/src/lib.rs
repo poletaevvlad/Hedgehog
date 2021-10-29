@@ -91,6 +91,22 @@ impl Actor for Player {
     }
 }
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub enum AgentCommand {
+    Subscribe(Recipient<PlayerNotification>),
+}
+
+impl Handler<AgentCommand> for Player {
+    type Result = ();
+
+    fn handle(&mut self, msg: AgentCommand, _ctx: &mut Self::Context) -> Self::Result {
+        match msg {
+            AgentCommand::Subscribe(recipient) => self.subscribers.push(recipient),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum SeekDirection {
     Forward,
@@ -106,7 +122,6 @@ pub enum PlaybackControl {
     Resume,
     Seek(Duration),
     SeekRelative(Duration, SeekDirection),
-    Subscribe(Recipient<PlayerNotification>),
 }
 
 impl Handler<PlaybackControl> for Player {
@@ -153,7 +168,6 @@ impl Handler<PlaybackControl> for Player {
                             .unwrap();
                     }
                 }
-                PlaybackControl::Subscribe(recipient) => self.subscribers.push(recipient),
             }
             Ok(())
         })();

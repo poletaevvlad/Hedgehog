@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use crate::State;
+
 pub enum PlaybackStatus {
     None,
     Buffering,
@@ -7,95 +9,49 @@ pub enum PlaybackStatus {
     Paused,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct PlaybackTiming {
     pub duration: Option<Duration>,
     pub position: Duration,
 }
 
-pub enum PlaybackState {
-    None,
-    Active {
-        timing: PlaybackTiming,
-        is_buffering: bool,
-        is_paused: bool,
-    },
-}
+#[derive(Debug, Default)]
+pub struct PlaybackState(Option<(State, PlaybackTiming)>);
 
 impl PlaybackState {
     pub fn status(&self) -> PlaybackStatus {
-        match self {
-            PlaybackState::None => PlaybackStatus::None,
-            PlaybackState::Active {
-                is_paused: true, ..
-            } => PlaybackStatus::Paused,
-            PlaybackState::Active {
-                is_buffering: true, ..
-            } => PlaybackStatus::Buffering,
-            PlaybackState::Active { .. } => PlaybackStatus::Playing,
+        match self.0 {
+            Some((state, _)) if !state.is_started || state.is_buffering => {
+                PlaybackStatus::Buffering
+            }
+            Some((state, _)) if state.is_paused => PlaybackStatus::Paused,
+            Some(_) => PlaybackStatus::Playing,
+            None => PlaybackStatus::None,
         }
     }
 
-    pub fn timing(&self) -> Option<&PlaybackTiming> {
-        match self {
-            PlaybackState::None => None,
-            PlaybackState::Active { timing, .. } => Some(timing),
+    pub fn timing(&self) -> Option<PlaybackTiming> {
+        self.0.map(|(_, timing)| timing)
+    }
+
+    pub fn set_state(&mut self, state: Option<State>) {
+        match (self.0, state) {
+            (None, None) => (),
+            (None, Some(state)) => self.0 = Some((state, PlaybackTiming::default())),
+            (Some(_), None) => self.0 = None,
+            (Some((ref mut current_state, _)), Some(state)) => *current_state = state,
         }
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum StateUpdate {
-    Initiated,
-    BufferingChanged(bool),
-    PausedChanged(bool),
-    Stopped,
-    DurationSet(Duration),
-    PositionChanged(Duration),
-}
+    pub fn set_duration(&mut self, duration: Duration) {
+        if let Some((_, mut timing)) = self.0 {
+            timing.duration = Some(duration)
+        }
+    }
 
-impl PlaybackState {
-    fn update(&mut self, update: StateUpdate) -> bool {
-        match self {
-            this @ PlaybackState::None => {
-                if let StateUpdate::Initiated = update {
-                    *this = PlaybackState::Active {
-                        timing: PlaybackTiming::default(),
-                        is_buffering: true,
-                        is_paused: false,
-                    };
-                    true
-                } else {
-                    false
-                }
-            }
-            this if matches!(update, StateUpdate::Stopped) => {
-                *this = PlaybackState::None;
-                true
-            }
-            PlaybackState::Active {
-                timing,
-                is_buffering,
-                is_paused,
-            } => match update {
-                StateUpdate::BufferingChanged(buffering) => {
-                    *is_buffering = buffering;
-                    true
-                }
-                StateUpdate::PausedChanged(paused) => {
-                    *is_paused = paused;
-                    true
-                }
-                StateUpdate::DurationSet(duration) => {
-                    timing.duration = Some(duration);
-                    true
-                }
-                StateUpdate::PositionChanged(new_position) => {
-                    timing.position = new_position;
-                    true
-                }
-                _ => false,
-            },
+    pub fn set_position(&mut self, position: Duration) {
+        if let Some((_, mut timing)) = self.0 {
+            timing.position = position
         }
     }
 }

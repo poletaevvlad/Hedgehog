@@ -11,9 +11,9 @@ use volume::{Volume, VolumeCommand};
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct State {
-    is_started: bool,
-    is_paused: bool,
-    is_buffering: bool,
+    pub(crate) is_started: bool,
+    pub(crate) is_paused: bool,
+    pub(crate) is_buffering: bool,
 }
 
 pub struct Player {
@@ -161,7 +161,7 @@ impl Handler<PlaybackControl> for Player {
                     if let Some(state) = self.state {
                         if !state.is_paused {
                             self.set_state(Some(State {
-                                is_paused: false,
+                                is_paused: true,
                                 ..state
                             }));
                             self.element.set_state(gst::State::Paused)?;

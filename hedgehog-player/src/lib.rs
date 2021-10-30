@@ -9,11 +9,18 @@ use std::error::Error;
 use std::time::Duration;
 use volume::{Volume, VolumeCommand};
 
+#[derive(Debug, Default, Copy, Clone)]
+pub struct State {
+    is_started: bool,
+    is_paused: bool,
+    is_buffering: bool,
+}
+
 pub struct Player {
     element: gst::Element,
     subscribers: Vec<Recipient<PlayerNotification>>,
     reported_volume: Option<Option<Volume>>,
-    is_buffering: bool,
+    state: Option<State>,
 }
 
 impl Player {
@@ -31,13 +38,18 @@ impl Player {
             element,
             reported_volume: None,
             subscribers: Vec::new(),
-            is_buffering: false,
+            state: None,
         })
     }
 
-    pub fn emit_error<E: Error + ?Sized>(&mut self, error: &E) {
+    fn emit_error<E: Error + ?Sized>(&mut self, error: &E) {
         // TODO
         println!("{:?}", error);
+    }
+
+    fn set_state(&mut self, state: Option<State>) {
+        self.state = state;
+        self.notify_subscribers(PlayerNotification::StateChanged(self.state))
     }
 
     fn notify_subscribers(&mut self, notification: PlayerNotification) {
@@ -134,41 +146,66 @@ impl Handler<PlaybackControl> for Player {
         let result: Result<(), Box<dyn Error>> = (|| {
             match msg {
                 PlaybackControl::Play(url) => {
+                    self.set_state(Some(State::default()));
                     self.element.set_state(gst::State::Null)?;
                     self.element.set_property("uri", url)?;
                     self.element.set_state(gst::State::Playing)?;
                 }
                 PlaybackControl::Stop => {
-                    self.element.set_state(gst::State::Null)?;
+                    if self.state.is_some() {
+                        self.set_state(Some(State::default()));
+                        self.element.set_state(gst::State::Null)?;
+                    }
                 }
                 PlaybackControl::Pause => {
-                    self.element.set_state(gst::State::Paused)?;
+                    if let Some(state) = self.state {
+                        if !state.is_paused {
+                            self.set_state(Some(State {
+                                is_paused: false,
+                                ..state
+                            }));
+                            self.element.set_state(gst::State::Paused)?;
+                        }
+                    }
                 }
                 PlaybackControl::Resume => {
-                    self.element.set_state(gst::State::Playing)?;
+                    if let Some(state) = self.state {
+                        if state.is_paused {
+                            self.set_state(Some(State {
+                                is_paused: false,
+                                ..state
+                            }));
+                            self.element.set_state(gst::State::Playing)?;
+                        }
+                    }
                 }
                 PlaybackControl::Seek(position) => {
-                    self.element
-                        .seek_simple(
-                            gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
-                            gst::ClockTime::from_nseconds(position.as_nanos() as u64),
-                        )
-                        .map_err(GstError::from_err)?;
-                }
-                PlaybackControl::SeekRelative(duration, direction) => {
-                    if let Some(current_position) = self.element.query_position::<gst::ClockTime>()
-                    {
-                        let delta = gst::ClockTime::from_nseconds(duration.as_nanos() as u64);
-                        let new_position = match direction {
-                            SeekDirection::Forward => current_position.saturating_add(delta),
-                            SeekDirection::Backward => current_position.saturating_sub(delta),
-                        };
+                    if self.state.is_some() {
                         self.element
                             .seek_simple(
                                 gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
-                                new_position,
+                                gst::ClockTime::from_nseconds(position.as_nanos() as u64),
                             )
-                            .unwrap();
+                            .map_err(GstError::from_err)?;
+                    }
+                }
+                PlaybackControl::SeekRelative(duration, direction) => {
+                    if self.state.is_some() {
+                        if let Some(current_position) =
+                            self.element.query_position::<gst::ClockTime>()
+                        {
+                            let delta = gst::ClockTime::from_nseconds(duration.as_nanos() as u64);
+                            let new_position = match direction {
+                                SeekDirection::Forward => current_position.saturating_add(delta),
+                                SeekDirection::Backward => current_position.saturating_sub(delta),
+                            };
+                            self.element
+                                .seek_simple(
+                                    gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
+                                    new_position,
+                                )
+                                .unwrap();
+                        }
                     }
                 }
             }
@@ -236,37 +273,50 @@ impl Handler<InternalEvent> for Player {
 #[rtype(result = "()")]
 pub enum PlayerNotification {
     VolumeChanged(Option<Volume>),
-    StateUpdate(state::StateUpdate),
+    StateChanged(Option<State>),
+    DurationSet(Duration),
 }
 
 impl StreamHandler<gst::Message> for Player {
     fn handle(&mut self, item: gst::Message, _ctx: &mut Self::Context) {
-        match item.view() {
-            gst::MessageView::Eos(_) => println!("eos"),
-            gst::MessageView::Error(_) => println!("error"),
-            gst::MessageView::Buffering(buffering) => {
-                let is_buffering = buffering.percent() != 100;
-                if self.is_buffering != is_buffering {
-                    self.notify_subscribers(PlayerNotification::StateUpdate(
-                        state::StateUpdate::BufferingChanged(is_buffering),
-                    ))
+        if let Some(state) = self.state {
+            match item.view() {
+                gst::MessageView::Eos(_) => self.set_state(None),
+                gst::MessageView::Error(_) => self.set_state(None),
+                gst::MessageView::Buffering(buffering) => {
+                    let is_buffering = buffering.percent() != 100;
+                    if state.is_buffering != is_buffering {
+                        self.set_state(Some(State {
+                            is_buffering,
+                            ..state
+                        }));
+                    }
                 }
-                self.is_buffering = is_buffering;
-            }
-            gst::MessageView::StateChanged(_) => (),
-            gst::MessageView::DurationChanged(duration_changed) => {
-                let clock_time = duration_changed.src().and_then(|src| {
-                    src.downcast_ref::<BaseParse>()?
-                        .query_duration::<gst::ClockTime>()
-                });
-                if let Some(src) = clock_time {
-                    let duration = Duration::from_nanos(src.nseconds());
-                    self.notify_subscribers(PlayerNotification::StateUpdate(
-                        state::StateUpdate::DurationSet(duration),
-                    ));
+                gst::MessageView::StateChanged(state_changed) => {
+                    if state_changed.pending() == gst::State::VoidPending
+                        && state_changed.src().as_ref() == Some(self.element.upcast_ref())
+                    {
+                        #[allow(clippy::collapsible_if)]
+                        if !state.is_started && state_changed.current() == gst::State::Playing {
+                            self.set_state(Some(State {
+                                is_started: true,
+                                ..state
+                            }));
+                        }
+                    }
                 }
+                gst::MessageView::DurationChanged(duration_changed) => {
+                    let clock_time = duration_changed.src().and_then(|src| {
+                        src.downcast_ref::<BaseParse>()?
+                            .query_duration::<gst::ClockTime>()
+                    });
+                    if let Some(src) = clock_time {
+                        let duration = Duration::from_nanos(src.nseconds());
+                        self.notify_subscribers(PlayerNotification::DurationSet(duration));
+                    }
+                }
+                _ => (),
             }
-            _ => (),
         }
     }
 }

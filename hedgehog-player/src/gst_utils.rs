@@ -70,5 +70,5 @@ pub(crate) fn build_flags<'a>(
 
     builder
         .build()
-        .ok_or(GstError::from_str("Cannot construct flags"))
+        .ok_or_else(|| GstError::from_str("Cannot construct flags"))
 }

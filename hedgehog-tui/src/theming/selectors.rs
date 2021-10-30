@@ -1,6 +1,7 @@
 use super::parser::{match_take, ParsableStr};
 use crate::status::Severity;
 use bitflags::bitflags;
+use hedgehog_player::state::PlaybackStatus;
 use std::str::FromStr;
 
 pub(crate) trait StyleSelector {
@@ -135,9 +136,49 @@ impl StyleSelector for List {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum Player {
+    Title,
+    Status(Option<PlaybackStatus>),
+    Timing,
+}
+
+impl Player {
+    fn parse(input: &mut ParsableStr<'_>) -> Result<Player, SelectorParsingError> {
+        input.take_token(".");
+        match_take! {
+            input,
+            "title" => Ok(Player::Title),
+            "timing" => Ok(Player::Timing),
+            "status" => {
+                let status = match_take! { input,
+                    ".none" => Some(PlaybackStatus::None),
+                    ".buffering" => Some(PlaybackStatus::Buffering),
+                    ".playing" => Some(PlaybackStatus::Playing),
+                    ".paused" => Some(PlaybackStatus::Paused),
+                    _ => None,
+                };
+                Ok(Player::Status(status))
+            },
+            _ => Err(SelectorParsingError),
+        }
+    }
+}
+
+impl StyleSelector for Player {
+    fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
+        if let Player::Status(None) = self {
+            for status in PlaybackStatus::enumerate() {
+                callback(Player::Status(Some(status)));
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Selector {
     StatusBar(StatusBar),
     List(List),
+    Player(Player),
 }
 
 impl Selector {
@@ -146,6 +187,7 @@ impl Selector {
             input,
             "statusbar" => StatusBar::parse(input).map(Selector::StatusBar),
             "list" => List::parse(input).map(Selector::List),
+            "player" => Player::parse(input).map(Selector::Player),
             _ => Err(SelectorParsingError),
         }
     }
@@ -159,6 +201,9 @@ impl StyleSelector for Selector {
             }
             Selector::List(selector) => {
                 selector.for_each_overrides(|sel| callback(Selector::List(sel)))
+            }
+            Selector::Player(selector) => {
+                selector.for_each_overrides(|sel| callback(Selector::Player(sel)))
             }
         }
     }
@@ -211,7 +256,9 @@ impl<'de> serde::Deserialize<'de> for Selector {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListState, ListSubitem, Selector, StatusBar};
+    use hedgehog_player::state::PlaybackStatus;
+
+    use super::{List, ListState, ListSubitem, Player, Selector, StatusBar};
     use crate::cmdparser;
     use crate::status::Severity;
 
@@ -228,10 +275,23 @@ mod tests {
             ))))
         );
         assert_eq!("list.divider".parse(), Ok(Selector::List(List::Divider)));
-
         assert_eq!(
             cmdparser::from_str::<Selector>("list.divider").unwrap(),
             Selector::List(List::Divider)
+        );
+        assert_eq!(
+            "player.timing".parse(),
+            Ok(Selector::Player(Player::Timing))
+        );
+        assert_eq!(
+            "player.status".parse(),
+            Ok(Selector::Player(Player::Status(None)))
+        );
+        assert_eq!(
+            "player.status.playing".parse(),
+            Ok(Selector::Player(Player::Status(Some(
+                PlaybackStatus::Playing
+            ))))
         );
     }
 

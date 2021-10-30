@@ -2,11 +2,23 @@ use std::time::Duration;
 
 use crate::State;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlaybackStatus {
     None,
     Buffering,
     Playing,
     Paused,
+}
+
+impl PlaybackStatus {
+    pub fn enumerate() -> impl IntoIterator<Item = Self> {
+        [
+            PlaybackStatus::None,
+            PlaybackStatus::Buffering,
+            PlaybackStatus::Playing,
+            PlaybackStatus::Paused,
+        ]
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]

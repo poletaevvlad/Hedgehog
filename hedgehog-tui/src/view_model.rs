@@ -7,11 +7,11 @@ use crate::keymap::{Key, KeyMapping};
 use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
-use actix::{Addr, System};
+use actix::System;
 use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
 use hedgehog_library::EpisodeSummariesQuery;
+use hedgehog_player::state::PlaybackState;
 use hedgehog_player::PlayerNotification;
-use hedgehog_player::{state::PlaybackState, Player};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -29,12 +29,11 @@ pub(crate) struct ViewModel {
     pub(crate) theme: Theme,
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
-    pub(crate) player: Addr<Player>,
     pub(crate) playback_state: PlaybackState,
 }
 
 impl ViewModel {
-    pub(crate) fn new(size: (u16, u16), player: Addr<Player>) -> Self {
+    pub(crate) fn new(size: (u16, u16)) -> Self {
         ViewModel {
             feeds_list: InteractiveList::new(size.1 as usize - 2),
             episodes_list: InteractiveList::new(size.1 as usize - 2),
@@ -43,7 +42,6 @@ impl ViewModel {
             theme: Theme::default(),
             focus: FocusedPane::FeedsList,
             selected_feed: None,
-            player,
             playback_state: PlaybackState::default(),
         }
     }

@@ -8,6 +8,7 @@ use crate::view_model::{Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::library_rows::{EpisodesListRowRenderer, FeedsListRowRenderer};
 use crate::widgets::list::List;
+use crate::widgets::player_state::PlayerState;
 use actix::prelude::*;
 use crossterm::event::Event;
 use hedgehog_library::datasource::QueryError;
@@ -28,6 +29,7 @@ pub(crate) struct UI {
     command: Option<CommandState>,
     commands_history: CommandsHistory,
     library: Addr<Library>,
+    player: Addr<Player>,
     view_model: ViewModel,
 }
 
@@ -43,7 +45,8 @@ impl UI {
             command: None,
             commands_history: CommandsHistory::new(),
             library,
-            view_model: ViewModel::new(size, player),
+            player,
+            view_model: ViewModel::new(size),
         }
     }
 
@@ -92,6 +95,10 @@ impl UI {
                     layout[1],
                 );
             }
+
+            let player_widget = PlayerState::new(&view_model.playback_state, &view_model.theme);
+            let player_rect = Rect::new(0, area.height - 2, area.width, 1);
+            f.render_widget(player_widget, player_rect);
 
             let status_rect = Rect::new(0, area.height - 1, area.width, 1);
             if let Some(ref mut command_state) = command {
@@ -145,8 +152,7 @@ impl Actor for UI {
             actor: ctx.address(),
         });
         self.view_model.init_rc();
-        self.view_model
-            .player
+        self.player
             .do_send(hedgehog_player::ActorCommand::Subscribe(
                 ctx.address().recipient(),
             ));

@@ -234,6 +234,12 @@ impl From<List> for Selector {
     }
 }
 
+impl From<Player> for Selector {
+    fn from(player: Player) -> Self {
+        Selector::Player(player)
+    }
+}
+
 struct SelectorDeserializeVisitor;
 
 impl<'de> serde::de::Visitor<'de> for SelectorDeserializeVisitor {

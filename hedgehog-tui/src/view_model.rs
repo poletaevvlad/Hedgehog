@@ -10,7 +10,8 @@ use crate::theming::{Theme, ThemeCommand};
 use actix::{Addr, System};
 use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
 use hedgehog_library::EpisodeSummariesQuery;
-use hedgehog_player::Player;
+use hedgehog_player::PlayerNotification;
+use hedgehog_player::{state::PlaybackState, Player};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -28,7 +29,8 @@ pub(crate) struct ViewModel {
     pub(crate) theme: Theme,
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
-    player: Addr<Player>,
+    pub(crate) player: Addr<Player>,
+    pub(crate) playback_state: PlaybackState,
 }
 
 impl ViewModel {
@@ -42,6 +44,7 @@ impl ViewModel {
             focus: FocusedPane::FeedsList,
             selected_feed: None,
             player,
+            playback_state: PlaybackState::default(),
         }
     }
 
@@ -198,6 +201,14 @@ impl ViewModel {
             true
         } else {
             false
+        }
+    }
+
+    pub(crate) fn handle_player_notification(&mut self, notification: PlayerNotification) {
+        match notification {
+            PlayerNotification::VolumeChanged(_) => (),
+            PlayerNotification::StateChanged(state) => self.playback_state.set_state(state),
+            PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
         }
     }
 }

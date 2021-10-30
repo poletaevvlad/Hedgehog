@@ -16,7 +16,7 @@ use hedgehog_library::{
     EpisodeSummariesQuery, FeedSummariesQuery, Library, PagedQueryRequest, QueryRequest,
     SizeRequest,
 };
-use hedgehog_player::Player;
+use hedgehog_player::{Player, PlayerNotification};
 use tui::backend::CrosstermBackend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::text::Span;
@@ -145,6 +145,11 @@ impl Actor for UI {
             actor: ctx.address(),
         });
         self.view_model.init_rc();
+        self.view_model
+            .player
+            .do_send(hedgehog_player::ActorCommand::Subscribe(
+                ctx.address().recipient(),
+            ));
         self.render();
     }
 }
@@ -338,5 +343,14 @@ impl Handler<DataFetchingRequest> for UI {
                 ))
             }
         }
+    }
+}
+
+impl Handler<PlayerNotification> for UI {
+    type Result = ();
+
+    fn handle(&mut self, msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {
+        self.view_model.handle_player_notification(msg);
+        self.render();
     }
 }

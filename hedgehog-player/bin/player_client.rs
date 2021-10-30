@@ -1,6 +1,6 @@
 use actix::prelude::*;
 use hedgehog_player::volume::{Volume, VolumeCommand};
-use hedgehog_player::{AgentCommand, PlaybackControl, Player, PlayerNotification, SeekDirection};
+use hedgehog_player::{ActorCommand, PlaybackControl, Player, PlayerNotification, SeekDirection};
 use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
@@ -30,7 +30,7 @@ async fn main() {
     let notification_listener =
         NotificationListener::start_in_arbiter(&handle, |_| NotificationListener);
     player_addr
-        .send(AgentCommand::Subscribe(notification_listener.recipient()))
+        .send(ActorCommand::Subscribe(notification_listener.recipient()))
         .await
         .unwrap();
 

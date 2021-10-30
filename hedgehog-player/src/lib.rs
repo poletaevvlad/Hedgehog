@@ -108,16 +108,16 @@ impl Actor for Player {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub enum AgentCommand {
+pub enum ActorCommand {
     Subscribe(Recipient<PlayerNotification>),
 }
 
-impl Handler<AgentCommand> for Player {
+impl Handler<ActorCommand> for Player {
     type Result = ();
 
-    fn handle(&mut self, msg: AgentCommand, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: ActorCommand, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            AgentCommand::Subscribe(recipient) => self.subscribers.push(recipient),
+            ActorCommand::Subscribe(recipient) => self.subscribers.push(recipient),
         }
     }
 }

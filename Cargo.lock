@@ -586,6 +586,7 @@ dependencies = [
  "bitflags",
  "crossterm 0.20.0",
  "hedgehog-library",
+ "hedgehog-player",
  "serde",
  "shlex",
  "tempfile",

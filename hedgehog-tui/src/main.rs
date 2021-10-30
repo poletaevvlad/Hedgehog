@@ -16,6 +16,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use hedgehog_library::{Library, SqliteDataProvider};
+use hedgehog_player::Player;
 use screen::UI;
 use std::io;
 use tui::backend::CrosstermBackend;
@@ -24,6 +25,8 @@ use tui::Terminal;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let system = System::new();
     let data_provider = SqliteDataProvider::connect_default_path()?;
+
+    Player::initialize()?;
 
     enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen)?;
@@ -34,8 +37,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.clear()?;
 
     system.block_on(async {
-        let library = Library::new(data_provider).start();
-        UI::new((size.width, size.height), terminal, library).start();
+        let library_arbiter = Arbiter::new();
+        let library =
+            Library::start_in_arbiter(&library_arbiter.handle(), |_| Library::new(data_provider));
+        let player_arbiter = Arbiter::new();
+        let player = Player::start_in_arbiter(
+            &player_arbiter.handle(),
+            |_| /* TODO */ Player::init().unwrap(),
+        );
+        UI::new((size.width, size.height), terminal, library, player).start();
     });
     system.run()?;
 

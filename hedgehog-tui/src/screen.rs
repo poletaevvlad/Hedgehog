@@ -16,6 +16,7 @@ use hedgehog_library::{
     EpisodeSummariesQuery, FeedSummariesQuery, Library, PagedQueryRequest, QueryRequest,
     SizeRequest,
 };
+use hedgehog_player::Player;
 use tui::backend::CrosstermBackend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::text::Span;
@@ -35,13 +36,14 @@ impl UI {
         size: (u16, u16),
         terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
         library: Addr<Library>,
+        player: Addr<Player>,
     ) -> Self {
         UI {
             terminal,
             command: None,
             commands_history: CommandsHistory::new(),
             library,
-            view_model: ViewModel::new(size),
+            view_model: ViewModel::new(size, player),
         }
     }
 

@@ -55,7 +55,7 @@ impl UI {
 
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
-            let library_rect = Rect::new(0, 0, area.width, area.height - 1);
+            let library_rect = Rect::new(0, 0, area.width, area.height - 2);
 
             let layout = Layout::default()
                 .direction(Direction::Horizontal)

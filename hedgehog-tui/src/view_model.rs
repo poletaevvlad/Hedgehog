@@ -36,8 +36,8 @@ pub(crate) struct ViewModel {
 impl ViewModel {
     pub(crate) fn new(size: (u16, u16), player: Addr<Player>) -> Self {
         ViewModel {
-            feeds_list: InteractiveList::new(size.1 as usize - 1),
-            episodes_list: InteractiveList::new(size.1 as usize - 1),
+            feeds_list: InteractiveList::new(size.1 as usize - 2),
+            episodes_list: InteractiveList::new(size.1 as usize - 2),
             status: None,
             key_mapping: KeyMapping::new(),
             theme: Theme::default(),
@@ -49,7 +49,8 @@ impl ViewModel {
     }
 
     pub(crate) fn set_size(&mut self, _width: u16, height: u16) {
-        self.episodes_list.set_window_size(height as usize - 1)
+        self.episodes_list.set_window_size(height as usize - 2);
+        self.feeds_list.set_window_size(height as usize - 2);
     }
 
     pub(crate) fn clear_status(&mut self) {

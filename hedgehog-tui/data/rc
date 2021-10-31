@@ -7,3 +7,6 @@ map j line next
 map Home line first
 map End line last
 map Tab toggle-focus
+map Right playback seek-relative 5 0 forward
+map Left playback seek-relative 5 0 backward
+map c playback toggle-pause

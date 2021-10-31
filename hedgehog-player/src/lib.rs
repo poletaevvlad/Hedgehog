@@ -137,6 +137,7 @@ pub enum PlaybackCommand {
     Stop,
     Pause,
     Resume,
+    TogglePause,
     Seek(Duration),
     SeekRelative(Duration, SeekDirection),
 }
@@ -155,7 +156,7 @@ impl Handler<PlaybackCommand> for Player {
                 }
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {
-                        self.set_state(None);
+                        self.set_state(Some(State::default()));
                         self.element.set_state(gst::State::Null)?;
                     }
                 }
@@ -179,6 +180,17 @@ impl Handler<PlaybackCommand> for Player {
                             }));
                             self.element.set_state(gst::State::Playing)?;
                         }
+                    }
+                }
+                PlaybackCommand::TogglePause => {
+                    if let Some(state) = self.state {
+                        let is_paused = !state.is_paused;
+                        self.set_state(Some(State { is_paused, ..state }));
+                        self.element.set_state(if is_paused {
+                            gst::State::Paused
+                        } else {
+                            gst::State::Playing
+                        })?;
                     }
                 }
                 PlaybackCommand::Seek(position) => {

@@ -4,7 +4,7 @@ use crate::dataview::{
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::theming;
-use crate::view_model::{Command, FocusedPane, ViewModel};
+use crate::view_model::{Command, FocusedPane, PlayerDelegate, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::library_rows::{EpisodesListRowRenderer, FeedsListRowRenderer};
 use crate::widgets::list::List;
@@ -30,7 +30,7 @@ pub(crate) struct UI {
     commands_history: CommandsHistory,
     library: Addr<Library>,
     player: Addr<Player>,
-    view_model: ViewModel,
+    view_model: ViewModel<ActorPlayerDelegate>,
 }
 
 impl UI {
@@ -45,8 +45,8 @@ impl UI {
             command: None,
             commands_history: CommandsHistory::new(),
             library,
-            player,
-            view_model: ViewModel::new(size),
+            player: player.clone(),
+            view_model: ViewModel::new(size, ActorPlayerDelegate(player)),
         }
     }
 
@@ -358,5 +358,17 @@ impl Handler<PlayerNotification> for UI {
     fn handle(&mut self, msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {
         self.view_model.handle_player_notification(msg);
         self.render();
+    }
+}
+
+struct ActorPlayerDelegate(Addr<Player>);
+
+impl PlayerDelegate for ActorPlayerDelegate {
+    fn send_volume_command(&self, command: hedgehog_player::volume::VolumeCommand) {
+        self.0.do_send(command)
+    }
+
+    fn send_playback_command(&self, command: hedgehog_player::PlaybackCommand) {
+        self.0.do_send(command)
     }
 }

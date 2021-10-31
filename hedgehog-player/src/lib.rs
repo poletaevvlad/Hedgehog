@@ -122,15 +122,17 @@ impl Handler<ActorCommand> for Player {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Deserialize, PartialEq, Clone, Copy)]
+#[serde(rename_all = "kebab-case")]
 pub enum SeekDirection {
     Forward,
     Backward,
 }
 
-#[derive(Debug, Message)]
+#[derive(Debug, Message, serde::Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "kebab-case")]
 #[rtype(result = "()")]
-pub enum PlaybackControl {
+pub enum PlaybackCommand {
     Play(String),
     Stop,
     Pause,
@@ -139,25 +141,25 @@ pub enum PlaybackControl {
     SeekRelative(Duration, SeekDirection),
 }
 
-impl Handler<PlaybackControl> for Player {
+impl Handler<PlaybackCommand> for Player {
     type Result = ();
 
-    fn handle(&mut self, msg: PlaybackControl, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: PlaybackCommand, _ctx: &mut Self::Context) -> Self::Result {
         let result: Result<(), Box<dyn Error>> = (|| {
             match msg {
-                PlaybackControl::Play(url) => {
+                PlaybackCommand::Play(url) => {
                     self.set_state(Some(State::default()));
                     self.element.set_state(gst::State::Null)?;
                     self.element.set_property("uri", url)?;
                     self.element.set_state(gst::State::Playing)?;
                 }
-                PlaybackControl::Stop => {
+                PlaybackCommand::Stop => {
                     if self.state.is_some() {
-                        self.set_state(Some(State::default()));
+                        self.set_state(None);
                         self.element.set_state(gst::State::Null)?;
                     }
                 }
-                PlaybackControl::Pause => {
+                PlaybackCommand::Pause => {
                     if let Some(state) = self.state {
                         if !state.is_paused {
                             self.set_state(Some(State {
@@ -168,7 +170,7 @@ impl Handler<PlaybackControl> for Player {
                         }
                     }
                 }
-                PlaybackControl::Resume => {
+                PlaybackCommand::Resume => {
                     if let Some(state) = self.state {
                         if state.is_paused {
                             self.set_state(Some(State {
@@ -179,7 +181,7 @@ impl Handler<PlaybackControl> for Player {
                         }
                     }
                 }
-                PlaybackControl::Seek(position) => {
+                PlaybackCommand::Seek(position) => {
                     if self.state.is_some() {
                         self.element
                             .seek_simple(
@@ -189,7 +191,7 @@ impl Handler<PlaybackControl> for Player {
                             .map_err(GstError::from_err)?;
                     }
                 }
-                PlaybackControl::SeekRelative(duration, direction) => {
+                PlaybackCommand::SeekRelative(duration, direction) => {
                     if self.state.is_some() {
                         if let Some(current_position) =
                             self.element.query_position::<gst::ClockTime>()

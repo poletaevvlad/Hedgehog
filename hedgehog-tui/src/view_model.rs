@@ -11,9 +11,14 @@ use actix::System;
 use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
 use hedgehog_library::EpisodeSummariesQuery;
 use hedgehog_player::state::PlaybackState;
-use hedgehog_player::PlayerNotification;
+use hedgehog_player::{volume::VolumeCommand, PlaybackCommand, PlayerNotification};
 use serde::Deserialize;
 use std::path::PathBuf;
+
+pub(crate) trait PlayerDelegate {
+    fn send_volume_command(&self, command: VolumeCommand);
+    fn send_playback_command(&self, command: PlaybackCommand);
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum FocusedPane {
@@ -21,7 +26,7 @@ pub(crate) enum FocusedPane {
     EpisodesList,
 }
 
-pub(crate) struct ViewModel {
+pub(crate) struct ViewModel<P> {
     pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
@@ -30,10 +35,11 @@ pub(crate) struct ViewModel {
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
     pub(crate) playback_state: PlaybackState,
+    player_delegate: P,
 }
 
-impl ViewModel {
-    pub(crate) fn new(size: (u16, u16)) -> Self {
+impl<P: PlayerDelegate> ViewModel<P> {
+    pub(crate) fn new(size: (u16, u16), player_delegate: P) -> Self {
         ViewModel {
             feeds_list: InteractiveList::new(size.1 as usize - 2),
             episodes_list: InteractiveList::new(size.1 as usize - 2),
@@ -43,6 +49,7 @@ impl ViewModel {
             focus: FocusedPane::FeedsList,
             selected_feed: None,
             playback_state: PlaybackState::default(),
+            player_delegate,
         }
     }
 
@@ -143,6 +150,14 @@ impl ViewModel {
                     }
                 }
             }
+            Command::Volume(command) => {
+                self.player_delegate.send_volume_command(command);
+                Ok(false)
+            }
+            Command::Playback(command) => {
+                self.player_delegate.send_playback_command(command);
+                Ok(false)
+            }
         }
     }
 
@@ -221,15 +236,16 @@ pub(crate) enum Command {
     Unmap(Key),
     Theme(ThemeCommand),
     Exec(PathBuf),
+    Volume(VolumeCommand),
+    Playback(PlaybackCommand),
     #[serde(alias = "q")]
     Quit,
-
     ToggleFocus,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Command, ViewModel};
+    use super::{Command, PlayerDelegate, ViewModel};
     use crate::dataview::CursorCommand;
     use crate::theming::{List, StatusBar};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -245,6 +261,13 @@ mod tests {
 
         let mut file = File::create(path).unwrap();
         write!(file, "{}", content).unwrap();
+    }
+
+    struct NoopPlayerDelagate;
+
+    impl PlayerDelegate for NoopPlayerDelagate {
+        fn send_volume_command(&self, _command: hedgehog_player::volume::VolumeCommand) {}
+        fn send_playback_command(&self, _command: hedgehog_player::PlaybackCommand) {}
     }
 
     #[test]
@@ -278,7 +301,7 @@ mod tests {
         );
         write_file(user_data.path(), "rc", "map Down line last");
 
-        let mut view_model = ViewModel::new((32, 32));
+        let mut view_model = ViewModel::new((32, 32), NoopPlayerDelagate);
         view_model.init_rc();
 
         assert!(view_model.status.is_none());

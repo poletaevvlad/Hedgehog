@@ -90,7 +90,7 @@ impl<'de> Deserialize<'de> for Volume {
     }
 }
 
-#[derive(Debug, Deserialize, Copy, Clone, Message)]
+#[derive(Debug, Deserialize, Copy, Clone, Message, PartialEq)]
 #[rtype(result = "()")]
 #[serde(rename_all = "kebab-case")]
 pub enum VolumeCommand {

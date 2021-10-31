@@ -85,22 +85,24 @@ impl PlaybackState {
     }
 
     pub fn set_state(&mut self, state: Option<State>) {
-        match (self.0, state) {
-            (None, None) => (),
-            (None, Some(state)) => self.0 = Some((state, PlaybackTiming::default())),
-            (Some(_), None) => self.0 = None,
-            (Some((ref mut current_state, _)), Some(state)) => *current_state = state,
+        match state {
+            None => self.0 = None,
+            Some(state) => {
+                let current_state = self.0.take();
+                let timing = current_state.map(|(_, timing)| timing).unwrap_or_default();
+                self.0 = Some((state, timing));
+            }
         }
     }
 
     pub fn set_duration(&mut self, duration: Duration) {
-        if let Some((_, mut timing)) = self.0 {
+        if let Some((_, ref mut timing)) = self.0 {
             timing.duration = Some(duration)
         }
     }
 
     pub fn set_position(&mut self, position: Duration) {
-        if let Some((_, mut timing)) = self.0 {
+        if let Some((_, ref mut timing)) = self.0 {
             timing.position = position
         }
     }

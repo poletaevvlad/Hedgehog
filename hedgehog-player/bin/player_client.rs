@@ -1,6 +1,6 @@
 use actix::prelude::*;
 use hedgehog_player::volume::{Volume, VolumeCommand};
-use hedgehog_player::{ActorCommand, PlaybackControl, Player, PlayerNotification, SeekDirection};
+use hedgehog_player::{ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection};
 use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
@@ -51,19 +51,19 @@ async fn main() {
             ("play", url) => print!(
                 "{:?}",
                 player_addr
-                    .send(PlaybackControl::Play(url.to_string()))
+                    .send(PlaybackCommand::Play(url.to_string()))
                     .await
             ),
-            ("stop", _) => print!("{:?}", player_addr.send(PlaybackControl::Stop).await),
-            ("pause", _) => print!("{:?}", player_addr.send(PlaybackControl::Pause).await),
-            ("resume", _) => print!("{:?}", player_addr.send(PlaybackControl::Resume).await),
+            ("stop", _) => print!("{:?}", player_addr.send(PlaybackCommand::Stop).await),
+            ("pause", _) => print!("{:?}", player_addr.send(PlaybackCommand::Pause).await),
+            ("resume", _) => print!("{:?}", player_addr.send(PlaybackCommand::Resume).await),
             ("mute", _) => print!("{:?}", player_addr.send(VolumeCommand::Mute).await),
             ("unmute", _) => print!("{:?}", player_addr.send(VolumeCommand::Unmute).await),
             ("toggle_mute", _) => print!("{:?}", player_addr.send(VolumeCommand::ToggleMute).await),
             ("seek", duration) => match duration.parse().map(Duration::from_secs) {
                 Ok(duration) => print!(
                     "{:?}",
-                    player_addr.send(PlaybackControl::Seek(duration)).await
+                    player_addr.send(PlaybackCommand::Seek(duration)).await
                 ),
                 Err(error) => print!("{:?}", error),
             },
@@ -72,7 +72,7 @@ async fn main() {
                     Ok(duration) => print!(
                         "{:?}",
                         player_addr
-                            .send(PlaybackControl::SeekRelative(
+                            .send(PlaybackCommand::SeekRelative(
                                 duration,
                                 if command == "seek_fwd" {
                                     SeekDirection::Forward

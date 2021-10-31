@@ -16,6 +16,12 @@ pub struct State {
     pub(crate) is_buffering: bool,
 }
 
+impl State {
+    fn is_playing(&self) -> bool {
+        self.is_started && !self.is_paused && !self.is_buffering
+    }
+}
+
 pub struct Player {
     element: gst::Element,
     subscribers: Vec<Recipient<PlayerNotification>>,
@@ -103,6 +109,8 @@ impl Actor for Player {
                     "element does not have a bus",
                 )));
         }
+
+        ctx.address().do_send(TimerTick)
     }
 }
 
@@ -201,6 +209,7 @@ impl Handler<PlaybackCommand> for Player {
                                 gst::ClockTime::from_nseconds(position.as_nanos() as u64),
                             )
                             .map_err(GstError::from_err)?;
+                        self.notify_subscribers(PlayerNotification::PositionSet(position));
                     }
                 }
                 PlaybackCommand::SeekRelative(duration, direction) => {
@@ -219,6 +228,10 @@ impl Handler<PlaybackCommand> for Player {
                                     new_position,
                                 )
                                 .unwrap();
+
+                            self.notify_subscribers(PlayerNotification::PositionSet(
+                                Duration::from_nanos(new_position.nseconds()),
+                            ));
                         }
                     }
                 }
@@ -239,7 +252,6 @@ impl Handler<VolumeCommand> for Player {
         if self.state.is_none() {
             return;
         }
-
         let result = match msg {
             VolumeCommand::Mute => set_property(&mut self.element, "mute", true),
             VolumeCommand::Unmute => set_property(&mut self.element, "mute", false),
@@ -293,6 +305,7 @@ pub enum PlayerNotification {
     VolumeChanged(Option<Volume>),
     StateChanged(Option<State>),
     DurationSet(Duration),
+    PositionSet(Duration),
 }
 
 impl StreamHandler<gst::Message> for Player {
@@ -336,5 +349,27 @@ impl StreamHandler<gst::Message> for Player {
                 _ => (),
             }
         }
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+struct TimerTick;
+
+impl Handler<TimerTick> for Player {
+    type Result = ();
+
+    fn handle(&mut self, _msg: TimerTick, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(true) = self.state.as_ref().map(State::is_playing) {
+            if let Some(position) = self.element.query_position::<gst::ClockTime>() {
+                let position = Duration::from_nanos(position.nseconds());
+                self.notify_subscribers(PlayerNotification::PositionSet(position));
+            }
+        }
+        ctx.spawn(
+            actix::clock::sleep(Duration::from_secs(1))
+                .into_actor(self)
+                .map(|_, _actor, ctx| ctx.address().do_send(TimerTick)),
+        );
     }
 }

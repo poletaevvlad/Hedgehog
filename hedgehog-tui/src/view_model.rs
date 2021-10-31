@@ -225,6 +225,7 @@ impl<P: PlayerDelegate> ViewModel<P> {
             }
             PlayerNotification::StateChanged(state) => self.playback_state.set_state(state),
             PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
+            PlayerNotification::PositionSet(position) => self.playback_state.set_position(position),
         }
     }
 }

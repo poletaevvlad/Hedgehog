@@ -1,4 +1,5 @@
 use super::cmdparser;
+use hedgehog_player::volume::Volume;
 use std::borrow::Cow;
 use std::fmt;
 
@@ -6,6 +7,7 @@ use std::fmt;
 pub(crate) enum Status {
     CommandParsingError(cmdparser::Error),
     Custom(Cow<'static, str>, Severity),
+    VolumeChanged(Option<Volume>),
 }
 
 impl Status {
@@ -13,6 +15,7 @@ impl Status {
         match self {
             Status::CommandParsingError(_) => Severity::Error,
             Status::Custom(_, severity) => *severity,
+            Status::VolumeChanged(_) => Severity::Information,
         }
     }
 
@@ -28,6 +31,10 @@ impl fmt::Display for Status {
                 f.write_fmt(format_args!("Invalid command: {}", error))
             }
             Status::Custom(error, _) => f.write_str(error),
+            Status::VolumeChanged(Some(volume)) => {
+                f.write_fmt(format_args!("Volume: {:.0}%", volume.cubic() * 100.0))
+            }
+            Status::VolumeChanged(None) => f.write_str("Playback muted"),
         }
     }
 }

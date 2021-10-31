@@ -156,7 +156,7 @@ impl Handler<PlaybackCommand> for Player {
                 }
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {
-                        self.set_state(Some(State::default()));
+                        self.set_state(None);
                         self.element.set_state(gst::State::Null)?;
                     }
                 }
@@ -236,6 +236,10 @@ impl Handler<VolumeCommand> for Player {
     type Result = ();
 
     fn handle(&mut self, msg: VolumeCommand, _ctx: &mut Self::Context) -> Self::Result {
+        if self.state.is_none() {
+            return;
+        }
+
         let result = match msg {
             VolumeCommand::Mute => set_property(&mut self.element, "mute", true),
             VolumeCommand::Unmute => set_property(&mut self.element, "mute", false),

@@ -220,7 +220,9 @@ impl<P: PlayerDelegate> ViewModel<P> {
 
     pub(crate) fn handle_player_notification(&mut self, notification: PlayerNotification) {
         match notification {
-            PlayerNotification::VolumeChanged(_) => (),
+            PlayerNotification::VolumeChanged(volume) => {
+                self.status = Some(Status::VolumeChanged(volume))
+            }
             PlayerNotification::StateChanged(state) => self.playback_state.set_state(state),
             PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
         }

@@ -50,6 +50,7 @@ impl FromStr for Key {
             "Esc" => KeyCode::Esc,
             "Space" => KeyCode::Char(' '),
             "Bar" => KeyCode::Char('|'),
+            "Minus" => KeyCode::Char('-'),
             "Nul" => KeyCode::Null,
             "Insert" => KeyCode::Insert,
             key => {

@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
-use std::convert::TryFrom;
+use std::{convert::TryFrom, time::Duration};
 use thiserror::Error;
-
-use crate::model::EpisodeDuration;
 
 #[derive(Debug, PartialEq)]
 pub struct FeedMetadata {
@@ -31,7 +29,7 @@ pub struct EpisodeMetadata {
     pub(crate) description: Option<String>,
     pub(crate) link: Option<String>,
     pub(crate) guid: String,
-    pub(crate) duration: Option<EpisodeDuration>,
+    pub(crate) duration: Option<Duration>,
     pub(crate) publication_date: Option<DateTime<Utc>>,
     pub(crate) episode_number: Option<u64>,
     pub(crate) media_url: String,
@@ -83,24 +81,23 @@ impl TryFrom<rss::Item> for EpisodeMetadata {
     }
 }
 
-fn parse_itunes_duration(duration: &str) -> Option<EpisodeDuration> {
+fn parse_itunes_duration(duration: &str) -> Option<Duration> {
     let mut seconds = 0;
     for part in duration.splitn(3, ':') {
         let part = part.parse::<u64>().ok()?;
         seconds = seconds * 60 + part;
     }
-    Some(EpisodeDuration::from_seconds(seconds))
+    Some(Duration::from_secs(seconds))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::model::EpisodeDuration;
-
     use super::{EpisodeMetadata, FeedMetadata, NotPodcastError};
     use chrono::TimeZone;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use std::convert::TryInto;
+    use std::time::Duration;
 
     #[test]
     fn feed_from_channel() {
@@ -163,7 +160,7 @@ mod tests {
                 description: Some("Episode description".to_string()),
                 link: Some("https://example.com/".to_string()),
                 guid: "episode-guid".to_string(),
-                duration: Some(EpisodeDuration::from_seconds(1800)),
+                duration: Some(Duration::from_secs(1800)),
                 publication_date: Some(chrono::Utc.ymd(2021, 9, 1).and_hms(14, 30, 0)),
                 episode_number: Some(4),
                 media_url: "http://example.com/episode.mp3".to_string(),
@@ -207,7 +204,7 @@ mod tests {
     fn time_from_seconds() {
         assert_eq!(
             super::parse_itunes_duration("125"),
-            Some(EpisodeDuration::from_seconds(125))
+            Some(Duration::from_secs(125))
         );
     }
 
@@ -215,7 +212,7 @@ mod tests {
     fn time_from_minutes_seconds() {
         assert_eq!(
             super::parse_itunes_duration("12:45"),
-            Some(EpisodeDuration::from_seconds(12 * 60 + 45))
+            Some(Duration::from_secs(12 * 60 + 45))
         );
     }
 
@@ -223,7 +220,7 @@ mod tests {
     fn time_from_hours_minutes_seconds() {
         assert_eq!(
             super::parse_itunes_duration("2:26:13"),
-            Some(EpisodeDuration::from_seconds(2 * 3600 + 26 * 60 + 13))
+            Some(Duration::from_secs(2 * 3600 + 26 * 60 + 13))
         );
     }
 

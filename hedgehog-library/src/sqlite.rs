@@ -10,6 +10,7 @@ use crate::model::{
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
 use std::path::Path;
+use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -108,8 +109,11 @@ impl DataProvider for SqliteDataProvider {
                 description: row.get(3)?,
                 link: row.get(4)?,
                 is_new: row.get(5)?,
-                status: EpisodeStatus::from_db(row.get(6)?, row.get(7)?),
-                duration: row.get(8)?,
+                status: EpisodeStatus::from_db(
+                    row.get(6)?,
+                    row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
+                ),
+                duration: row.get::<_, Option<u64>>(8)?.map(Duration::from_nanos),
                 playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_db),
                 publication_date: row.get(10)?,
                 media_url: row.get(11)?,
@@ -188,8 +192,11 @@ impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
                 episode_number: row.get(2)?,
                 title: row.get(3)?,
                 is_new: row.get(4)?,
-                status: EpisodeStatus::from_db(row.get(5)?, row.get(6)?),
-                duration: row.get(7)?,
+                status: EpisodeStatus::from_db(
+                    row.get(5)?,
+                    row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
+                ),
+                duration: row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
                 playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_db),
                 publication_date: row.get(9)?,
                 media_url: row.get(10)?,
@@ -268,7 +275,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
                     ":title": metadata.title,
                     ":description": metadata.description,
                     ":link": metadata.link,
-                    ":duration": metadata.duration,
+                    ":duration": metadata.duration.map(|duration|duration.as_nanos() as u64),
                     ":publication_date": metadata.publication_date,
                     ":episode_number": metadata.episode_number,
                     ":media_url": metadata.media_url
@@ -285,12 +292,14 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::{
         datasource::{
             DataProvider, EpisodeWriter, PagedQueryHandler, QueryHandler, WritableDataProvider,
         },
         metadata::{EpisodeMetadata, FeedMetadata},
-        model::{EpisodeDuration, EpisodeStatus, EpisodeSummary, FeedStatus},
+        model::{EpisodeStatus, EpisodeSummary, FeedStatus},
         EpisodeSummariesQuery, FeedSummariesQuery,
     };
 
@@ -413,7 +422,7 @@ mod tests {
                 description: Some("description-upd".to_string()),
                 link: Some("link-upd".to_string()),
                 guid: "guid-1".to_string(),
-                duration: Some(EpisodeDuration::from_seconds(300)),
+                duration: Some(Duration::from_secs(300)),
                 publication_date: None,
                 episode_number: Some(8),
                 media_url: "http://example.com/feed2.xml".to_string(),
@@ -431,7 +440,7 @@ mod tests {
         assert_eq!(retrieved.link.as_deref(), Some("link-upd"));
         assert_eq!(retrieved.is_new, true);
         assert_eq!(retrieved.status, EpisodeStatus::NotStarted);
-        assert_eq!(retrieved.duration, Some(EpisodeDuration::from_seconds(300)));
+        assert_eq!(retrieved.duration, Some(Duration::from_secs(300)));
         assert_eq!(retrieved.playback_error, None);
         assert_eq!(retrieved.publication_date, None);
         assert_eq!(&retrieved.media_url, "http://example.com/feed2.xml");
@@ -470,7 +479,7 @@ mod tests {
                 title: Some("title-upd".to_string()),
                 is_new: true,
                 status: EpisodeStatus::NotStarted,
-                duration: Some(EpisodeDuration::from_seconds(300)),
+                duration: Some(Duration::from_secs(300)),
                 playback_error: None,
                 publication_date: None,
                 media_url: "http://example.com/feed2.xml".to_string(),

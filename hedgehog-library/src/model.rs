@@ -1,32 +1,9 @@
+use std::time::Duration;
+
 use chrono::{DateTime, Utc};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rusqlite::types::{FromSql, ToSql};
-
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
-pub struct EpisodeDuration(u64);
-
-impl EpisodeDuration {
-    pub fn from_seconds(seconds: u64) -> Self {
-        EpisodeDuration(seconds * 1_000_000_000)
-    }
-
-    pub fn from_nanoseconds(nanoseconds: u64) -> Self {
-        EpisodeDuration(nanoseconds)
-    }
-}
-
-impl FromSql for EpisodeDuration {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        FromSql::column_result(value).map(EpisodeDuration)
-    }
-}
-
-impl ToSql for EpisodeDuration {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
 
 macro_rules! entity_id {
     ($name:ident) => {
@@ -108,11 +85,11 @@ pub struct Feed {
 pub enum EpisodeStatus {
     NotStarted,
     Finished,
-    Started(EpisodeDuration),
+    Started(Duration),
 }
 
 impl EpisodeStatus {
-    pub(crate) fn from_db(is_finished: bool, position: Option<EpisodeDuration>) -> Self {
+    pub(crate) fn from_db(is_finished: bool, position: Option<Duration>) -> Self {
         match (is_finished, position) {
             (_, Some(position)) => EpisodeStatus::Started(position),
             (true, None) => EpisodeStatus::Finished,
@@ -142,7 +119,7 @@ pub struct EpisodeSummary {
     pub title: Option<String>,
     pub is_new: bool,
     pub status: EpisodeStatus,
-    pub duration: Option<EpisodeDuration>,
+    pub duration: Option<Duration>,
     pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
     pub media_url: String,
@@ -157,7 +134,7 @@ pub struct Episode {
     pub link: Option<String>,
     pub is_new: bool,
     pub status: EpisodeStatus,
-    pub duration: Option<EpisodeDuration>,
+    pub duration: Option<Duration>,
     pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
     pub media_url: String,

@@ -1,4 +1,10 @@
-use std::env;
+use hedgehog_library::{
+    datasource::{DataProvider, EpisodeWriter, WritableDataProvider},
+    metadata::{EpisodeMetadata, FeedMetadata},
+    SqliteDataProvider,
+};
+use rss::Channel;
+use std::{convert::TryFrom, env, fs::File, io::BufReader};
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -7,25 +13,19 @@ fn main() {
         return;
     }
 
-    /*let mut data_provider = SqliteDataProvider::connect_default_path().unwrap();
-    let transaction = data_provider.transaction().unwrap();
+    let mut data_provider = SqliteDataProvider::connect_default_path().unwrap();
+    let feed_id = data_provider.create_feed_pending(&args[1]).unwrap();
+    let mut writer = data_provider.writer(feed_id).unwrap();
 
-    let feed_id = transaction.feeds().create_pending(&args[1]).unwrap();
     let file = File::open(&args[0]).unwrap();
     let channel = Channel::read_from(BufReader::new(file)).unwrap();
     let channel_metadata = FeedMetadata::from(channel.clone());
-    transaction
-        .feeds()
-        .update_metadata(feed_id, &channel_metadata)
-        .unwrap();
+    writer.set_feed_metadata(&channel_metadata).unwrap();
 
     for item in channel.items {
         let metadata = EpisodeMetadata::try_from(item).unwrap();
-        transaction
-            .episodes()
-            .sync_metadata(feed_id, &metadata)
-            .unwrap();
+        writer.set_episode_metadata(&metadata).unwrap();
     }
 
-    transaction.commit().unwrap();*/
+    writer.close().unwrap();
 }

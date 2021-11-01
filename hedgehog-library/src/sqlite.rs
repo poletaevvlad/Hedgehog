@@ -1,7 +1,8 @@
 use crate::datasource::{
-    DataProvider, EpisodeSummariesQuery, FeedSummariesQuery, PagedQueryHandler, QueryError,
-    QueryHandler,
+    DataProvider, EpisodeSummariesQuery, EpisodeWriter, FeedSummariesQuery, PagedQueryHandler,
+    QueryError, QueryHandler, WritableDataProvider,
 };
+use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
     PlaybackError,
@@ -88,9 +89,9 @@ impl DataProvider for SqliteDataProvider {
     fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError> {
         let mut statement = self
             .connection
-            .prepare("INSERT INTO feeds (source) VALUES (:id)")?;
+            .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
         statement
-            .insert(named_params! {":id": source})
+            .insert(named_params! {":source": source})
             .map(FeedId)
             .map_err(Into::into)
     }
@@ -207,8 +208,92 @@ fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Resul
     Ok(result)
 }
 
+impl<'a> WritableDataProvider for &'a mut SqliteDataProvider {
+    type Writer = SqliteEpisodeWriter<'a>;
+
+    fn writer(self, feed_id: FeedId) -> Result<Self::Writer, QueryError> {
+        let transaction = self.connection.transaction()?;
+        Ok(SqliteEpisodeWriter {
+            feed_id,
+            transaction,
+        })
+    }
+}
+
+pub struct SqliteEpisodeWriter<'a> {
+    feed_id: FeedId,
+    transaction: rusqlite::Transaction<'a>,
+}
+
+impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
+    fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> Result<(), QueryError> {
+        let mut statement = self.transaction.prepare(
+            "UPDATE feeds
+            SET title = :title, description = :description, link = :link, author = :author,
+                copyright = :copyright, status = :status, error_code = :error_code
+            WHERE id = :id",
+        )?;
+        let (status, error_code) = FeedStatus::Loaded.db_view();
+        statement.execute(named_params! {
+            ":title": metadata.title,
+            ":description": metadata.description,
+            ":link": metadata.link,
+            ":author": metadata.author,
+            ":copyright": metadata.copyright,
+            ":status": status,
+            ":error_code": error_code,
+            ":id": self.feed_id
+        })?;
+        Ok(())
+    }
+
+    fn set_episode_metadata(
+        &mut self,
+        metadata: &EpisodeMetadata,
+    ) -> Result<EpisodeId, QueryError> {
+        let mut statement = self.transaction.prepare(
+            "INSERT INTO episodes (feed_id, guid, title, description, link, duration, publication_date, episode_number, media_url)
+            VALUES (:feed_id, :guid, :title, :description, :link, :duration, :publication_date, :episode_number, :media_url)
+            ON CONFLICT (feed_id, guid) DO UPDATE SET
+            title = :title, description = :description, link = :link, duration = :duration, publication_date = :publication_date, 
+            episode_number = :episode_number, media_url = :media_url
+            WHERE feed_id = :feed_id AND guid = :guid
+            RETURNING id"
+        )?;
+        statement
+            .query_row(
+                named_params! {
+                    ":feed_id": self.feed_id,
+                    ":guid": metadata.guid,
+                    ":title": metadata.title,
+                    ":description": metadata.description,
+                    ":link": metadata.link,
+                    ":duration": metadata.duration,
+                    ":publication_date": metadata.publication_date,
+                    ":episode_number": metadata.episode_number,
+                    ":media_url": metadata.media_url
+                },
+                |row| row.get(0),
+            )
+            .map_err(QueryError::from)
+    }
+
+    fn close(self) -> Result<(), QueryError> {
+        self.transaction.commit().map_err(QueryError::from)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::{
+        datasource::{
+            DataProvider, EpisodeWriter, PagedQueryHandler, QueryHandler, WritableDataProvider,
+        },
+        metadata::{EpisodeMetadata, FeedMetadata},
+        model::{EpisodeDuration, EpisodeStatus, EpisodeSummary, FeedStatus},
+        EpisodeSummariesQuery, FeedSummariesQuery,
+    };
+
     use super::{ConnectionError, SqliteDataProvider};
     use pretty_assertions::assert_eq;
 
@@ -249,40 +334,33 @@ mod tests {
         ));
     }
 
-    /*#[test]
-    fn crud_operations() {
-        let provider = SqliteDataProvider::connect(":memory:").unwrap();
+    #[test]
+    fn feed_update() {
+        let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let id = provider
-            .feeds()
-            .create_pending("http://example.com/feed.xml")
+            .create_feed_pending("http://example.com/feed.xml")
             .unwrap();
 
-        let count = provider.get_size(FeedSummariesQuery).unwrap();
-        assert_eq!(count, 1);
+        let feed_summaries = provider.query(FeedSummariesQuery).unwrap();
+        assert_eq!(feed_summaries.len(), 1);
+        assert_eq!(feed_summaries[0].id, id);
+        assert_eq!(feed_summaries[0].title, "http://example.com/feed.xml");
+        assert_eq!(feed_summaries[0].has_title, false);
+        assert_eq!(feed_summaries[0].status, FeedStatus::Pending);
 
-        let summaries = provider.query(FeedSummariesQuery, 0, 100).unwrap();
-        assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].id, id);
-        assert_eq!(summaries[0].title, None);
-        assert_eq!(&summaries[0].source, "http://example.com/feed.xml");
-        assert_eq!(summaries[0].status, FeedStatus::Pending);
-
-        let is_updated = provider
-            .feeds()
-            .update_metadata(
-                id,
-                &FeedMetadata {
-                    title: "Title".to_string(),
-                    description: "Description".to_string(),
-                    link: "http://example.com".to_string(),
-                    author: Some("Author".to_string()),
-                    copyright: Some("Copyright".to_string()),
-                },
-            )
+        let mut writer = provider.writer(id).unwrap();
+        writer
+            .set_feed_metadata(&FeedMetadata {
+                title: "Title".to_string(),
+                description: "Description".to_string(),
+                link: "http://example.com".to_string(),
+                author: Some("Author".to_string()),
+                copyright: Some("Copyright".to_string()),
+            })
             .unwrap();
-        assert!(is_updated);
+        writer.close().unwrap();
 
-        let feed = provider.feeds().get_feed(id).unwrap().unwrap();
+        let feed = provider.get_feed(id).unwrap().unwrap();
         assert_eq!(feed.title.as_deref(), Some("Title"));
         assert_eq!(feed.description.as_deref(), Some("Description"));
         assert_eq!(feed.link.as_deref(), Some("http://example.com"));
@@ -290,51 +368,32 @@ mod tests {
         assert_eq!(feed.copyright.as_deref(), Some("Copyright"));
         assert_eq!(&feed.source, "http://example.com/feed.xml");
         assert_eq!(feed.status, FeedStatus::Loaded);
+    }
 
-        let is_updated = provider
-            .feeds()
-            .update_status(id, FeedStatus::Error(FeedError::NotFound))
-            .unwrap();
-        assert!(is_updated);
-
-        let summaries = provider.query(FeedSummariesQuery, 0, 100).unwrap();
-        assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].id, id);
-        assert_eq!(summaries[0].title.as_deref(), Some("Title"));
-        assert_eq!(&summaries[0].source, "http://example.com/feed.xml");
-        assert_eq!(summaries[0].status, FeedStatus::Error(FeedError::NotFound));
-    }*/
-
-    /*#[test]
-    fn crud_operations_on_episodes() {
-        let provider = SqliteDataProvider::connect(":memory:").unwrap();
+    #[test]
+    fn episode_update() {
+        let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let feed_id = provider
-            .feeds()
-            .create_pending("http://example.com/feed.xml")
+            .create_feed_pending("http://example.com/feed.xml")
             .unwrap();
 
-        let episode_1_id = provider
-            .episodes()
-            .sync_metadata(
-                feed_id,
-                &EpisodeMetadata {
-                    title: Some("title".to_string()),
-                    description: Some("description".to_string()),
-                    link: Some("link".to_string()),
-                    guid: "guid-1".to_string(),
-                    duration: None,
-                    publication_date: None,
-                    episode_number: Some(3),
-                    media_url: "http://example.com/feed.xml".to_string(),
-                },
-            )
+        let mut writer = provider.writer(feed_id).unwrap();
+        let episode_id = writer
+            .set_episode_metadata(&EpisodeMetadata {
+                title: Some("title".to_string()),
+                description: Some("description".to_string()),
+                link: Some("link".to_string()),
+                guid: "guid-1".to_string(),
+                duration: None,
+                publication_date: None,
+                episode_number: Some(3),
+                media_url: "http://example.com/feed.xml".to_string(),
+            })
             .unwrap();
+        writer.close().unwrap();
 
-        let retrieved = provider
-            .get_episode(episode_1_id)
-            .unwrap()
-            .unwrap();
-        assert_eq!(retrieved.id, episode_1_id);
+        let retrieved = provider.get_episode(episode_id).unwrap().unwrap();
+        assert_eq!(retrieved.id, episode_id);
         assert_eq!(retrieved.feed_id, feed_id);
         assert_eq!(retrieved.episode_number, Some(3));
         assert_eq!(retrieved.title.as_deref(), Some("title"));
@@ -347,30 +406,24 @@ mod tests {
         assert_eq!(retrieved.publication_date, None);
         assert_eq!(&retrieved.media_url, "http://example.com/feed.xml");
 
-        let episode_1_id_updated = provider
-            .episodes()
-            .sync_metadata(
-                feed_id,
-                &EpisodeMetadata {
-                    title: Some("title-upd".to_string()),
-                    description: Some("description-upd".to_string()),
-                    link: Some("link-upd".to_string()),
-                    guid: "guid-1".to_string(),
-                    duration: Some(EpisodeDuration::from_seconds(300)),
-                    publication_date: None,
-                    episode_number: Some(8),
-                    media_url: "http://example.com/feed2.xml".to_string(),
-                },
-            )
+        let mut writer = provider.writer(feed_id).unwrap();
+        let episode_id_1 = writer
+            .set_episode_metadata(&EpisodeMetadata {
+                title: Some("title-upd".to_string()),
+                description: Some("description-upd".to_string()),
+                link: Some("link-upd".to_string()),
+                guid: "guid-1".to_string(),
+                duration: Some(EpisodeDuration::from_seconds(300)),
+                publication_date: None,
+                episode_number: Some(8),
+                media_url: "http://example.com/feed2.xml".to_string(),
+            })
             .unwrap();
-        assert_eq!(episode_1_id, episode_1_id_updated);
+        assert_eq!(episode_id, episode_id_1);
+        writer.close().unwrap();
 
-        let retrieved = provider
-            .episodes()
-            .get_episode(episode_1_id)
-            .unwrap()
-            .unwrap();
-        assert_eq!(retrieved.id, episode_1_id);
+        let retrieved = provider.get_episode(episode_id).unwrap().unwrap();
+        assert_eq!(retrieved.id, episode_id);
         assert_eq!(retrieved.feed_id, feed_id);
         assert_eq!(retrieved.episode_number, Some(8));
         assert_eq!(retrieved.title.as_deref(), Some("title-upd"));
@@ -383,29 +436,35 @@ mod tests {
         assert_eq!(retrieved.publication_date, None);
         assert_eq!(&retrieved.media_url, "http://example.com/feed2.xml");
 
-        let episode_2_id = provider
-            .episodes()
-            .sync_metadata(
-                feed_id,
-                &EpisodeMetadata {
-                    title: Some("second-title".to_string()),
-                    description: Some("second-description".to_string()),
-                    link: None,
-                    guid: "guid-2".to_string(),
-                    duration: None,
-                    publication_date: None,
-                    episode_number: None,
-                    media_url: "http://example.com/feed3.xml".to_string(),
+        let mut writer = provider.writer(feed_id).unwrap();
+        let episode_id_2 = writer
+            .set_episode_metadata(&EpisodeMetadata {
+                title: Some("second-title".to_string()),
+                description: Some("second-description".to_string()),
+                link: None,
+                guid: "guid-2".to_string(),
+                duration: None,
+                publication_date: None,
+                episode_number: None,
+                media_url: "http://example.com/feed3.xml".to_string(),
+            })
+            .unwrap();
+        writer.close().unwrap();
+
+        let mut episodes = provider
+            .query_page(
+                EpisodeSummariesQuery {
+                    feed_id: Some(feed_id),
                 },
+                0,
+                100,
             )
             .unwrap();
-
-        let mut episodes = provider.episodes().query_episodes().unwrap();
         episodes.sort_by_key(|episode| episode.id.0);
         assert_eq!(
             episodes[0],
             EpisodeSummary {
-                id: episode_1_id,
+                id: episode_id_1,
                 feed_id,
                 episode_number: Some(8),
                 title: Some("title-upd".to_string()),
@@ -420,7 +479,7 @@ mod tests {
         assert_eq!(
             episodes[1],
             EpisodeSummary {
-                id: episode_2_id,
+                id: episode_id_2,
                 feed_id,
                 episode_number: None,
                 title: Some("second-title".to_string()),
@@ -432,5 +491,5 @@ mod tests {
                 media_url: "http://example.com/feed3.xml".to_string(),
             }
         );
-    }*/
+    }
 }

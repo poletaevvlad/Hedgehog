@@ -360,11 +360,11 @@ mod tests {
         let mut writer = provider.writer(id).unwrap();
         writer
             .set_feed_metadata(&FeedMetadata {
-                title: "Title".to_string(),
-                description: "Description".to_string(),
-                link: "http://example.com".to_string(),
-                author: Some("Author".to_string()),
-                copyright: Some("Copyright".to_string()),
+                title: "Title",
+                description: "Description",
+                link: "http://example.com",
+                author: Some("Author"),
+                copyright: Some("Copyright"),
             })
             .unwrap();
         writer.close().unwrap();
@@ -389,14 +389,14 @@ mod tests {
         let mut writer = provider.writer(feed_id).unwrap();
         let episode_id = writer
             .set_episode_metadata(&EpisodeMetadata {
-                title: Some("title".to_string()),
-                description: Some("description".to_string()),
-                link: Some("link".to_string()),
-                guid: "guid-1".to_string(),
+                title: Some("title"),
+                description: Some("description"),
+                link: Some("link"),
+                guid: "guid-1",
                 duration: None,
                 publication_date: None,
                 episode_number: Some(3),
-                media_url: "http://example.com/feed.xml".to_string(),
+                media_url: "http://example.com/feed.xml",
             })
             .unwrap();
         writer.close().unwrap();
@@ -418,14 +418,14 @@ mod tests {
         let mut writer = provider.writer(feed_id).unwrap();
         let episode_id_1 = writer
             .set_episode_metadata(&EpisodeMetadata {
-                title: Some("title-upd".to_string()),
-                description: Some("description-upd".to_string()),
-                link: Some("link-upd".to_string()),
-                guid: "guid-1".to_string(),
+                title: Some("title-upd"),
+                description: Some("description-upd"),
+                link: Some("link-upd"),
+                guid: "guid-1",
                 duration: Some(Duration::from_secs(300)),
                 publication_date: None,
                 episode_number: Some(8),
-                media_url: "http://example.com/feed2.xml".to_string(),
+                media_url: "http://example.com/feed2.xml",
             })
             .unwrap();
         assert_eq!(episode_id, episode_id_1);
@@ -448,14 +448,14 @@ mod tests {
         let mut writer = provider.writer(feed_id).unwrap();
         let episode_id_2 = writer
             .set_episode_metadata(&EpisodeMetadata {
-                title: Some("second-title".to_string()),
-                description: Some("second-description".to_string()),
+                title: Some("second-title"),
+                description: Some("second-description"),
                 link: None,
-                guid: "guid-2".to_string(),
+                guid: "guid-2",
                 duration: None,
                 publication_date: None,
                 episode_number: None,
-                media_url: "http://example.com/feed3.xml".to_string(),
+                media_url: "http://example.com/feed3.xml",
             })
             .unwrap();
         writer.close().unwrap();

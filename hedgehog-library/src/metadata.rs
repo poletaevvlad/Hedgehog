@@ -1,63 +1,57 @@
 use chrono::{DateTime, Utc};
-use std::{convert::TryFrom, time::Duration};
-use thiserror::Error;
+use std::time::Duration;
 
 #[derive(Debug, PartialEq)]
-pub struct FeedMetadata {
-    pub(crate) title: String,
-    pub(crate) description: String,
-    pub(crate) link: String,
-    pub(crate) author: Option<String>,
-    pub(crate) copyright: Option<String>,
+pub struct FeedMetadata<'a> {
+    pub(crate) title: &'a str,
+    pub(crate) description: &'a str,
+    pub(crate) link: &'a str,
+    pub(crate) author: Option<&'a str>,
+    pub(crate) copyright: Option<&'a str>,
 }
 
-impl From<rss::Channel> for FeedMetadata {
-    fn from(channel: rss::Channel) -> Self {
+impl<'a> FeedMetadata<'a> {
+    pub fn from_rss_channel(channel: &'a rss::Channel) -> Self {
         FeedMetadata {
-            title: channel.title,
-            description: channel.description,
-            link: channel.link,
-            author: channel.itunes_ext.and_then(|ext| ext.author),
-            copyright: channel.copyright,
+            title: &channel.title,
+            description: &channel.description,
+            link: &channel.link,
+            author: channel
+                .itunes_ext
+                .as_ref()
+                .and_then(|ext| ext.author.as_deref()),
+            copyright: channel.copyright.as_deref(),
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct EpisodeMetadata {
-    pub(crate) title: Option<String>,
-    pub(crate) description: Option<String>,
-    pub(crate) link: Option<String>,
-    pub(crate) guid: String,
+pub struct EpisodeMetadata<'a> {
+    pub(crate) title: Option<&'a str>,
+    pub(crate) description: Option<&'a str>,
+    pub(crate) link: Option<&'a str>,
+    pub(crate) guid: &'a str,
     pub(crate) duration: Option<Duration>,
     pub(crate) publication_date: Option<DateTime<Utc>>,
     pub(crate) episode_number: Option<u64>,
-    pub(crate) media_url: String,
+    pub(crate) media_url: &'a str,
 }
 
-#[derive(Debug, Error)]
-pub enum NotPodcastError {
-    #[error("the item is missing the enclosure")]
-    MissingEnclosure,
-    #[error("the item's pubDate is invalid")]
-    InvalidDate(#[from] chrono::ParseError),
-}
-
-impl TryFrom<rss::Item> for EpisodeMetadata {
-    type Error = NotPodcastError;
-
-    fn try_from(item: rss::Item) -> Result<Self, Self::Error> {
+impl<'a> EpisodeMetadata<'a> {
+    pub fn from_rss_item(item: &'a rss::Item) -> Option<Self> {
         let publication_date = item
             .pub_date
-            .map(|datetime| DateTime::parse_from_rfc2822(&datetime))
+            .as_deref()
+            .map(|datetime| DateTime::parse_from_rfc2822(datetime))
             .transpose()
-            .map_err(NotPodcastError::InvalidDate)?
+            .ok()?
             .map(|datetime| datetime.with_timezone(&Utc));
-        let media_url = item.enclosure.ok_or(NotPodcastError::MissingEnclosure)?.url;
+        let media_url = item.enclosure.as_ref().map(|enclosure| &enclosure.url)?;
         let guid = item
             .guid
-            .map(|guid| guid.value)
-            .unwrap_or_else(|| media_url.clone());
+            .as_ref()
+            .map(|guid| &guid.value)
+            .unwrap_or_else(|| media_url);
         let duration = item
             .itunes_ext
             .as_ref()
@@ -65,13 +59,14 @@ impl TryFrom<rss::Item> for EpisodeMetadata {
             .and_then(|duration| parse_itunes_duration(duration));
         let episode_number = item
             .itunes_ext
-            .and_then(|ext| ext.episode)
+            .as_ref()
+            .and_then(|ext| ext.episode.as_ref())
             .and_then(|episode| episode.parse().ok());
 
-        Ok(Self {
-            title: item.title,
-            description: item.description,
-            link: item.link,
+        Some(Self {
+            title: item.title.as_deref(),
+            description: item.description.as_deref(),
+            link: item.link.as_deref(),
             guid,
             duration,
             publication_date,
@@ -92,11 +87,10 @@ fn parse_itunes_duration(duration: &str) -> Option<Duration> {
 
 #[cfg(test)]
 mod tests {
-    use super::{EpisodeMetadata, FeedMetadata, NotPodcastError};
+    use super::{EpisodeMetadata, FeedMetadata};
     use chrono::TimeZone;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
-    use std::convert::TryInto;
     use std::time::Duration;
 
     #[test]
@@ -110,15 +104,15 @@ mod tests {
         itunes_ext.author = Some("Author".to_string());
         channel.itunes_ext = Some(itunes_ext);
 
-        let feed: FeedMetadata = channel.into();
+        let feed = FeedMetadata::from_rss_channel(&channel);
         assert_eq!(
             feed,
             FeedMetadata {
-                title: "Feed title".to_string(),
-                description: "Feed description".to_string(),
-                link: "http://example.com/feed".to_string(),
-                author: Some("Author".to_string()),
-                copyright: Some("(c) Copyright".to_string()),
+                title: "Feed title",
+                description: "Feed description",
+                link: "http://example.com/feed",
+                author: Some("Author"),
+                copyright: Some("(c) Copyright"),
             }
         );
     }
@@ -152,18 +146,18 @@ mod tests {
             dublin_core_ext: None,
         };
 
-        let episode: EpisodeMetadata = item.try_into().unwrap();
+        let episode = EpisodeMetadata::from_rss_item(&item).unwrap();
         assert_eq!(
             episode,
             EpisodeMetadata {
-                title: Some("Episode title".to_string()),
-                description: Some("Episode description".to_string()),
-                link: Some("https://example.com/".to_string()),
-                guid: "episode-guid".to_string(),
+                title: Some("Episode title"),
+                description: Some("Episode description"),
+                link: Some("https://example.com/"),
+                guid: "episode-guid",
                 duration: Some(Duration::from_secs(1800)),
                 publication_date: Some(chrono::Utc.ymd(2021, 9, 1).and_hms(14, 30, 0)),
                 episode_number: Some(4),
-                media_url: "http://example.com/episode.mp3".to_string(),
+                media_url: "http://example.com/episode.mp3",
             }
         );
     }
@@ -177,18 +171,18 @@ mod tests {
             mime_type: "audio/mpeg".to_string(),
         });
 
-        let episode: EpisodeMetadata = item.try_into().unwrap();
+        let episode = EpisodeMetadata::from_rss_item(&item).unwrap();
         assert_eq!(
             episode,
             EpisodeMetadata {
                 title: None,
                 description: None,
                 link: None,
-                guid: "http://example.com/episode.mp3".to_string(),
+                guid: "http://example.com/episode.mp3",
                 duration: None,
                 publication_date: None,
                 episode_number: None,
-                media_url: "http://example.com/episode.mp3".to_string(),
+                media_url: "http://example.com/episode.mp3",
             }
         );
     }
@@ -196,8 +190,8 @@ mod tests {
     #[test]
     fn missing_enclosure() {
         let item = rss::Item::default();
-        let err = <rss::Item as TryInto<EpisodeMetadata>>::try_into(item).unwrap_err();
-        assert!(matches!(err, NotPodcastError::MissingEnclosure));
+        let result = EpisodeMetadata::from_rss_item(&item);
+        assert!(result.is_none());
     }
 
     #[test]

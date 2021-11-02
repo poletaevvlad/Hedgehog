@@ -4,7 +4,7 @@ use hedgehog_library::{
     SqliteDataProvider,
 };
 use rss::Channel;
-use std::{convert::TryFrom, env, fs::File, io::BufReader};
+use std::{env, fs::File, io::BufReader};
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -19,12 +19,13 @@ fn main() {
 
     let file = File::open(&args[0]).unwrap();
     let channel = Channel::read_from(BufReader::new(file)).unwrap();
-    let channel_metadata = FeedMetadata::from(channel.clone());
+    let channel_metadata = FeedMetadata::from_rss_channel(&channel);
     writer.set_feed_metadata(&channel_metadata).unwrap();
 
     for item in channel.items {
-        let metadata = EpisodeMetadata::try_from(item).unwrap();
-        writer.set_episode_metadata(&metadata).unwrap();
+        if let Some(metadata) = EpisodeMetadata::from_rss_item(&item) {
+            writer.set_episode_metadata(&metadata).unwrap();
+        }
     }
 
     writer.close().unwrap();

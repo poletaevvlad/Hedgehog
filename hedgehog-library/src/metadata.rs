@@ -95,14 +95,17 @@ mod tests {
 
     #[test]
     fn feed_from_channel() {
-        let mut channel = rss::Channel::default();
-        channel.title = "Feed title".to_string();
-        channel.description = "Feed description".to_string();
-        channel.link = "http://example.com/feed".to_string();
-        channel.copyright = Some("(c) Copyright".to_string());
-        let mut itunes_ext = rss::extension::itunes::ITunesChannelExtension::default();
-        itunes_ext.author = Some("Author".to_string());
-        channel.itunes_ext = Some(itunes_ext);
+        let channel = rss::Channel {
+            title: "Feed title".to_string(),
+            description: "Feed description".to_string(),
+            link: "http://example.com/feed".to_string(),
+            copyright: Some("(c) Copyright".to_string()),
+            itunes_ext: Some(rss::extension::itunes::ITunesChannelExtension {
+                author: Some("Author".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
 
         let feed = FeedMetadata::from_rss_channel(&channel);
         assert_eq!(
@@ -119,9 +122,6 @@ mod tests {
 
     #[test]
     fn episode_from_full() {
-        let mut itunes_ext = rss::extension::itunes::ITunesItemExtension::default();
-        itunes_ext.duration = Some("30:00".to_string());
-        itunes_ext.episode = Some("4".to_string());
         let item = rss::Item {
             title: Some("Episode title".to_string()),
             link: Some("https://example.com/".to_string()),
@@ -142,7 +142,11 @@ mod tests {
             source: Some(rss::Source::default()),
             content: Some("content".to_string()),
             extensions: HashMap::new(),
-            itunes_ext: Some(itunes_ext),
+            itunes_ext: Some(rss::extension::itunes::ITunesItemExtension {
+                duration: Some("30:00".to_string()),
+                episode: Some("4".to_string()),
+                ..Default::default()
+            }),
             dublin_core_ext: None,
         };
 
@@ -164,12 +168,14 @@ mod tests {
 
     #[test]
     fn episode_from_mimimal() {
-        let mut item = rss::Item::default();
-        item.enclosure = Some(rss::Enclosure {
-            url: "http://example.com/episode.mp3".to_string(),
-            length: "1000".to_string(),
-            mime_type: "audio/mpeg".to_string(),
-        });
+        let item = rss::Item {
+            enclosure: Some(rss::Enclosure {
+                url: "http://example.com/episode.mp3".to_string(),
+                length: "1000".to_string(),
+                mime_type: "audio/mpeg".to_string(),
+            }),
+            ..Default::default()
+        };
 
         let episode = EpisodeMetadata::from_rss_item(&item).unwrap();
         assert_eq!(

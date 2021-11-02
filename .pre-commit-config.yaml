@@ -4,4 +4,4 @@ repos:
     hooks:
       - id: fmt
       - id: clippy
-        args: ["--", "-D", "warnings", "-A", "dead_code"]
+        args: ["--tests", "--all", "--", "-D", "warnings", "-A", "dead_code"]

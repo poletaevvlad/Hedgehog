@@ -77,6 +77,7 @@ impl UI {
                         FeedsListRowRenderer::new(
                             &view_model.theme,
                             view_model.focus == FocusedPane::FeedsList,
+                            &view_model.updating_feeds,
                         ),
                         iter,
                     ),

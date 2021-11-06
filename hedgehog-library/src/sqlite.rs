@@ -134,6 +134,14 @@ impl DataProvider for SqliteDataProvider {
             .query_row(named_params! {":id": id}, |row| row.get(0))
             .map_err(QueryError::from)
     }
+
+    fn delete_feed(&self, id: FeedId) -> Result<(), QueryError> {
+        let mut statement = self
+            .connection
+            .prepare("DELETE FROM feeds WHERE id = :id")?;
+        statement.execute(named_params! {":id": id})?;
+        Ok(())
+    }
 }
 
 impl QueryHandler<FeedSummariesQuery> for SqliteDataProvider {

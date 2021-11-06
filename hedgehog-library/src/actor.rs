@@ -171,6 +171,7 @@ pub enum FeedUpdateNotification {
     UpdateFinished(FeedId, Option<FeedUpdateError>),
     Error(FeedUpdateError),
     FeedAdded(FeedSummary),
+    FeedDeleted(FeedId),
 }
 
 #[derive(Debug, Message)]
@@ -178,6 +179,7 @@ pub enum FeedUpdateNotification {
 pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
     AddFeed(String),
+    DeleteFeed(FeedId),
     UpdateSingle(FeedId),
 }
 
@@ -204,6 +206,16 @@ where
                     FeedSummary::new_created(feed_id, source),
                 ));
                 self.schedule_update(vec![feed_id], ctx);
+            }
+            FeedUpdateRequest::DeleteFeed(feed_id) => {
+                match self.data_provider.delete_feed(feed_id) {
+                    Ok(_) => {
+                        self.notify_update_listener(FeedUpdateNotification::FeedDeleted(feed_id))
+                    }
+                    Err(error) => {
+                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()))
+                    }
+                }
             }
         }
     }

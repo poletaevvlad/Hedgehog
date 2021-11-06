@@ -167,6 +167,13 @@ impl<D: ActionDelegate> ViewModel<D> {
                     .send_feed_update_request(FeedUpdateRequest::AddFeed(source));
                 Ok(false)
             }
+            Command::DeleteFeed => {
+                if let Some(selected_feed) = self.feeds_list.selection() {
+                    self.action_delegate
+                        .send_feed_update_request(FeedUpdateRequest::DeleteFeed(selected_feed.id));
+                }
+                Ok(false)
+            }
             Command::Update => {
                 if let Some(selected_feed) = self.feeds_list.selection() {
                     self.action_delegate
@@ -257,9 +264,8 @@ impl<D: ActionDelegate> ViewModel<D> {
             FeedUpdateNotification::Error(error) => {
                 self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
             }
-            FeedUpdateNotification::FeedAdded(_feed) => {
-                self.status = Some(Status::new_custom("feed created", Severity::Information));
-            }
+            FeedUpdateNotification::FeedAdded(feed) => self.feeds_list.add_item(feed),
+            FeedUpdateNotification::FeedDeleted(feed_id) => self.feeds_list.remove_item(feed_id),
         }
     }
 }
@@ -281,6 +287,7 @@ pub(crate) enum Command {
 
     #[serde(rename = "add")]
     AddFeed(String),
+    DeleteFeed,
     Update,
 }
 

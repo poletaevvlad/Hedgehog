@@ -255,11 +255,9 @@ impl<D: ActionDelegate> ViewModel<D> {
     pub(crate) fn handle_update_notification(&mut self, notification: FeedUpdateNotification) {
         match notification {
             FeedUpdateNotification::UpdateStarted(ids) => self.updating_feeds.extend(ids),
-            FeedUpdateNotification::UpdateFinished(id, error) => {
+            FeedUpdateNotification::UpdateFinished(id, new_feed_summary) => {
                 self.updating_feeds.remove(&id);
-                if let Some(error) = error {
-                    self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
-                }
+                self.feeds_list.update_item(new_feed_summary);
             }
             FeedUpdateNotification::Error(error) => {
                 self.status = Some(Status::new_custom(error.to_string(), Severity::Error));

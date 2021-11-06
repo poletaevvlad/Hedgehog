@@ -5,6 +5,8 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rusqlite::types::{FromSql, ToSql};
 
+use crate::metadata::FeedMetadata;
+
 macro_rules! entity_id {
     ($name:ident) => {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -83,6 +85,15 @@ impl FeedSummary {
             title: source,
             has_title: false,
             status: FeedStatus::Pending,
+        }
+    }
+
+    pub(crate) fn from_metadata(feed_id: FeedId, metadata: &FeedMetadata) -> Self {
+        FeedSummary {
+            id: feed_id,
+            title: metadata.title.to_string(),
+            has_title: true,
+            status: FeedStatus::Loaded,
         }
     }
 }

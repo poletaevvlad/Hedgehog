@@ -138,17 +138,25 @@ impl<D: DataProvider + 'static> Library<D> {
                 library.updating_feeds.remove(&feed_id);
                 let result = result.and_then(|mut feed| {
                     let mut writer = library.data_provider.writer(feed_id)?;
-                    writer.set_feed_metadata(&feed.feed_metadata())?;
+                    let feed_metadata = feed.feed_metadata();
+                    let feed_summary = FeedSummary::from_metadata(feed_id, &feed_metadata);
+                    writer.set_feed_metadata(&feed_metadata)?;
                     while let Some(episode_metadata) = feed.next_episode_metadata() {
                         writer.set_episode_metadata(&episode_metadata)?;
                     }
                     writer.close()?;
-                    Ok(())
+                    Ok(feed_summary)
                 });
-                library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
-                    feed_id,
-                    result.err(),
-                ));
+
+                match result {
+                    Ok(feed_summary) => library.notify_update_listener(
+                        FeedUpdateNotification::UpdateFinished(feed_id, feed_summary),
+                    ),
+                    Err(error) => {
+                        // TODO: Update feed with error status
+                        library.notify_update_listener(FeedUpdateNotification::Error(error))
+                    }
+                };
             });
             ctx.spawn(future);
         }
@@ -168,7 +176,7 @@ pub enum FeedUpdateError {
 #[rtype(result = "()")]
 pub enum FeedUpdateNotification {
     UpdateStarted(Vec<FeedId>),
-    UpdateFinished(FeedId, Option<FeedUpdateError>),
+    UpdateFinished(FeedId, FeedSummary),
     Error(FeedUpdateError),
     FeedAdded(FeedSummary),
     FeedDeleted(FeedId),

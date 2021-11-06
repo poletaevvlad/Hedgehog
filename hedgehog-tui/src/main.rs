@@ -45,7 +45,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &player_arbiter.handle(),
             |_| /* TODO */ Player::init().unwrap(),
         );
-        UI::new((size.width, size.height), terminal, library, player).start();
+        let ui = UI::new((size.width, size.height), terminal, library.clone(), player).start();
+        library.do_send(hedgehog_library::FeedUpdateRequest::Subscribe(
+            ui.recipient(),
+        ))
     });
     system.run()?;
 

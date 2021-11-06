@@ -9,15 +9,17 @@ use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
-use hedgehog_library::EpisodeSummariesQuery;
+use hedgehog_library::{EpisodeSummariesQuery, FeedUpdateNotification, FeedUpdateRequest};
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::{volume::VolumeCommand, PlaybackCommand, PlayerNotification};
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
-pub(crate) trait PlayerDelegate {
+pub(crate) trait ActionDelegate {
     fn send_volume_command(&self, command: VolumeCommand);
     fn send_playback_command(&self, command: PlaybackCommand);
+    fn send_feed_update_request(&self, command: FeedUpdateRequest);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +28,7 @@ pub(crate) enum FocusedPane {
     EpisodesList,
 }
 
-pub(crate) struct ViewModel<P> {
+pub(crate) struct ViewModel<D> {
     pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
@@ -35,11 +37,12 @@ pub(crate) struct ViewModel<P> {
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
     pub(crate) playback_state: PlaybackState,
-    player_delegate: P,
+    action_delegate: D,
+    pub(crate) updating_feeds: HashSet<FeedId>,
 }
 
-impl<P: PlayerDelegate> ViewModel<P> {
-    pub(crate) fn new(size: (u16, u16), player_delegate: P) -> Self {
+impl<D: ActionDelegate> ViewModel<D> {
+    pub(crate) fn new(size: (u16, u16), action_delegate: D) -> Self {
         ViewModel {
             feeds_list: InteractiveList::new(size.1 as usize - 2),
             episodes_list: InteractiveList::new(size.1 as usize - 2),
@@ -49,7 +52,8 @@ impl<P: PlayerDelegate> ViewModel<P> {
             focus: FocusedPane::FeedsList,
             selected_feed: None,
             playback_state: PlaybackState::default(),
-            player_delegate,
+            action_delegate,
+            updating_feeds: HashSet::new(),
         }
     }
 
@@ -151,11 +155,16 @@ impl<P: PlayerDelegate> ViewModel<P> {
                 }
             }
             Command::Volume(command) => {
-                self.player_delegate.send_volume_command(command);
+                self.action_delegate.send_volume_command(command);
                 Ok(false)
             }
             Command::Playback(command) => {
-                self.player_delegate.send_playback_command(command);
+                self.action_delegate.send_playback_command(command);
+                Ok(false)
+            }
+            Command::AddFeed(source) => {
+                self.action_delegate
+                    .send_feed_update_request(FeedUpdateRequest::AddFeed(source));
                 Ok(false)
             }
         }
@@ -228,6 +237,24 @@ impl<P: PlayerDelegate> ViewModel<P> {
             PlayerNotification::PositionSet(position) => self.playback_state.set_position(position),
         }
     }
+
+    pub(crate) fn handle_update_notification(&mut self, notification: FeedUpdateNotification) {
+        match notification {
+            FeedUpdateNotification::UpdateStarted(ids) => self.updating_feeds.extend(ids),
+            FeedUpdateNotification::UpdateFinished(id, error) => {
+                self.updating_feeds.remove(&id);
+                if let Some(error) = error {
+                    self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
+                }
+            }
+            FeedUpdateNotification::Error(error) => {
+                self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
+            }
+            FeedUpdateNotification::FeedAdded(_feed) => {
+                self.status = Some(Status::new_custom("feed created", Severity::Information));
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -244,11 +271,14 @@ pub(crate) enum Command {
     #[serde(alias = "q")]
     Quit,
     ToggleFocus,
+
+    #[serde(rename = "add")]
+    AddFeed(String),
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Command, PlayerDelegate, ViewModel};
+    use super::{ActionDelegate, Command, ViewModel};
     use crate::dataview::CursorCommand;
     use crate::theming::{List, StatusBar};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -268,9 +298,10 @@ mod tests {
 
     struct NoopPlayerDelagate;
 
-    impl PlayerDelegate for NoopPlayerDelagate {
+    impl ActionDelegate for NoopPlayerDelagate {
         fn send_volume_command(&self, _command: hedgehog_player::volume::VolumeCommand) {}
         fn send_playback_command(&self, _command: hedgehog_player::PlaybackCommand) {}
+        fn send_feed_update_request(&self, _command: hedgehog_library::FeedUpdateRequest) {}
     }
 
     #[test]

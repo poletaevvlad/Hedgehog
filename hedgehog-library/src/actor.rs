@@ -2,7 +2,7 @@ use crate::datasource::{
     DataProvider, EpisodeWriter, ListQuery, PagedQueryHandler, QueryError, QueryHandler,
     WritableDataProvider,
 };
-use crate::model::FeedId;
+use crate::model::{FeedId, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
 use actix::fut::wrap_future;
@@ -169,25 +169,42 @@ pub enum FeedUpdateError {
 pub enum FeedUpdateNotification {
     UpdateStarted(Vec<FeedId>),
     UpdateFinished(FeedId, Option<FeedUpdateError>),
+    Error(FeedUpdateError),
+    FeedAdded(FeedSummary),
 }
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub enum FieldUpdateRequest {
+pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
+    AddFeed(String),
     UpdateSingle(FeedId),
 }
 
-impl<D: DataProvider + 'static> Handler<FieldUpdateRequest> for Library<D>
+impl<D: DataProvider + 'static> Handler<FeedUpdateRequest> for Library<D>
 where
     for<'a> &'a mut D: WritableDataProvider,
 {
     type Result = ();
 
-    fn handle(&mut self, msg: FieldUpdateRequest, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: FeedUpdateRequest, ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            FieldUpdateRequest::Subscribe(recipient) => self.update_listener = Some(recipient),
-            FieldUpdateRequest::UpdateSingle(feed_id) => self.schedule_update(vec![feed_id], ctx),
+            FeedUpdateRequest::Subscribe(recipient) => self.update_listener = Some(recipient),
+            FeedUpdateRequest::UpdateSingle(feed_id) => self.schedule_update(vec![feed_id], ctx),
+            FeedUpdateRequest::AddFeed(source) => {
+                let feed_id = match self.data_provider.create_feed_pending(&source) {
+                    Ok(feed_id) => feed_id,
+                    Err(error) => {
+                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                        return;
+                    }
+                };
+
+                self.notify_update_listener(FeedUpdateNotification::FeedAdded(
+                    FeedSummary::new_created(feed_id, source),
+                ));
+                self.schedule_update(vec![feed_id], ctx);
+            }
         }
     }
 }

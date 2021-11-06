@@ -4,7 +4,7 @@ use crate::dataview::{
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::theming;
-use crate::view_model::{Command, FocusedPane, PlayerDelegate, ViewModel};
+use crate::view_model::{ActionDelegate, Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::library_rows::{EpisodesListRowRenderer, FeedsListRowRenderer};
 use crate::widgets::list::List;
@@ -14,8 +14,8 @@ use crossterm::event::Event;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use hedgehog_library::{
-    EpisodeSummariesQuery, FeedSummariesQuery, Library, PagedQueryRequest, QueryRequest,
-    SizeRequest,
+    EpisodeSummariesQuery, FeedSummariesQuery, FeedUpdateNotification, Library, PagedQueryRequest,
+    QueryRequest, SizeRequest,
 };
 use hedgehog_player::{Player, PlayerNotification};
 use tui::backend::CrosstermBackend;
@@ -30,7 +30,7 @@ pub(crate) struct UI {
     commands_history: CommandsHistory,
     library: Addr<Library>,
     player: Addr<Player>,
-    view_model: ViewModel<ActorPlayerDelegate>,
+    view_model: ViewModel<ActorActionDelegate>,
 }
 
 impl UI {
@@ -44,9 +44,9 @@ impl UI {
             terminal,
             command: None,
             commands_history: CommandsHistory::new(),
-            library,
+            library: library.clone(),
             player: player.clone(),
-            view_model: ViewModel::new(size, ActorPlayerDelegate(player)),
+            view_model: ViewModel::new(size, ActorActionDelegate { player, library }),
         }
     }
 
@@ -361,14 +361,30 @@ impl Handler<PlayerNotification> for UI {
     }
 }
 
-struct ActorPlayerDelegate(Addr<Player>);
+impl Handler<FeedUpdateNotification> for UI {
+    type Result = ();
 
-impl PlayerDelegate for ActorPlayerDelegate {
+    fn handle(&mut self, msg: FeedUpdateNotification, _ctx: &mut Self::Context) -> Self::Result {
+        self.view_model.handle_update_notification(msg);
+        self.render();
+    }
+}
+
+struct ActorActionDelegate {
+    player: Addr<Player>,
+    library: Addr<Library>,
+}
+
+impl ActionDelegate for ActorActionDelegate {
     fn send_volume_command(&self, command: hedgehog_player::volume::VolumeCommand) {
-        self.0.do_send(command)
+        self.player.do_send(command)
     }
 
     fn send_playback_command(&self, command: hedgehog_player::PlaybackCommand) {
-        self.0.do_send(command)
+        self.player.do_send(command)
+    }
+
+    fn send_feed_update_request(&self, command: hedgehog_library::FeedUpdateRequest) {
+        self.library.do_send(command)
     }
 }

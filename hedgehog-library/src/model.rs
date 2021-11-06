@@ -63,11 +63,23 @@ impl FeedStatus {
     }
 }
 
+#[derive(Debug)]
 pub struct FeedSummary {
     pub id: FeedId,
     pub title: String,
     pub has_title: bool,
     pub status: FeedStatus,
+}
+
+impl FeedSummary {
+    pub(crate) fn new_created(id: FeedId, source: String) -> Self {
+        FeedSummary {
+            id,
+            title: source,
+            has_title: false,
+            status: FeedStatus::Pending,
+        }
+    }
 }
 
 pub struct Feed {

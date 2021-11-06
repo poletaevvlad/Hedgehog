@@ -59,6 +59,8 @@ pub trait DataProvider:
     fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, QueryError>;
     fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError>;
     fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError>;
+
+    fn get_feed_source(&self, id: FeedId) -> Result<String, QueryError>;
 }
 
 pub trait WritableDataProvider {

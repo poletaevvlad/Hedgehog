@@ -4,7 +4,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) enum FetchError {
+pub enum FetchError {
     #[error("Networking error: {0}")]
     HttpError(#[from] reqwest::Error),
 
@@ -15,7 +15,7 @@ pub(crate) enum FetchError {
     XmlError(#[from] rss::Error),
 }
 
-pub(crate) async fn fetch_feed(url: &str) -> Result<impl WritableFeed, FetchError> {
+pub(crate) async fn fetch_feed(url: &str) -> Result<impl WritableFeed + 'static, FetchError> {
     let client = reqwest::Client::new();
     let request = client.get(url).timeout(Duration::from_secs(300));
     let response = request.send().await?;
@@ -49,7 +49,6 @@ impl WritableFeed for XmlFeed {
     fn next_episode_metadata(&mut self) -> Option<EpisodeMetadata> {
         loop {
             let item = self.channel.items.get(self.item_index)?;
-            println!("{:?}", item);
             self.item_index += 1;
             if let Some(episode) = EpisodeMetadata::from_rss_item(item) {
                 return Some(episode);

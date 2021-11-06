@@ -87,16 +87,6 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError> {
-        let mut statement = self
-            .connection
-            .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
-        statement
-            .insert(named_params! {":source": source})
-            .map(FeedId)
-            .map_err(Into::into)
-    }
-
     fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError> {
         let mut statement =
             self.connection.prepare("SELECT feed_id, episode_number, title, description, link, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
@@ -124,6 +114,25 @@ impl DataProvider for SqliteDataProvider {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(error) => Err(error.into()),
         }
+    }
+
+    fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError> {
+        let mut statement = self
+            .connection
+            .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
+        statement
+            .insert(named_params! {":source": source})
+            .map(FeedId)
+            .map_err(Into::into)
+    }
+
+    fn get_feed_source(&self, id: FeedId) -> Result<String, QueryError> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT source FROM feeds WHERE id = :id LIMIT 1")?;
+        statement
+            .query_row(named_params! {":id": id}, |row| row.get(0))
+            .map_err(QueryError::from)
     }
 }
 

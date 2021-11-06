@@ -1046,6 +1046,7 @@ dependencies = [
  "rusqlite",
  "tempfile",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

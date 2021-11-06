@@ -15,6 +15,7 @@ num-traits = "0.2"
 num-derive = "0.3"
 actix = "0.12"
 reqwest = "0.11"
+tokio = { version = "1", features = ["sync"] }
 
 [dev-dependencies]
 pretty_assertions = "1.0"

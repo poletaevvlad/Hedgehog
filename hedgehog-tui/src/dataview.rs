@@ -1,3 +1,4 @@
+use hedgehog_library::model::Identifiable;
 use std::collections::VecDeque;
 use std::ops::Range;
 
@@ -28,6 +29,15 @@ pub(crate) trait DataView {
     fn size(&self) -> Option<usize>;
     fn update(&mut self, range: Range<usize>, request_data: impl Fn(Self::Request));
     fn handle(&mut self, msg: Self::Message) -> bool;
+}
+
+pub(crate) trait EditableDataView {
+    type Id;
+    type Item: Identifiable<Id = Self::Id>;
+
+    fn remove(&mut self, id: Self::Id);
+    fn update(&mut self, item: Self::Item);
+    fn add(&mut self, item: Self::Item);
 }
 
 #[derive(Debug)]
@@ -65,6 +75,45 @@ impl<T> DataView for ListData<T> {
 
     fn item_at(&self, index: usize) -> Option<&Self::Item> {
         self.items.as_ref().and_then(|items| items.get(index))
+    }
+}
+
+fn index_with_id<'a, T: Identifiable + 'a>(
+    items: impl Iterator<Item = &'a T>,
+    id: T::Id,
+) -> Option<usize> {
+    items
+        .enumerate()
+        .filter(|(_, item)| item.id() == id)
+        .map(|(index, _)| index)
+        .next()
+}
+
+impl<T: Identifiable> EditableDataView for ListData<T> {
+    type Id = T::Id;
+    type Item = T;
+
+    fn remove(&mut self, id: <T as Identifiable>::Id) {
+        if let Some(ref mut items) = self.items {
+            if let Some(index) = index_with_id(items.iter(), id) {
+                items.remove(index);
+            }
+        }
+    }
+
+    fn update(&mut self, item: Self::Item) {
+        if let Some(ref mut items) = self.items {
+            let id = item.id();
+            if let Some(index) = index_with_id(items.iter(), id) {
+                items[index] = item;
+            }
+        }
+    }
+
+    fn add(&mut self, item: Self::Item) {
+        if let Some(ref mut items) = self.items {
+            items.push(item)
+        }
     }
 }
 
@@ -427,6 +476,27 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
             CursorCommand::Last => self.move_cursor_last(),
         }
     }
+
+    pub(crate) fn add_item(&mut self, item: <T as EditableDataView>::Item)
+    where
+        T: EditableDataView<Item = <T as DataView>::Item>,
+    {
+        self.data.add(item)
+    }
+
+    pub(crate) fn remove_item(&mut self, id: <T as EditableDataView>::Id)
+    where
+        T: EditableDataView<Item = <T as DataView>::Item>,
+    {
+        self.data.remove(id)
+    }
+
+    pub(crate) fn update_item(&mut self, item: <T as EditableDataView>::Item)
+    where
+        T: EditableDataView<Item = <T as DataView>::Item>,
+    {
+        EditableDataView::update(&mut self.data, item)
+    }
 }
 
 #[derive(Debug, serde::Deserialize, Clone, Copy, PartialEq)]
@@ -453,6 +523,7 @@ mod tests {
         DataProvider, DataView, DataViewOptions, InteractiveList, ListData, PaginatedData,
         PaginatedDataMessage, PaginatedDataRequest, Versioned,
     };
+    use hedgehog_library::model::Identifiable;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -486,15 +557,15 @@ mod tests {
         }
     }
 
-    fn assert_list<P: DataProvider>(
-        list: &InteractiveList<impl DataView<Item = u8, Request = P::Request>, P>,
-        expected: &[(Option<u8>, bool)],
+    fn assert_list<P: DataProvider, T: PartialEq + std::fmt::Debug + Clone>(
+        list: &InteractiveList<impl DataView<Item = T, Request = P::Request>, P>,
+        expected: &[(Option<T>, bool)],
     ) {
         assert_eq!(
             list.iter()
                 .unwrap()
                 .map(|(a, b)| (a.cloned(), b))
-                .collect::<Vec<(Option<u8>, bool)>>()
+                .collect::<Vec<(Option<T>, bool)>>()
                 .as_slice(),
             expected,
         );
@@ -784,5 +855,70 @@ mod tests {
 
             scroll_list.move_cursor(-1);
         }
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct IdItem(usize, &'static str);
+
+    impl Identifiable for IdItem {
+        type Id = usize;
+
+        fn id(&self) -> Self::Id {
+            self.0
+        }
+    }
+
+    #[test]
+    fn editing_data() {
+        let mut scroll_list =
+            InteractiveList::<ListData<IdItem>, MockDataProvider<_>>::new_with_options(
+                10,
+                TEST_OPTIONS,
+            );
+
+        let (provider, requests) = MockDataProvider::new();
+        scroll_list.set_provider(provider);
+        let request = requests.borrow_mut().pop_front().unwrap();
+        scroll_list.handle_data(request.with_data(vec![
+            IdItem(5, "five"),
+            IdItem(3, "three"),
+            IdItem(7, "seven"),
+            IdItem(1, "one"),
+        ]));
+
+        scroll_list.add_item(IdItem(8, "eight"));
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(5, "five"), selected),
+                item!(IdItem(3, "three")),
+                item!(IdItem(7, "seven")),
+                item!(IdItem(1, "one")),
+                item!(IdItem(8, "eight")),
+            ],
+        );
+
+        scroll_list.update_item(IdItem(3, "three v2"));
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(5, "five"), selected),
+                item!(IdItem(3, "three v2")),
+                item!(IdItem(7, "seven")),
+                item!(IdItem(1, "one")),
+                item!(IdItem(8, "eight")),
+            ],
+        );
+
+        scroll_list.remove_item(7);
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(5, "five"), selected),
+                item!(IdItem(3, "three v2")),
+                item!(IdItem(1, "one")),
+                item!(IdItem(8, "eight")),
+            ],
+        );
     }
 }

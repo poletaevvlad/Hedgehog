@@ -63,6 +63,11 @@ impl FeedStatus {
     }
 }
 
+pub trait Identifiable {
+    type Id: Eq;
+    fn id(&self) -> Self::Id;
+}
+
 #[derive(Debug)]
 pub struct FeedSummary {
     pub id: FeedId,
@@ -79,6 +84,14 @@ impl FeedSummary {
             has_title: false,
             status: FeedStatus::Pending,
         }
+    }
+}
+
+impl Identifiable for FeedSummary {
+    type Id = FeedId;
+
+    fn id(&self) -> Self::Id {
+        self.id
     }
 }
 

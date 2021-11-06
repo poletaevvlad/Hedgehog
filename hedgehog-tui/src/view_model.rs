@@ -167,6 +167,13 @@ impl<D: ActionDelegate> ViewModel<D> {
                     .send_feed_update_request(FeedUpdateRequest::AddFeed(source));
                 Ok(false)
             }
+            Command::Update => {
+                if let Some(selected_feed) = self.feeds_list.selection() {
+                    self.action_delegate
+                        .send_feed_update_request(FeedUpdateRequest::UpdateSingle(selected_feed.id))
+                }
+                Ok(false)
+            }
         }
     }
 
@@ -274,6 +281,7 @@ pub(crate) enum Command {
 
     #[serde(rename = "add")]
     AddFeed(String),
+    Update,
 }
 
 #[cfg(test)]

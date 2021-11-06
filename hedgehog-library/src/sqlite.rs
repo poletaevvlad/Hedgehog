@@ -46,6 +46,7 @@ impl SqliteDataProvider {
             });
         }
 
+        connection.execute("PRAGMA foreign_keys = ON", named_params! {})?;
         if version < 1 {
             connection.execute_batch(include_str!("schema/init.sql"))?;
         }

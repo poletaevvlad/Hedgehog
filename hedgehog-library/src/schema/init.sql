@@ -1,5 +1,3 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE feeds (
     "id" INTEGER NOT NULL PRIMARY KEY,
     "title" TEXT,

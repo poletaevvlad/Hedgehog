@@ -8,6 +8,8 @@ set list.item:focused "fg:white"
 set list.item:selected "bg:gray fg:black"
 set list.item:focused:selected "bg:white fg:black"
 set list.item.missing +italic
+set list.item.loading "fg:green"
+set list.item.error "fg:red"
 
 set player.title "bg:darkgray"
 set player.status.none "bg:black"

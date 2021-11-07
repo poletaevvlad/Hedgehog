@@ -64,11 +64,17 @@ bitflags! {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum ListSubitem {
     MissingTitle,
+    ErrorIndicator,
+    LoadingIndicator,
 }
 
 impl ListSubitem {
     pub(crate) fn enumerate() -> impl IntoIterator<Item = Self> {
-        [ListSubitem::MissingTitle]
+        [
+            ListSubitem::MissingTitle,
+            ListSubitem::ErrorIndicator,
+            ListSubitem::LoadingIndicator,
+        ]
     }
 }
 
@@ -100,6 +106,8 @@ impl List {
                 let subitem = match_take! {
                     input,
                     ".missing" => Some(ListSubitem::MissingTitle),
+                    ".loading" => Some(ListSubitem::LoadingIndicator),
+                    ".error" => Some(ListSubitem::ErrorIndicator),
                     _ => None,
                 };
                 Ok(List::Item(state, subitem))

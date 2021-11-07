@@ -1,6 +1,6 @@
 use super::list::ListItemRenderingDelegate;
 use crate::theming;
-use hedgehog_library::model::{FeedId, FeedStatus};
+use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -65,6 +65,28 @@ pub(crate) struct FeedsListRowRenderer<'t> {
     updating_feeds: &'t HashSet<FeedId>,
 }
 
+enum FeedsListStatusIndicator {
+    Error,
+    Loading,
+}
+
+impl FeedsListStatusIndicator {
+    fn style(&self, theme: &theming::Theme, item_state: theming::ListState) -> Style {
+        let subitem_selector = match self {
+            FeedsListStatusIndicator::Error => theming::ListSubitem::ErrorIndicator,
+            FeedsListStatusIndicator::Loading => theming::ListSubitem::LoadingIndicator,
+        };
+        theme.get(theming::List::Item(item_state, Some(subitem_selector)))
+    }
+
+    fn label(&self) -> &'static str {
+        match self {
+            FeedsListStatusIndicator::Error => "E",
+            FeedsListStatusIndicator::Loading => "U",
+        }
+    }
+}
+
 impl<'t> FeedsListRowRenderer<'t> {
     pub(crate) fn new(
         theme: &'t theming::Theme,
@@ -81,10 +103,20 @@ impl<'t> FeedsListRowRenderer<'t> {
             updating_feeds,
         }
     }
+
+    fn get_status_indicator(&self, item: &FeedSummary) -> Option<FeedsListStatusIndicator> {
+        if self.updating_feeds.contains(&item.id) {
+            Some(FeedsListStatusIndicator::Loading)
+        } else if matches!(item.status, FeedStatus::Error(_)) {
+            Some(FeedsListStatusIndicator::Error)
+        } else {
+            None
+        }
+    }
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
-    type Item = (Option<&'a hedgehog_library::model::FeedSummary>, bool);
+    type Item = (Option<&'a FeedSummary>, bool);
 
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
@@ -93,37 +125,50 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
         if selected {
             item_state |= theming::ListState::SELECTED;
         }
-        let subitem = match item.map(|item| item.has_title) {
-            Some(false) => Some(theming::ListSubitem::MissingTitle),
-            _ => None,
-        };
-        let style = self.theme.get(theming::List::Item(item_state, subitem));
-        buf.set_style(area, style);
 
-        area = Rect::new(area.x + 1, area.y, area.width - 2, area.height);
         match item {
             Some(item) => {
-                if self.updating_feeds.contains(&item.id) {
+                if let Some(status_indicator) = self.get_status_indicator(item) {
+                    let style = status_indicator.style(self.theme, item_state);
+                    buf.set_style(
+                        Rect::new(area.right().saturating_sub(3), area.y, 3, area.height),
+                        style,
+                    );
+                    let label = status_indicator.label();
                     buf.set_string(
                         area.right().saturating_sub(2),
                         area.y,
-                        "U",
+                        label,
                         Style::default(),
                     );
-                    area.width -= 4;
-                } else if matches!(item.status, FeedStatus::Error(_)) {
-                    buf.set_string(
-                        area.right().saturating_sub(2),
-                        area.y,
-                        "E",
-                        Style::default(),
-                    );
-                    area.width -= 4;
+                    area.width = area.width.saturating_sub(3);
                 }
+
+                let subitem = if !item.has_title {
+                    Some(theming::ListSubitem::MissingTitle)
+                } else {
+                    None
+                };
+                let style = self.theme.get(theming::List::Item(item_state, subitem));
+                buf.set_style(area, style);
+
                 let paragraph = Paragraph::new(item.title.as_str());
-                paragraph.render(area, buf);
+                paragraph.render(
+                    Rect::new(
+                        area.x + 1,
+                        area.y,
+                        area.width.saturating_sub(2),
+                        area.height,
+                    ),
+                    buf,
+                );
             }
-            None => buf.set_string(area.x, area.y, " . . . ", style),
+            None => buf.set_string(
+                area.x,
+                area.y,
+                " . . . ",
+                self.theme.get(theming::List::Item(item_state, None)),
+            ),
         }
     }
 }

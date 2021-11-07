@@ -11,8 +11,6 @@ rss = "1.10"
 thiserror = "1.0"
 rusqlite = { version = "0.26", features = ["chrono"] }
 directories = "4.0"
-num-traits = "0.2"
-num-derive = "0.3"
 actix = "0.12"
 reqwest = "0.11"
 tokio = { version = "1", features = ["sync"] }

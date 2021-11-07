@@ -105,7 +105,7 @@ impl DataProvider for SqliteDataProvider {
                     row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
                 ),
                 duration: row.get::<_, Option<u64>>(8)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_db),
+                playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_u32),
                 publication_date: row.get(10)?,
                 media_url: row.get(11)?,
             })
@@ -127,6 +127,22 @@ impl DataProvider for SqliteDataProvider {
             .map_err(Into::into)
     }
 
+    fn delete_feed(&self, id: FeedId) -> Result<(), QueryError> {
+        let mut statement = self
+            .connection
+            .prepare("DELETE FROM feeds WHERE id = :id")?;
+        statement.execute(named_params! {":id": id})?;
+        Ok(())
+    }
+
+    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> Result<(), QueryError> {
+        let (status, error) = status.db_view();
+        self.connection
+            .prepare("UPDATE feeds SET status = :status, error_code = :error_code WHERE id = :id")?
+            .execute(named_params! {":status": status, ":error_code": error, ":id": feed_id})?;
+        Ok(())
+    }
+
     fn get_feed_source(&self, id: FeedId) -> Result<String, QueryError> {
         let mut statement = self
             .connection
@@ -134,14 +150,6 @@ impl DataProvider for SqliteDataProvider {
         statement
             .query_row(named_params! {":id": id}, |row| row.get(0))
             .map_err(QueryError::from)
-    }
-
-    fn delete_feed(&self, id: FeedId) -> Result<(), QueryError> {
-        let mut statement = self
-            .connection
-            .prepare("DELETE FROM feeds WHERE id = :id")?;
-        statement.execute(named_params! {":id": id})?;
-        Ok(())
     }
 }
 
@@ -215,7 +223,7 @@ impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
                     row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
                 ),
                 duration: row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_db),
+                playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_u32),
                 publication_date: row.get(9)?,
                 media_url: row.get(10)?,
             })

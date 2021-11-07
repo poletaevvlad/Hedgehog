@@ -1,11 +1,7 @@
-use std::time::Duration;
-
-use chrono::{DateTime, Utc};
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-use rusqlite::types::{FromSql, ToSql};
-
 use crate::metadata::FeedMetadata;
+use chrono::{DateTime, Utc};
+use rusqlite::types::{FromSql, ToSql};
+use std::time::Duration;
 
 macro_rules! entity_id {
     ($name:ident) => {
@@ -31,11 +27,41 @@ macro_rules! entity_id {
 entity_id!(FeedId);
 entity_id!(EpisodeId);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedError {
-    InvalidFeed = 1,
-    NotFound = 2,
-    Unknown = 0,
+    MalformedFeed,
+    NetworkingError,
+    HttpError(reqwest::StatusCode),
+    Unknown,
+}
+
+impl FeedError {
+    const HTTP_ERROR_MASK: u32 = 0x0001_0000;
+
+    pub(crate) fn from_u32(value: u32) -> FeedError {
+        match value {
+            1 => FeedError::MalformedFeed,
+            2 => FeedError::NetworkingError,
+            value if value & Self::HTTP_ERROR_MASK != 0 => {
+                match reqwest::StatusCode::from_u16((value & 0xFFFF) as u16) {
+                    Ok(status_code) => FeedError::HttpError(status_code),
+                    Err(_) => FeedError::Unknown,
+                }
+            }
+            _ => FeedError::Unknown,
+        }
+    }
+
+    pub(crate) fn as_u32(&self) -> u32 {
+        match self {
+            FeedError::MalformedFeed => 1,
+            FeedError::NetworkingError => 2,
+            FeedError::HttpError(status_code) => {
+                status_code.as_u16() as u32 | Self::HTTP_ERROR_MASK
+            }
+            FeedError::Unknown => 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,16 +76,14 @@ impl FeedStatus {
         match self {
             FeedStatus::Pending => (0, 0),
             FeedStatus::Loaded => (1, 0),
-            FeedStatus::Error(error) => (2, *error as u32),
+            FeedStatus::Error(error) => (2, error.as_u32()),
         }
     }
 
     pub(crate) fn from_db(status: u32, error: u32) -> Self {
         match (status, error) {
             (1, _) => FeedStatus::Loaded,
-            (2, error) => {
-                FeedStatus::Error(FeedError::from_u32(error).unwrap_or(FeedError::Unknown))
-            }
+            (2, error) => FeedStatus::Error(FeedError::from_u32(error)),
             (_, _) => FeedStatus::Pending,
         }
     }
@@ -134,16 +158,28 @@ impl EpisodeStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaybackError {
-    NotFound = 1,
-    FormatError = 2,
-    Unknown = 0,
+    NotFound,
+    FormatError,
+    Unknown,
 }
 
 impl PlaybackError {
-    pub(crate) fn from_db(value: u32) -> PlaybackError {
-        PlaybackError::from_u32(value).unwrap_or(PlaybackError::Unknown)
+    pub(crate) fn from_u32(value: u32) -> Self {
+        match value {
+            1 => PlaybackError::NotFound,
+            2 => PlaybackError::FormatError,
+            _ => PlaybackError::Unknown,
+        }
+    }
+
+    pub(crate) fn as_u32(&self) -> u32 {
+        match self {
+            PlaybackError::NotFound => 1,
+            PlaybackError::FormatError => 2,
+            PlaybackError::Unknown => 0,
+        }
     }
 }
 

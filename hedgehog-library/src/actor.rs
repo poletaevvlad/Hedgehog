@@ -2,7 +2,7 @@ use crate::datasource::{
     DataProvider, EpisodeWriter, ListQuery, PagedQueryHandler, QueryError, QueryHandler,
     WritableDataProvider,
 };
-use crate::model::{FeedId, FeedSummary};
+use crate::model::{FeedError, FeedId, FeedStatus, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
 use actix::fut::wrap_future;
@@ -136,26 +136,37 @@ impl<D: DataProvider + 'static> Library<D> {
             })
             .map(move |result, library: &mut Library<D>, _ctx| {
                 library.updating_feeds.remove(&feed_id);
-                let result = result.and_then(|mut feed| {
-                    let mut writer = library.data_provider.writer(feed_id)?;
-                    let feed_metadata = feed.feed_metadata();
-                    let feed_summary = FeedSummary::from_metadata(feed_id, &feed_metadata);
-                    writer.set_feed_metadata(&feed_metadata)?;
-                    while let Some(episode_metadata) = feed.next_episode_metadata() {
-                        writer.set_episode_metadata(&episode_metadata)?;
+                let result = match result {
+                    Ok(mut feed) => (|| {
+                        let mut writer = library.data_provider.writer(feed_id)?;
+                        let feed_metadata = feed.feed_metadata();
+                        let feed_summary = FeedSummary::from_metadata(feed_id, &feed_metadata);
+                        writer.set_feed_metadata(&feed_metadata)?;
+                        while let Some(episode_metadata) = feed.next_episode_metadata() {
+                            writer.set_episode_metadata(&episode_metadata)?;
+                        }
+                        writer.close()?;
+                        library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
+                            feed_id,
+                            feed_summary,
+                        ));
+                        Ok(())
+                    })(),
+                    Err(err) => {
+                        if let Err(db_error) = library
+                            .data_provider
+                            .set_feed_status(feed_id, FeedStatus::Error(err.as_feed_error()))
+                        {
+                            library.notify_update_listener(FeedUpdateNotification::Error(
+                                db_error.into(),
+                            ));
+                        }
+                        Err(err)
                     }
-                    writer.close()?;
-                    Ok(feed_summary)
-                });
+                };
 
-                match result {
-                    Ok(feed_summary) => library.notify_update_listener(
-                        FeedUpdateNotification::UpdateFinished(feed_id, feed_summary),
-                    ),
-                    Err(error) => {
-                        // TODO: Update feed with error status
-                        library.notify_update_listener(FeedUpdateNotification::Error(error))
-                    }
+                if let Err(error) = result {
+                    library.notify_update_listener(FeedUpdateNotification::Error(error))
                 };
             });
             ctx.spawn(future);
@@ -170,6 +181,15 @@ pub enum FeedUpdateError {
 
     #[error(transparent)]
     Fetch(#[from] crate::rss_client::FetchError),
+}
+
+impl FeedUpdateError {
+    fn as_feed_error(&self) -> FeedError {
+        match self {
+            FeedUpdateError::Database(_) => FeedError::Unknown,
+            FeedUpdateError::Fetch(fetch_error) => fetch_error.as_feed_error(),
+        }
+    }
 }
 
 #[derive(Debug, Message)]

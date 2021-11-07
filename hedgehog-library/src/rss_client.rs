@@ -1,4 +1,5 @@
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
+use crate::model::FeedError;
 use std::io::{BufReader, Cursor};
 use std::time::Duration;
 use thiserror::Error;
@@ -13,6 +14,16 @@ pub enum FetchError {
 
     #[error("Invalid format: {0}")]
     XmlError(#[from] rss::Error),
+}
+
+impl FetchError {
+    pub(crate) fn as_feed_error(&self) -> FeedError {
+        match self {
+            FetchError::HttpError(_) => FeedError::NetworkingError,
+            FetchError::FailedStatusCode(status_code) => FeedError::HttpError(*status_code),
+            FetchError::XmlError(_) => FeedError::MalformedFeed,
+        }
+    }
 }
 
 pub(crate) async fn fetch_feed(url: &str) -> Result<impl WritableFeed + 'static, FetchError> {

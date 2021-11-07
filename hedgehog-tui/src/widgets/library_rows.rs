@@ -1,6 +1,6 @@
 use super::list::ListItemRenderingDelegate;
 use crate::theming;
-use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary};
+use hedgehog_library::model::{EpisodeId, FeedId, FeedStatus, FeedSummary};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -10,6 +10,7 @@ use tui::widgets::{Paragraph, Widget};
 pub(crate) struct EpisodesListRowRenderer<'t> {
     theme: &'t theming::Theme,
     default_item_state: theming::ListState,
+    playing_id: Option<EpisodeId>,
 }
 
 impl<'t> EpisodesListRowRenderer<'t> {
@@ -21,7 +22,13 @@ impl<'t> EpisodesListRowRenderer<'t> {
             } else {
                 theming::ListState::empty()
             },
+            playing_id: None,
         }
+    }
+
+    pub(crate) fn with_playing_id(mut self, playing_id: impl Into<Option<EpisodeId>>) -> Self {
+        self.playing_id = playing_id.into();
+        self
     }
 }
 
@@ -35,6 +42,10 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         if selected {
             item_state |= theming::ListState::SELECTED;
         }
+        if item.is_some() && self.playing_id == item.map(|item| item.id) {
+            item_state |= theming::ListState::ACTIVE;
+        }
+
         let subitem = match item.map(|item| item.title.is_some()) {
             Some(false) => Some(theming::ListSubitem::MissingTitle),
             _ => None,

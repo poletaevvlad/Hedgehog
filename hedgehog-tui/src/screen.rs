@@ -90,7 +90,8 @@ impl UI {
                         EpisodesListRowRenderer::new(
                             &view_model.theme,
                             view_model.focus == FocusedPane::EpisodesList,
-                        ),
+                        )
+                        .with_playing_id(view_model.playing_episode),
                         iter,
                     ),
                     layout[1],

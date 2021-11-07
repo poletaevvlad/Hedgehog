@@ -8,7 +8,7 @@ use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
-use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
+use hedgehog_library::model::{EpisodeId, EpisodeSummary, FeedId, FeedSummary};
 use hedgehog_library::{
     EpisodeSummariesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
 };
@@ -41,6 +41,7 @@ pub(crate) struct ViewModel<D> {
     pub(crate) theme: Theme,
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
+    pub(crate) playing_episode: Option<EpisodeId>,
     pub(crate) playback_state: PlaybackState,
     action_delegate: D,
     pub(crate) updating_feeds: HashSet<FeedId>,
@@ -56,6 +57,7 @@ impl<D: ActionDelegate> ViewModel<D> {
             theme: Theme::default(),
             focus: FocusedPane::FeedsList,
             selected_feed: None,
+            playing_episode: None,
             playback_state: PlaybackState::default(),
             action_delegate,
             updating_feeds: HashSet::new(),
@@ -192,7 +194,8 @@ impl<D: ActionDelegate> ViewModel<D> {
                     self.action_delegate
                         .send_playback_command(PlaybackCommand::Play(
                             current_episode.media_url.to_string(),
-                        ))
+                        ));
+                    self.playing_episode = Some(current_episode.id);
                 }
                 Ok(false)
             }
@@ -283,7 +286,12 @@ impl<D: ActionDelegate> ViewModel<D> {
             PlayerNotification::VolumeChanged(volume) => {
                 self.status = Some(Status::VolumeChanged(volume))
             }
-            PlayerNotification::StateChanged(state) => self.playback_state.set_state(state),
+            PlayerNotification::StateChanged(state) => {
+                self.playback_state.set_state(state);
+                if state.is_none() {
+                    self.playing_episode = None;
+                }
+            }
             PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
             PlayerNotification::PositionSet(position) => self.playback_state.set_position(position),
         }
@@ -300,8 +308,6 @@ impl<D: ActionDelegate> ViewModel<D> {
                         .feeds_list
                         .update_item(id, |summary| summary.status = status),
                 }
-                //match result {};
-                //self.feeds_list.update_item(new_feed_summary);
                 if self.selected_feed == Some(id) {
                     self.episodes_list.invalidate();
                 }

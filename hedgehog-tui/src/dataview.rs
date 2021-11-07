@@ -377,6 +377,10 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         }
     }
 
+    pub(crate) fn invalidate(&mut self) -> bool {
+        self.update_provider(|_| {})
+    }
+
     pub(crate) fn selection(&self) -> Option<&T::Item> {
         self.data.item_at(self.selection)
     }

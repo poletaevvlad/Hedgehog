@@ -224,12 +224,11 @@ impl<D: ActionDelegate> ViewModel<D> {
             return;
         }
 
-        if let Some(selected_id) = selected_id {
-            self.episodes_list.update_provider(|provider| {
-                provider.query = Some(EpisodeSummariesQuery::default().with_feed_id(selected_id));
-            });
-            self.selected_feed = Some(selected_id);
-        }
+        self.episodes_list.update_provider(|provider| {
+            provider.query = selected_id
+                .map(|selected_id| EpisodeSummariesQuery::default().with_feed_id(selected_id))
+        });
+        self.selected_feed = selected_id;
     }
 
     pub(crate) fn set_feeds_list_data(&mut self, data: Versioned<Vec<FeedSummary>>) -> bool {
@@ -258,12 +257,21 @@ impl<D: ActionDelegate> ViewModel<D> {
             FeedUpdateNotification::UpdateFinished(id, new_feed_summary) => {
                 self.updating_feeds.remove(&id);
                 self.feeds_list.update_item(new_feed_summary);
+                if self.selected_feed == Some(id) {
+                    self.episodes_list.invalidate();
+                }
             }
             FeedUpdateNotification::Error(error) => {
                 self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
             }
-            FeedUpdateNotification::FeedAdded(feed) => self.feeds_list.add_item(feed),
-            FeedUpdateNotification::FeedDeleted(feed_id) => self.feeds_list.remove_item(feed_id),
+            FeedUpdateNotification::FeedAdded(feed) => {
+                self.feeds_list.add_item(feed);
+                self.update_current_feed();
+            }
+            FeedUpdateNotification::FeedDeleted(feed_id) => {
+                self.feeds_list.remove_item(feed_id);
+                self.update_current_feed();
+            }
         }
     }
 }

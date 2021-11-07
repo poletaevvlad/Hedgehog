@@ -174,7 +174,7 @@ impl PlaybackError {
         }
     }
 
-    pub(crate) fn as_u32(&self) -> u32 {
+    fn as_u32(&self) -> u32 {
         match self {
             PlaybackError::NotFound => 1,
             PlaybackError::FormatError => 2,

@@ -9,7 +9,9 @@ use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use hedgehog_library::model::{EpisodeSummary, FeedId, FeedSummary};
-use hedgehog_library::{EpisodeSummariesQuery, FeedUpdateNotification, FeedUpdateRequest};
+use hedgehog_library::{
+    EpisodeSummariesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
+};
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::{volume::VolumeCommand, PlaybackCommand, PlayerNotification};
 use serde::Deserialize;
@@ -254,9 +256,16 @@ impl<D: ActionDelegate> ViewModel<D> {
     pub(crate) fn handle_update_notification(&mut self, notification: FeedUpdateNotification) {
         match notification {
             FeedUpdateNotification::UpdateStarted(ids) => self.updating_feeds.extend(ids),
-            FeedUpdateNotification::UpdateFinished(id, new_feed_summary) => {
+            FeedUpdateNotification::UpdateFinished(id, result) => {
                 self.updating_feeds.remove(&id);
-                self.feeds_list.update_item(new_feed_summary);
+                match result {
+                    FeedUpdateResult::Updated(summary) => self.feeds_list.replace_item(summary),
+                    FeedUpdateResult::StatusChanged(status) => self
+                        .feeds_list
+                        .update_item(id, |summary| summary.status = status),
+                }
+                //match result {};
+                //self.feeds_list.update_item(new_feed_summary);
                 if self.selected_feed == Some(id) {
                     self.episodes_list.invalidate();
                 }

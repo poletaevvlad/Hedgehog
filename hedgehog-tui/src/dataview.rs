@@ -36,7 +36,7 @@ pub(crate) trait EditableDataView {
     type Item: Identifiable<Id = Self::Id>;
 
     fn remove(&mut self, id: Self::Id) -> Option<usize>;
-    fn update(&mut self, item: Self::Item);
+    fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item));
     fn add(&mut self, item: Self::Item);
 }
 
@@ -103,11 +103,10 @@ impl<T: Identifiable> EditableDataView for ListData<T> {
         None
     }
 
-    fn update(&mut self, item: Self::Item) {
+    fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item)) {
         if let Some(ref mut items) = self.items {
-            let id = item.id();
             if let Some(index) = index_with_id(items.iter(), id) {
-                items[index] = item;
+                callback(&mut items[index]);
             }
         }
     }
@@ -504,11 +503,22 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         }
     }
 
-    pub(crate) fn update_item(&mut self, item: <T as EditableDataView>::Item)
-    where
+    pub(crate) fn update_item(
+        &mut self,
+        id: <T as EditableDataView>::Id,
+        callback: impl FnOnce(&mut <T as EditableDataView>::Item),
+    ) where
         T: EditableDataView<Item = <T as DataView>::Item>,
     {
-        EditableDataView::update(&mut self.data, item)
+        EditableDataView::update(&mut self.data, id, callback)
+    }
+
+    pub(crate) fn replace_item(&mut self, item: <T as EditableDataView>::Item)
+    where
+        T: EditableDataView<Item = <T as DataView>::Item>,
+        <T as EditableDataView>::Item: Identifiable<Id = <T as EditableDataView>::Id>,
+    {
+        self.update_item(Identifiable::id(&item), |current| *current = item)
     }
 }
 
@@ -911,7 +921,7 @@ mod tests {
             ],
         );
 
-        scroll_list.update_item(IdItem(3, "three v2"));
+        scroll_list.replace_item(IdItem(3, "three v2"));
         assert_list(
             &scroll_list,
             &[

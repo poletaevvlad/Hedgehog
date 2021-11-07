@@ -148,19 +148,24 @@ impl<D: DataProvider + 'static> Library<D> {
                         writer.close()?;
                         library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
                             feed_id,
-                            feed_summary,
+                            FeedUpdateResult::Updated(feed_summary),
                         ));
                         Ok(())
                     })(),
                     Err(err) => {
+                        let new_status = FeedStatus::Error(err.as_feed_error());
                         if let Err(db_error) = library
                             .data_provider
-                            .set_feed_status(feed_id, FeedStatus::Error(err.as_feed_error()))
+                            .set_feed_status(feed_id, new_status.clone())
                         {
                             library.notify_update_listener(FeedUpdateNotification::Error(
                                 db_error.into(),
                             ));
                         }
+                        library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
+                            feed_id,
+                            FeedUpdateResult::StatusChanged(new_status),
+                        ));
                         Err(err)
                     }
                 };
@@ -192,11 +197,17 @@ impl FeedUpdateError {
     }
 }
 
+#[derive(Debug)]
+pub enum FeedUpdateResult {
+    Updated(FeedSummary),
+    StatusChanged(FeedStatus),
+}
+
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub enum FeedUpdateNotification {
     UpdateStarted(Vec<FeedId>),
-    UpdateFinished(FeedId, FeedSummary),
+    UpdateFinished(FeedId, FeedUpdateResult),
     Error(FeedUpdateError),
     FeedAdded(FeedSummary),
     FeedDeleted(FeedId),

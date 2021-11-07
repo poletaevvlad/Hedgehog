@@ -112,6 +112,10 @@ impl Actor for Player {
 
         ctx.address().do_send(TimerTick)
     }
+
+    fn stopped(&mut self, _ctx: &mut Self::Context) {
+        let _ = self.element.set_state(gst::State::Null);
+    }
 }
 
 #[derive(Debug, Message)]

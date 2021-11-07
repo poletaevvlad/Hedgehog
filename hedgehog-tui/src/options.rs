@@ -3,7 +3,7 @@ use serde::Deserialize;
 macro_rules! gen_options {
     ($($command:ident($name:ident: $value:ty = $default:expr)),*$(,)?) => {
         pub(crate) struct Options {
-            $($name: $value),*
+            pub(crate) $($name: $value),*
         }
 
         impl Default for Options {

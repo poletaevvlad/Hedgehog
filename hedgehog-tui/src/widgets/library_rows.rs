@@ -1,20 +1,24 @@
 use super::list::ListItemRenderingDelegate;
+use crate::options::Options;
 use crate::theming;
 use hedgehog_library::model::{EpisodeId, FeedId, FeedStatus, FeedSummary};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
 use tui::style::Style;
+use tui::text::Span;
 use tui::widgets::{Paragraph, Widget};
+use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct EpisodesListRowRenderer<'t> {
     theme: &'t theming::Theme,
     default_item_state: theming::ListState,
     playing_id: Option<EpisodeId>,
+    options: &'t Options,
 }
 
 impl<'t> EpisodesListRowRenderer<'t> {
-    pub(crate) fn new(theme: &'t theming::Theme, is_focused: bool) -> Self {
+    pub(crate) fn new(theme: &'t theming::Theme, is_focused: bool, options: &'t Options) -> Self {
         EpisodesListRowRenderer {
             theme,
             default_item_state: if is_focused {
@@ -23,6 +27,7 @@ impl<'t> EpisodesListRowRenderer<'t> {
                 theming::ListState::empty()
             },
             playing_id: None,
+            options,
         }
     }
 
@@ -35,7 +40,7 @@ impl<'t> EpisodesListRowRenderer<'t> {
 impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
     type Item = (Option<&'a hedgehog_library::model::EpisodeSummary>, bool);
 
-    fn render_item(&self, area: Rect, item: Self::Item, buf: &mut Buffer) {
+    fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut Buffer) {
         let (item, selected) = item;
 
         let mut item_state = self.default_item_state;
@@ -46,26 +51,55 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
             item_state |= theming::ListState::ACTIVE;
         }
 
-        let subitem = match item.map(|item| item.title.is_some()) {
-            Some(false) => Some(theming::ListSubitem::MissingTitle),
-            _ => None,
-        };
-        let style = self.theme.get(theming::List::Item(item_state, subitem));
-
-        buf.set_style(Rect::new(area.x, area.y, 1, area.height), style);
-        buf.set_style(
-            Rect::new(area.x + area.width - 1, area.y, 1, area.height),
-            style,
-        );
-
-        let inner_area = Rect::new(area.x + 1, area.y, area.width - 2, area.height);
         match item {
             Some(item) => {
-                let paragraph =
-                    Paragraph::new(item.title.as_deref().unwrap_or("no title")).style(style);
-                paragraph.render(inner_area, buf);
+                let subitem = match item.title {
+                    None => Some(theming::ListSubitem::MissingTitle),
+                    _ => None,
+                };
+
+                let date_format = self.options.date_format.as_str();
+                if !date_format.is_empty() {
+                    if let Some(date) = item.publication_date {
+                        let formatted = format!(" {} ", date.format(date_format));
+                        let width = formatted.width() as u16;
+                        buf.set_span(
+                            area.right().saturating_sub(width),
+                            area.y,
+                            &Span::styled(
+                                formatted,
+                                self.theme.get(theming::List::Item(
+                                    item_state,
+                                    Some(theming::ListSubitem::Date),
+                                )),
+                            ),
+                            width,
+                        );
+                        area.width = area.width.saturating_sub(width);
+                    }
+                }
+
+                let style = self.theme.get(theming::List::Item(item_state, subitem));
+                buf.set_style(area, style);
+                let paragraph = Paragraph::new(item.title.as_deref().unwrap_or("Untitled"));
+                paragraph.render(
+                    Rect::new(
+                        area.x + 1,
+                        area.y,
+                        area.width.saturating_sub(2),
+                        area.height,
+                    ),
+                    buf,
+                );
             }
-            None => buf.set_string(area.x, area.y, " . . . ", style),
+            None => {
+                buf.set_string(
+                    area.x,
+                    area.y,
+                    " . . . ",
+                    self.theme.get(theming::List::Item(item_state, None)),
+                );
+            }
         }
     }
 }

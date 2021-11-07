@@ -66,6 +66,7 @@ pub(crate) enum ListSubitem {
     MissingTitle,
     ErrorIndicator,
     LoadingIndicator,
+    Date,
 }
 
 impl ListSubitem {
@@ -74,6 +75,7 @@ impl ListSubitem {
             ListSubitem::MissingTitle,
             ListSubitem::ErrorIndicator,
             ListSubitem::LoadingIndicator,
+            ListSubitem::Date,
         ]
     }
 }
@@ -108,6 +110,7 @@ impl List {
                     ".missing" => Some(ListSubitem::MissingTitle),
                     ".loading" => Some(ListSubitem::LoadingIndicator),
                     ".error" => Some(ListSubitem::ErrorIndicator),
+                    ".date" => Some(ListSubitem::Date),
                     _ => None,
                 };
                 Ok(List::Item(state, subitem))

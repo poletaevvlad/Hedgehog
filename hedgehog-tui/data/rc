@@ -6,7 +6,11 @@ map Down line next
 map j line next
 map Home line first
 map End line last
-map Tab toggle-focus
+map-state Tab feeds set-focus episodes
+map-state Enter feeds set-focus episodes
+map-state Tab episodes set-focus feeds
+map-state Enter episodes play-current 
+
 map Right playback seek-relative 5 0 forward
 map Left playback seek-relative 5 0 backward
 map c playback toggle-pause

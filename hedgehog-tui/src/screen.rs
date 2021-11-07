@@ -189,7 +189,11 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     true
                 }
                 crossterm::event::Event::Key(key_event) => {
-                    match self.view_model.key_mapping.get(&key_event.into()) {
+                    match self
+                        .view_model
+                        .key_mapping
+                        .get(key_event.into(), Some(self.view_model.focus))
+                    {
                         Some(command) => {
                             let command = command.clone();
                             self.view_model.handle_command_interactive(command)

@@ -24,9 +24,12 @@ pub(crate) trait ActionDelegate {
     fn send_feed_update_request(&self, command: FeedUpdateRequest);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) enum FocusedPane {
+    #[serde(rename = "feeds")]
     FeedsList,
+    #[serde(rename = "episodes")]
     EpisodesList,
 }
 
@@ -34,7 +37,7 @@ pub(crate) struct ViewModel<D> {
     pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
-    pub(crate) key_mapping: KeyMapping<Command>,
+    pub(crate) key_mapping: KeyMapping<Command, FocusedPane>,
     pub(crate) theme: Theme,
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
@@ -93,20 +96,34 @@ impl<D: ActionDelegate> ViewModel<D> {
                 }
                 Ok(true)
             }
-            Command::ToggleFocus => {
-                match self.focus {
-                    FocusedPane::FeedsList => self.focus = FocusedPane::EpisodesList,
-                    FocusedPane::EpisodesList => self.focus = FocusedPane::FeedsList,
+            Command::SetFocus(focused_pane) => {
+                if self.focus != focused_pane {
+                    self.focus = focused_pane;
+                    Ok(true)
+                } else {
+                    Ok(false)
                 }
-                Ok(true)
             }
             Command::Quit => {
                 System::current().stop();
                 Ok(false)
             }
             Command::Map(key, command) => {
-                let redefined = self.key_mapping.contains(&key);
-                self.key_mapping.map(key, *command);
+                let redefined = self.key_mapping.contains(key, None);
+                self.key_mapping.map(key, None, *command);
+
+                if redefined {
+                    Err(Status::new_custom(
+                        "Key mapping redefined",
+                        Severity::Information,
+                    ))
+                } else {
+                    Ok(false)
+                }
+            }
+            Command::MapState(key, state, command) => {
+                let redefined = self.key_mapping.contains(key, None);
+                self.key_mapping.map(key, Some(state), *command);
 
                 if redefined {
                     Err(Status::new_custom(
@@ -118,7 +135,17 @@ impl<D: ActionDelegate> ViewModel<D> {
                 }
             }
             Command::Unmap(key) => {
-                if !self.key_mapping.unmap(&key) {
+                if !self.key_mapping.unmap(key, None) {
+                    Err(Status::new_custom(
+                        "Key mapping is not defined",
+                        Severity::Warning,
+                    ))
+                } else {
+                    Ok(false)
+                }
+            }
+            Command::UnmapState(key, state) => {
+                if !self.key_mapping.unmap(key, Some(state)) {
                     Err(Status::new_custom(
                         "Key mapping is not defined",
                         Severity::Warning,
@@ -300,7 +327,9 @@ pub(crate) enum Command {
     #[serde(rename = "line")]
     Cursor(CursorCommand),
     Map(Key, Box<Command>),
+    MapState(Key, FocusedPane, Box<Command>),
     Unmap(Key),
+    UnmapState(Key, FocusedPane),
     Theme(ThemeCommand),
     Exec(PathBuf),
     Volume(VolumeCommand),
@@ -308,7 +337,7 @@ pub(crate) enum Command {
     Playback(PlaybackCommand),
     #[serde(alias = "q")]
     Quit,
-    ToggleFocus,
+    SetFocus(FocusedPane),
 
     #[serde(rename = "add")]
     AddFeed(String),
@@ -382,14 +411,20 @@ mod tests {
         assert_eq!(
             view_model
                 .key_mapping
-                .get(&KeyEvent::new(KeyCode::Up, KeyModifiers::empty()).into())
+                .get(
+                    KeyEvent::new(KeyCode::Up, KeyModifiers::empty()).into(),
+                    None
+                )
                 .unwrap(),
             &Command::Cursor(CursorCommand::Previous)
         );
         assert_eq!(
             view_model
                 .key_mapping
-                .get(&KeyEvent::new(KeyCode::Down, KeyModifiers::empty()).into())
+                .get(
+                    KeyEvent::new(KeyCode::Down, KeyModifiers::empty()).into(),
+                    None
+                )
                 .unwrap(),
             &Command::Cursor(CursorCommand::Last)
         );

@@ -4,6 +4,7 @@ use crate::dataview::{
     CursorCommand, InteractiveList, ListData, PaginatedData, PaginatedDataMessage, Versioned,
 };
 use crate::keymap::{Key, KeyMapping};
+use crate::options::{Options, OptionsUpdate};
 use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
@@ -34,6 +35,7 @@ pub(crate) enum FocusedPane {
 }
 
 pub(crate) struct ViewModel<D> {
+    pub(crate) options: Options,
     pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) status: Option<Status>,
@@ -50,6 +52,7 @@ pub(crate) struct ViewModel<D> {
 impl<D: ActionDelegate> ViewModel<D> {
     pub(crate) fn new(size: (u16, u16), action_delegate: D) -> Self {
         ViewModel {
+            options: Options::default(),
             feeds_list: InteractiveList::new(size.1 as usize - 2),
             episodes_list: InteractiveList::new(size.1 as usize - 2),
             status: None,
@@ -222,6 +225,10 @@ impl<D: ActionDelegate> ViewModel<D> {
                 }
                 Ok(false)
             }
+            Command::SetOption(options_update) => {
+                self.options.update(options_update);
+                Ok(true)
+            }
         }
     }
 
@@ -344,7 +351,8 @@ pub(crate) enum Command {
     #[serde(alias = "q")]
     Quit,
     SetFocus(FocusedPane),
-
+    #[serde(rename = "set")]
+    SetOption(OptionsUpdate),
     #[serde(rename = "add")]
     AddFeed(String),
     DeleteFeed,

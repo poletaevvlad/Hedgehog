@@ -4,6 +4,7 @@ mod dataview;
 mod events;
 mod history;
 mod keymap;
+mod options;
 mod screen;
 mod status;
 mod theming;

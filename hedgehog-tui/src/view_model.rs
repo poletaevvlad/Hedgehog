@@ -160,6 +160,15 @@ impl<D: ActionDelegate> ViewModel<D> {
                 self.action_delegate.send_volume_command(command);
                 Ok(false)
             }
+            Command::PlayCurrent => {
+                if let Some(current_episode) = self.episodes_list.selection() {
+                    self.action_delegate
+                        .send_playback_command(PlaybackCommand::Play(
+                            current_episode.media_url.to_string(),
+                        ))
+                }
+                Ok(false)
+            }
             Command::Playback(command) => {
                 self.action_delegate.send_playback_command(command);
                 Ok(false)
@@ -295,6 +304,7 @@ pub(crate) enum Command {
     Theme(ThemeCommand),
     Exec(PathBuf),
     Volume(VolumeCommand),
+    PlayCurrent,
     Playback(PlaybackCommand),
     #[serde(alias = "q")]
     Quit,

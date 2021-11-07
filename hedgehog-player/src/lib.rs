@@ -141,6 +141,7 @@ pub enum SeekDirection {
 #[serde(rename_all = "kebab-case")]
 #[rtype(result = "()")]
 pub enum PlaybackCommand {
+    #[serde(skip_deserializing)]
     Play(String),
     Stop,
     Pause,

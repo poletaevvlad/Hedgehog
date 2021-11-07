@@ -35,7 +35,7 @@ pub(crate) trait EditableDataView {
     type Id;
     type Item: Identifiable<Id = Self::Id>;
 
-    fn remove(&mut self, id: Self::Id);
+    fn remove(&mut self, id: Self::Id) -> Option<usize>;
     fn update(&mut self, item: Self::Item);
     fn add(&mut self, item: Self::Item);
 }
@@ -93,12 +93,14 @@ impl<T: Identifiable> EditableDataView for ListData<T> {
     type Id = T::Id;
     type Item = T;
 
-    fn remove(&mut self, id: <T as Identifiable>::Id) {
+    fn remove(&mut self, id: <T as Identifiable>::Id) -> Option<usize> {
         if let Some(ref mut items) = self.items {
             if let Some(index) = index_with_id(items.iter(), id) {
                 items.remove(index);
+                return Some(index);
             }
         }
+        None
     }
 
     fn update(&mut self, item: Self::Item) {
@@ -488,7 +490,14 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     where
         T: EditableDataView<Item = <T as DataView>::Item>,
     {
-        self.data.remove(id)
+        if let Some(removed_index) = self.data.remove(id) {
+            if self.selection > removed_index {
+                self.selection = self.selection.saturating_sub(1);
+            }
+            if let Some(size) = self.data.size() {
+                self.selection = self.selection.min(size.saturating_sub(1));
+            }
+        }
     }
 
     pub(crate) fn update_item(&mut self, item: <T as EditableDataView>::Item)
@@ -920,5 +929,102 @@ mod tests {
                 item!(IdItem(8, "eight")),
             ],
         );
+    }
+
+    #[test]
+    fn deleting_items() {
+        let mut scroll_list =
+            InteractiveList::<ListData<IdItem>, MockDataProvider<_>>::new_with_options(
+                10,
+                TEST_OPTIONS,
+            );
+
+        let (provider, requests) = MockDataProvider::new();
+        scroll_list.set_provider(provider);
+        let request = requests.borrow_mut().pop_front().unwrap();
+        scroll_list.handle_data(request.with_data(vec![
+            IdItem(1, "a"),
+            IdItem(2, "b"),
+            IdItem(3, "c"),
+            IdItem(4, "d"),
+            IdItem(5, "e"),
+            IdItem(6, "f"),
+            IdItem(7, "g"),
+        ]));
+        scroll_list.move_cursor(3);
+
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(1, "a")),
+                item!(IdItem(2, "b")),
+                item!(IdItem(3, "c")),
+                item!(IdItem(4, "d"), selected),
+                item!(IdItem(5, "e")),
+                item!(IdItem(6, "f")),
+                item!(IdItem(7, "g")),
+            ],
+        );
+
+        scroll_list.remove_item(6);
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(1, "a")),
+                item!(IdItem(2, "b")),
+                item!(IdItem(3, "c")),
+                item!(IdItem(4, "d"), selected),
+                item!(IdItem(5, "e")),
+                item!(IdItem(7, "g")),
+            ],
+        );
+
+        scroll_list.remove_item(3);
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(1, "a")),
+                item!(IdItem(2, "b")),
+                item!(IdItem(4, "d"), selected),
+                item!(IdItem(5, "e")),
+                item!(IdItem(7, "g")),
+            ],
+        );
+
+        scroll_list.remove_item(4);
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(1, "a")),
+                item!(IdItem(2, "b")),
+                item!(IdItem(5, "e"), selected),
+                item!(IdItem(7, "g")),
+            ],
+        );
+
+        scroll_list.remove_item(7);
+        assert_list(
+            &scroll_list,
+            &[
+                item!(IdItem(1, "a")),
+                item!(IdItem(2, "b")),
+                item!(IdItem(5, "e"), selected),
+            ],
+        );
+
+        scroll_list.remove_item(5);
+        assert_list(
+            &scroll_list,
+            &[item!(IdItem(1, "a")), item!(IdItem(2, "b"), selected)],
+        );
+
+        scroll_list.remove_item(2);
+        assert_list(&scroll_list, &[item!(IdItem(1, "a"), selected)]);
+
+        scroll_list.remove_item(1);
+        assert_list(&scroll_list, &[]);
+
+        scroll_list.add_item(IdItem(8, "h"));
+        assert_list(&scroll_list, &[item!(IdItem(8, "h"), selected)]);
     }
 }

@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-
 use super::list::ListItemRenderingDelegate;
 use crate::theming;
-use hedgehog_library::model::FeedId;
+use hedgehog_library::model::{FeedId, FeedStatus};
+use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
 use tui::style::Style;
@@ -111,7 +110,15 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                         "U",
                         Style::default(),
                     );
-                    area.width -= 3;
+                    area.width -= 4;
+                } else if matches!(item.status, FeedStatus::Error(_)) {
+                    buf.set_string(
+                        area.right().saturating_sub(2),
+                        area.y,
+                        "E",
+                        Style::default(),
+                    );
+                    area.width -= 4;
                 }
                 let paragraph = Paragraph::new(item.title.as_str());
                 paragraph.render(area, buf);

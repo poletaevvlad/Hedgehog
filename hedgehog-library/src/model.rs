@@ -197,6 +197,29 @@ pub struct EpisodeSummary {
     pub media_url: String,
 }
 
+#[derive(Debug, Default)]
+pub struct EpisodeSummaryUpdate {
+    pub is_new: Option<bool>,
+    pub status: Option<EpisodeStatus>,
+}
+
+impl EpisodeSummaryUpdate {
+    pub fn apply(self, summary: &mut EpisodeSummary) {
+        summary.is_new = self.is_new.unwrap_or(summary.is_new);
+        if let Some(status) = self.status {
+            summary.status = status;
+        }
+    }
+}
+
+impl Identifiable for EpisodeSummary {
+    type Id = EpisodeId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
 pub struct Episode {
     pub id: EpisodeId,
     pub feed_id: FeedId,

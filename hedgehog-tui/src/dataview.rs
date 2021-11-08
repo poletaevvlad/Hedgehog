@@ -36,8 +36,15 @@ pub(crate) trait EditableDataView {
     type Item: Identifiable<Id = Self::Id>;
 
     fn remove(&mut self, id: Self::Id) -> Option<usize>;
-    fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item));
     fn add(&mut self, item: Self::Item);
+}
+
+pub(crate) trait UpdatableDataView {
+    type Id;
+    type Item: Identifiable<Id = Self::Id>;
+
+    fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item));
+    fn update_at(&mut self, index: usize, callback: impl FnOnce(&mut Self::Item));
 }
 
 #[derive(Debug)]
@@ -103,6 +110,17 @@ impl<T: Identifiable> EditableDataView for ListData<T> {
         None
     }
 
+    fn add(&mut self, item: Self::Item) {
+        if let Some(ref mut items) = self.items {
+            items.push(item)
+        }
+    }
+}
+
+impl<T: Identifiable> UpdatableDataView for ListData<T> {
+    type Id = T::Id;
+    type Item = T;
+
     fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item)) {
         if let Some(ref mut items) = self.items {
             if let Some(index) = index_with_id(items.iter(), id) {
@@ -111,9 +129,11 @@ impl<T: Identifiable> EditableDataView for ListData<T> {
         }
     }
 
-    fn add(&mut self, item: Self::Item) {
+    fn update_at(&mut self, index: usize, callback: impl FnOnce(&mut Self::Item)) {
         if let Some(ref mut items) = self.items {
-            items.push(item)
+            if let Some(index) = items.get_mut(index) {
+                callback(index);
+            }
         }
     }
 }
@@ -253,6 +273,35 @@ impl<T> DataView for PaginatedData<T> {
             .get(page_index - self.first_page_index)
             .and_then(|page| page.as_ref())
             .and_then(|page| page.get(self.page_item_index(index)))
+    }
+}
+
+impl<T: Identifiable> UpdatableDataView for PaginatedData<T> {
+    type Id = T::Id;
+    type Item = T;
+
+    fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item)) {
+        for page in self.pages.iter_mut() {
+            if let Some(page) = page.as_mut() {
+                for item in page {
+                    if item.id() == id {
+                        callback(item);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    fn update_at(&mut self, index: usize, callback: impl FnOnce(&mut Self::Item)) {
+        let page_index = self.page_index(index);
+        let index_in_page = self.page_item_index(index);
+
+        if let Some(Some(page)) = self.pages.get_mut(page_index) {
+            if let Some(item) = page.get_mut(index_in_page) {
+                callback(item);
+            }
+        }
     }
 }
 
@@ -505,18 +554,27 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
 
     pub(crate) fn update_item(
         &mut self,
-        id: <T as EditableDataView>::Id,
-        callback: impl FnOnce(&mut <T as EditableDataView>::Item),
+        id: <T as UpdatableDataView>::Id,
+        callback: impl FnOnce(&mut <T as UpdatableDataView>::Item),
     ) where
-        T: EditableDataView<Item = <T as DataView>::Item>,
+        T: UpdatableDataView<Item = <T as DataView>::Item>,
     {
-        EditableDataView::update(&mut self.data, id, callback)
+        UpdatableDataView::update(&mut self.data, id, callback)
     }
 
-    pub(crate) fn replace_item(&mut self, item: <T as EditableDataView>::Item)
+    pub(crate) fn update_selection(
+        &mut self,
+        callback: impl FnOnce(&mut <T as UpdatableDataView>::Item),
+    ) where
+        T: UpdatableDataView<Item = <T as DataView>::Item>,
+    {
+        UpdatableDataView::update_at(&mut self.data, self.selection, callback)
+    }
+
+    pub(crate) fn replace_item(&mut self, item: <T as UpdatableDataView>::Item)
     where
-        T: EditableDataView<Item = <T as DataView>::Item>,
-        <T as EditableDataView>::Item: Identifiable<Id = <T as EditableDataView>::Id>,
+        T: UpdatableDataView<Item = <T as DataView>::Item>,
+        <T as UpdatableDataView>::Item: Identifiable<Id = <T as UpdatableDataView>::Id>,
     {
         self.update_item(Identifiable::id(&item), |current| *current = item)
     }

@@ -13,6 +13,7 @@ set list.item:focused:selected:active "bg:blue fg:black"
 set list.item.missing +italic
 set list.item.loading "fg:green"
 set list.item.error "fg:red"
+set list.item:new "fg:green"
 
 set player.title "bg:darkgray"
 set player.status.none "bg:black"

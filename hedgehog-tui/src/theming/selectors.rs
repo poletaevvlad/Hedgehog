@@ -55,9 +55,10 @@ impl StyleSelector for StatusBar {
 
 bitflags! {
     pub(crate) struct ListState: usize {
-        const FOCUSED = 0b001;
-        const ACTIVE = 0b010;
-        const SELECTED = 0b100;
+        const FOCUSED = 0b0001;
+        const ACTIVE = 0b0010;
+        const SELECTED = 0b0100;
+        const NEW = 0b1000;
     }
 }
 
@@ -67,6 +68,7 @@ pub(crate) enum ListSubitem {
     ErrorIndicator,
     LoadingIndicator,
     Date,
+    NewIndicator,
 }
 
 impl ListSubitem {
@@ -76,6 +78,7 @@ impl ListSubitem {
             ListSubitem::ErrorIndicator,
             ListSubitem::LoadingIndicator,
             ListSubitem::Date,
+            ListSubitem::NewIndicator,
         ]
     }
 }
@@ -100,6 +103,7 @@ impl List {
                         ":focused" => ListState::FOCUSED,
                         ":active" => ListState::ACTIVE,
                         ":selected" => ListState::SELECTED,
+                        ":new" => ListState::NEW,
                         _ => break,
                     };
                     state |= state_item;
@@ -111,6 +115,7 @@ impl List {
                     ".loading" => Some(ListSubitem::LoadingIndicator),
                     ".error" => Some(ListSubitem::ErrorIndicator),
                     ".date" => Some(ListSubitem::Date),
+                    ".new" => Some(ListSubitem::NewIndicator),
                     _ => None,
                 };
                 Ok(List::Item(state, subitem))

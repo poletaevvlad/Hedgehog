@@ -50,6 +50,9 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         if item.is_some() && self.playing_id == item.map(|item| item.id) {
             item_state |= theming::ListState::ACTIVE;
         }
+        if item.map(|item| item.is_new) == Some(true) {
+            item_state |= theming::ListState::NEW;
+        }
 
         match item {
             Some(item) => {
@@ -91,6 +94,18 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
                     ),
                     buf,
                 );
+
+                if item.is_new {
+                    buf.set_string(
+                        area.x,
+                        area.y,
+                        "*",
+                        self.theme.get(theming::List::Item(
+                            item_state,
+                            Some(theming::ListSubitem::NewIndicator),
+                        )),
+                    );
+                }
             }
             None => {
                 buf.set_string(

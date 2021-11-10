@@ -1,4 +1,6 @@
-use crate::datasource::{DataProvider, EpisodeWriter, Page, QueryError, WritableDataProvider};
+use crate::datasource::{
+    DataProvider, DbResult, EpisodeWriter, Page, QueryError, WritableDataProvider,
+};
 use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
@@ -32,7 +34,7 @@ impl<D: DataProvider + 'static> Actor for Library<D> {
 }
 
 #[derive(Message)]
-#[rtype(result = "Result<Vec<EpisodeSummary>, QueryError>")]
+#[rtype(result = "DbResult<Vec<EpisodeSummary>>")]
 pub struct EpisodeSummariesRequest {
     pub query: EpisodeSummariesQuery,
     pub page: Page,
@@ -48,7 +50,7 @@ impl<D> Handler<EpisodeSummariesRequest> for Library<D>
 where
     D: DataProvider + 'static,
 {
-    type Result = Result<Vec<EpisodeSummary>, QueryError>;
+    type Result = DbResult<Vec<EpisodeSummary>>;
 
     fn handle(&mut self, msg: EpisodeSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider
@@ -57,14 +59,14 @@ where
 }
 
 #[derive(Message)]
-#[rtype(result = "Result<usize, QueryError>")]
+#[rtype(result = "DbResult<usize>")]
 pub struct EpisodesCountRequest(pub EpisodeSummariesQuery);
 
 impl<D> Handler<EpisodesCountRequest> for Library<D>
 where
     D: DataProvider + 'static,
 {
-    type Result = Result<usize, QueryError>;
+    type Result = DbResult<usize>;
 
     fn handle(&mut self, msg: EpisodesCountRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider.get_episodes_count(msg.0)
@@ -72,14 +74,14 @@ where
 }
 
 #[derive(Message)]
-#[rtype(result = "Result<Vec<FeedSummary>, QueryError>")]
+#[rtype(result = "DbResult<Vec<FeedSummary>>")]
 pub struct FeedSummariesRequest;
 
 impl<D> Handler<FeedSummariesRequest> for Library<D>
 where
     D: DataProvider + 'static,
 {
-    type Result = Result<Vec<FeedSummary>, QueryError>;
+    type Result = DbResult<Vec<FeedSummary>>;
 
     fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider.get_feed_summaries()

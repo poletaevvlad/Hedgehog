@@ -1,5 +1,6 @@
 use crate::datasource::{
-    DataProvider, EpisodeSummariesQuery, EpisodeWriter, Page, QueryError, WritableDataProvider,
+    DataProvider, DbResult, EpisodeSummariesQuery, EpisodeWriter, Page, QueryError,
+    WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -66,7 +67,7 @@ impl SqliteDataProvider {
 }
 
 impl DataProvider for SqliteDataProvider {
-    fn get_feed(&self, id: FeedId) -> Result<Option<crate::model::Feed>, QueryError> {
+    fn get_feed(&self, id: FeedId) -> DbResult<Option<crate::model::Feed>> {
         let mut statement = self.connection.prepare("SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
@@ -87,7 +88,7 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn get_feed_summaries(&self) -> Result<Vec<FeedSummary>, QueryError> {
+    fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>> {
         let mut select = self
             .connection
             .prepare("SELECT id, CASE WHEN title IS NOT NULL THEN title ELSE source END, title IS NOT NULL, status, error_code FROM feeds ORDER BY title, source")?;
@@ -102,7 +103,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError> {
+    fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
             self.connection.prepare("SELECT feed_id, episode_number, title, description, link, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
         let result = statement.query_row(named_params! {":id": episode_id}, |row| {
@@ -131,7 +132,7 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError> {
+    fn create_feed_pending(&self, source: &str) -> DbResult<FeedId> {
         let mut statement = self
             .connection
             .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
@@ -141,7 +142,7 @@ impl DataProvider for SqliteDataProvider {
             .map_err(Into::into)
     }
 
-    fn delete_feed(&self, id: FeedId) -> Result<(), QueryError> {
+    fn delete_feed(&self, id: FeedId) -> DbResult<()> {
         let mut statement = self
             .connection
             .prepare("DELETE FROM feeds WHERE id = :id")?;
@@ -149,7 +150,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
-    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> Result<(), QueryError> {
+    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()> {
         let (status, error) = status.db_view();
         self.connection
             .prepare("UPDATE feeds SET status = :status, error_code = :error_code WHERE id = :id")?
@@ -157,7 +158,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
-    fn get_feed_source(&self, id: FeedId) -> Result<String, QueryError> {
+    fn get_feed_source(&self, id: FeedId) -> DbResult<String> {
         let mut statement = self
             .connection
             .prepare("SELECT source FROM feeds WHERE id = :id LIMIT 1")?;
@@ -166,7 +167,7 @@ impl DataProvider for SqliteDataProvider {
             .map_err(QueryError::from)
     }
 
-    fn get_episodes_count(&self, request: EpisodeSummariesQuery) -> Result<usize, QueryError> {
+    fn get_episodes_count(&self, request: EpisodeSummariesQuery) -> DbResult<usize> {
         let mut sql = "SELECT COUNT(id) FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
@@ -180,7 +181,7 @@ impl DataProvider for SqliteDataProvider {
         &self,
         request: EpisodeSummariesQuery,
         page: Page,
-    ) -> Result<Vec<EpisodeSummary>, QueryError> {
+    ) -> DbResult<Vec<EpisodeSummary>> {
         let mut sql = "SELECT id, feed_id, episode_number, title, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         sql.push_str(
@@ -240,7 +241,7 @@ fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Resul
 impl<'a> WritableDataProvider for &'a mut SqliteDataProvider {
     type Writer = SqliteEpisodeWriter<'a>;
 
-    fn writer(self, feed_id: FeedId) -> Result<Self::Writer, QueryError> {
+    fn writer(self, feed_id: FeedId) -> DbResult<Self::Writer> {
         let transaction = self.connection.transaction()?;
         Ok(SqliteEpisodeWriter {
             feed_id,
@@ -255,7 +256,7 @@ pub struct SqliteEpisodeWriter<'a> {
 }
 
 impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
-    fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> Result<(), QueryError> {
+    fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> DbResult<()> {
         let mut statement = self.transaction.prepare(
             "UPDATE feeds
             SET title = :title, description = :description, link = :link, author = :author,
@@ -276,10 +277,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
         Ok(())
     }
 
-    fn set_episode_metadata(
-        &mut self,
-        metadata: &EpisodeMetadata,
-    ) -> Result<EpisodeId, QueryError> {
+    fn set_episode_metadata(&mut self, metadata: &EpisodeMetadata) -> DbResult<EpisodeId> {
         let mut statement = self.transaction.prepare(
             "INSERT INTO episodes (feed_id, guid, title, description, link, duration, publication_date, episode_number, media_url)
             VALUES (:feed_id, :guid, :title, :description, :link, :duration, :publication_date, :episode_number, :media_url)
@@ -307,7 +305,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
             .map_err(QueryError::from)
     }
 
-    fn close(self) -> Result<(), QueryError> {
+    fn close(self) -> DbResult<()> {
         self.transaction.commit().map_err(QueryError::from)
     }
 }

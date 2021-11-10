@@ -12,6 +12,8 @@ pub enum QueryError {
     SqliteError(#[from] rusqlite::Error),
 }
 
+pub type DbResult<T> = Result<T, QueryError>;
+
 #[derive(Default, Debug, Clone)]
 pub struct EpisodeSummariesQuery {
     pub feed_id: Option<FeedId>,
@@ -41,32 +43,31 @@ impl Page {
 }
 
 pub trait DataProvider: Unpin {
-    fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, QueryError>;
-    fn get_feed_summaries(&self) -> Result<Vec<FeedSummary>, QueryError>;
+    fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
+    fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
 
-    fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError>;
-    fn get_episodes_count(&self, query: EpisodeSummariesQuery) -> Result<usize, QueryError>;
+    fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
+    fn get_episodes_count(&self, query: EpisodeSummariesQuery) -> DbResult<usize>;
     fn get_episode_summaries(
         &self,
         query: EpisodeSummariesQuery,
         page: Page,
-    ) -> Result<Vec<EpisodeSummary>, QueryError>;
+    ) -> DbResult<Vec<EpisodeSummary>>;
 
-    fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError>;
-    fn delete_feed(&self, id: FeedId) -> Result<(), QueryError>;
-    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> Result<(), QueryError>;
-    fn get_feed_source(&self, id: FeedId) -> Result<String, QueryError>;
+    fn create_feed_pending(&self, source: &str) -> DbResult<FeedId>;
+    fn delete_feed(&self, id: FeedId) -> DbResult<()>;
+    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
+    fn get_feed_source(&self, id: FeedId) -> DbResult<String>;
 }
 
 pub trait WritableDataProvider {
     type Writer: EpisodeWriter;
 
-    fn writer(self, feed_id: FeedId) -> Result<Self::Writer, QueryError>;
+    fn writer(self, feed_id: FeedId) -> DbResult<Self::Writer>;
 }
 
 pub trait EpisodeWriter {
-    fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> Result<(), QueryError>;
-    fn set_episode_metadata(&mut self, metadata: &EpisodeMetadata)
-        -> Result<EpisodeId, QueryError>;
-    fn close(self) -> Result<(), QueryError>;
+    fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> DbResult<()>;
+    fn set_episode_metadata(&mut self, metadata: &EpisodeMetadata) -> DbResult<EpisodeId>;
+    fn close(self) -> DbResult<()>;
 }

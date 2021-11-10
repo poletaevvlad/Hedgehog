@@ -14,4 +14,4 @@ pub use actor::{
     EpisodeSummariesRequest, EpisodesCountRequest, FeedSummariesRequest, FeedUpdateNotification,
     FeedUpdateRequest, FeedUpdateResult,
 };
-pub use datasource::{EpisodeSummariesQuery, Page};
+pub use datasource::{EpisodesQuery, Page};

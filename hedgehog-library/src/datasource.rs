@@ -17,7 +17,7 @@ pub enum QueryError {
 pub type DbResult<T> = Result<T, QueryError>;
 
 #[derive(Debug, Clone)]
-pub enum EpisodeSummariesQuery {
+pub enum EpisodesQuery {
     Single(EpisodeId),
     Multiple { feed_id: Option<FeedId> },
 }
@@ -43,10 +43,10 @@ pub trait DataProvider: Unpin {
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
-    fn get_episodes_count(&self, query: EpisodeSummariesQuery) -> DbResult<usize>;
+    fn get_episodes_count(&self, query: EpisodesQuery) -> DbResult<usize>;
     fn get_episode_summaries(
         &self,
-        query: EpisodeSummariesQuery,
+        query: EpisodesQuery,
         page: Page,
     ) -> DbResult<Vec<EpisodeSummary>>;
 
@@ -54,11 +54,7 @@ pub trait DataProvider: Unpin {
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
     fn get_feed_source(&self, id: FeedId) -> DbResult<String>;
-    fn set_episode_status(
-        &self,
-        query: EpisodeSummariesQuery,
-        status: EpisodeStatus,
-    ) -> DbResult<()>;
+    fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()>;
 }
 
 pub trait WritableDataProvider {

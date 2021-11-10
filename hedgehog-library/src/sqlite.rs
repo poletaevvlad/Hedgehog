@@ -1,6 +1,5 @@
 use crate::datasource::{
-    DataProvider, DbResult, EpisodeSummariesQuery, EpisodeWriter, Page, QueryError,
-    WritableDataProvider,
+    DataProvider, DbResult, EpisodeWriter, EpisodesQuery, Page, QueryError, WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -163,7 +162,7 @@ impl DataProvider for SqliteDataProvider {
             .map_err(QueryError::from)
     }
 
-    fn get_episodes_count(&self, request: EpisodeSummariesQuery) -> DbResult<usize> {
+    fn get_episodes_count(&self, request: EpisodesQuery) -> DbResult<usize> {
         let mut sql = "SELECT COUNT(id) FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
@@ -175,7 +174,7 @@ impl DataProvider for SqliteDataProvider {
 
     fn get_episode_summaries(
         &self,
-        request: EpisodeSummariesQuery,
+        request: EpisodesQuery,
         page: Page,
     ) -> DbResult<Vec<EpisodeSummary>> {
         let mut sql = "SELECT id, feed_id, episode_number, title, status, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
@@ -207,11 +206,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn set_episode_status(
-        &self,
-        query: EpisodeSummariesQuery,
-        status: EpisodeStatus,
-    ) -> DbResult<()> {
+    fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()> {
         let mut sql = "UPDATE feeds SET status = :status, position = :position ".to_string();
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
@@ -229,11 +224,11 @@ impl DataProvider for SqliteDataProvider {
     }
 }
 
-impl EpisodeSummariesQuery {
+impl EpisodesQuery {
     fn build_where_clause(&self, query: &mut String) {
         match self {
-            EpisodeSummariesQuery::Single(_) => query.push_str(" WHERE id = :id"),
-            EpisodeSummariesQuery::Multiple { feed_id: Some(_) } => {
+            EpisodesQuery::Single(_) => query.push_str(" WHERE id = :id"),
+            EpisodesQuery::Multiple { feed_id: Some(_) } => {
                 query.push_str(" WHERE feed_id = :feed_id")
             }
             _ => {}
@@ -242,8 +237,8 @@ impl EpisodeSummariesQuery {
 
     fn build_params<'a>(&'a self, params: &mut Vec<(&'static str, &'a dyn rusqlite::ToSql)>) {
         match self {
-            EpisodeSummariesQuery::Single(id) => params.push((":id", id)),
-            EpisodeSummariesQuery::Multiple {
+            EpisodesQuery::Single(id) => params.push((":id", id)),
+            EpisodesQuery::Multiple {
                 feed_id: Some(feed_id),
             } => params.push((":feed_id", feed_id)),
             _ => {}
@@ -337,7 +332,7 @@ mod tests {
     use crate::datasource::{DataProvider, EpisodeWriter, Page, WritableDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeStatus, EpisodeSummary, FeedStatus};
-    use crate::EpisodeSummariesQuery;
+    use crate::EpisodesQuery;
     use pretty_assertions::assert_eq;
     use std::time::Duration;
 
@@ -495,7 +490,7 @@ mod tests {
 
         let mut episodes = provider
             .get_episode_summaries(
-                EpisodeSummariesQuery::Multiple {
+                EpisodesQuery::Multiple {
                     feed_id: Some(feed_id),
                 },
                 Page::new(0, 100),

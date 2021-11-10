@@ -11,7 +11,7 @@ use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use hedgehog_library::model::{EpisodeId, EpisodeStatus, EpisodeSummary, FeedId, FeedSummary};
 use hedgehog_library::{
-    EpisodeSummariesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
+    EpisodesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
 };
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::{volume::VolumeCommand, PlaybackCommand, PlayerNotification};
@@ -293,7 +293,7 @@ impl<D: ActionDelegate> ViewModel<D> {
         }
 
         self.episodes_list.update_provider(|provider| {
-            provider.query = selected_id.map(|selected_id| EpisodeSummariesQuery::Multiple {
+            provider.query = selected_id.map(|selected_id| EpisodesQuery::Multiple {
                 feed_id: Some(selected_id),
             })
         });

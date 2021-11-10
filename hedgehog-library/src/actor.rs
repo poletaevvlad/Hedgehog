@@ -4,7 +4,7 @@ use crate::datasource::{
 use crate::model::{EpisodeStatus, EpisodeSummary, FeedError, FeedId, FeedStatus, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
-use crate::EpisodeSummariesQuery;
+use crate::EpisodesQuery;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use std::collections::HashSet;
@@ -36,12 +36,12 @@ impl<D: DataProvider + 'static> Actor for Library<D> {
 #[derive(Message)]
 #[rtype(result = "DbResult<Vec<EpisodeSummary>>")]
 pub struct EpisodeSummariesRequest {
-    pub query: EpisodeSummariesQuery,
+    pub query: EpisodesQuery,
     pub page: Page,
 }
 
 impl EpisodeSummariesRequest {
-    pub fn new(query: EpisodeSummariesQuery, page: Page) -> Self {
+    pub fn new(query: EpisodesQuery, page: Page) -> Self {
         EpisodeSummariesRequest { query, page }
     }
 }
@@ -60,7 +60,7 @@ where
 
 #[derive(Message)]
 #[rtype(result = "DbResult<usize>")]
-pub struct EpisodesCountRequest(pub EpisodeSummariesQuery);
+pub struct EpisodesCountRequest(pub EpisodesQuery);
 
 impl<D> Handler<EpisodesCountRequest> for Library<D>
 where
@@ -207,7 +207,7 @@ pub enum FeedUpdateRequest {
     AddFeed(String),
     DeleteFeed(FeedId),
     UpdateSingle(FeedId),
-    SetStatus(EpisodeSummariesQuery, EpisodeStatus),
+    SetStatus(EpisodesQuery, EpisodeStatus),
 }
 
 impl<D: DataProvider + 'static> Handler<FeedUpdateRequest> for Library<D>

@@ -14,7 +14,7 @@ use crossterm::event::Event;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use hedgehog_library::{
-    EpisodeSummariesQuery, EpisodeSummariesRequest, EpisodesCountRequest, FeedSummariesRequest,
+    EpisodeSummariesRequest, EpisodesCountRequest, EpisodesQuery, FeedSummariesRequest,
     FeedUpdateNotification, Library,
 };
 use hedgehog_player::{Player, PlayerNotification};
@@ -229,7 +229,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
 }
 
 pub(crate) struct EpisodesListProvider {
-    pub(crate) query: Option<EpisodeSummariesQuery>,
+    pub(crate) query: Option<EpisodesQuery>,
     actor: Addr<UI>,
 }
 
@@ -259,7 +259,7 @@ impl DataProvider for FeedsListProvider {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 enum DataFetchingRequest {
-    Episodes(EpisodeSummariesQuery, Versioned<PaginatedDataRequest>),
+    Episodes(EpisodesQuery, Versioned<PaginatedDataRequest>),
     Feeds(Versioned<ListDataRequest>),
 }
 

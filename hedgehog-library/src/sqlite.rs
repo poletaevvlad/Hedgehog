@@ -105,7 +105,7 @@ impl DataProvider for SqliteDataProvider {
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
-            self.connection.prepare("SELECT feed_id, episode_number, title, description, link, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
+            self.connection.prepare("SELECT feed_id, episode_number, title, description, link, status, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
         let result = statement.query_row(named_params! {":id": episode_id}, |row| {
             Ok(Episode {
                 id: episode_id,
@@ -114,15 +114,11 @@ impl DataProvider for SqliteDataProvider {
                 title: row.get(2)?,
                 description: row.get(3)?,
                 link: row.get(4)?,
-                is_new: row.get(5)?,
-                status: EpisodeStatus::from_db(
-                    row.get(6)?,
-                    row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
-                ),
-                duration: row.get::<_, Option<u64>>(8)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_u32),
-                publication_date: row.get(10)?,
-                media_url: row.get(11)?,
+                status: EpisodeStatus::from_db(row.get(5)?, Duration::from_nanos(row.get(6)?)),
+                duration: row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
+                playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_u32),
+                publication_date: row.get(9)?,
+                media_url: row.get(10)?,
             })
         });
         match result {
@@ -182,7 +178,7 @@ impl DataProvider for SqliteDataProvider {
         request: EpisodeSummariesQuery,
         page: Page,
     ) -> DbResult<Vec<EpisodeSummary>> {
-        let mut sql = "SELECT id, feed_id, episode_number, title, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
+        let mut sql = "SELECT id, feed_id, episode_number, title, status, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         sql.push_str(
             " ORDER BY episode_number DESC, publication_date DESC LIMIT :limit OFFSET :offset",
@@ -201,15 +197,11 @@ impl DataProvider for SqliteDataProvider {
                 feed_id: row.get(1)?,
                 episode_number: row.get(2)?,
                 title: row.get(3)?,
-                is_new: row.get(4)?,
-                status: EpisodeStatus::from_db(
-                    row.get(5)?,
-                    row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
-                ),
-                duration: row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_u32),
-                publication_date: row.get(9)?,
-                media_url: row.get(10)?,
+                status: EpisodeStatus::from_db(row.get(4)?, Duration::from_nanos(row.get(5)?)),
+                duration: row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
+                playback_error: row.get::<_, Option<u32>>(7)?.map(PlaybackError::from_u32),
+                publication_date: row.get(8)?,
+                media_url: row.get(9)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -422,8 +414,7 @@ mod tests {
         assert_eq!(retrieved.title.as_deref(), Some("title"));
         assert_eq!(retrieved.description.as_deref(), Some("description"));
         assert_eq!(retrieved.link.as_deref(), Some("link"));
-        assert_eq!(retrieved.is_new, true);
-        assert_eq!(retrieved.status, EpisodeStatus::NotStarted);
+        assert_eq!(retrieved.status, EpisodeStatus::New);
         assert_eq!(retrieved.duration, None);
         assert_eq!(retrieved.playback_error, None);
         assert_eq!(retrieved.publication_date, None);
@@ -452,8 +443,7 @@ mod tests {
         assert_eq!(retrieved.title.as_deref(), Some("title-upd"));
         assert_eq!(retrieved.description.as_deref(), Some("description-upd"));
         assert_eq!(retrieved.link.as_deref(), Some("link-upd"));
-        assert_eq!(retrieved.is_new, true);
-        assert_eq!(retrieved.status, EpisodeStatus::NotStarted);
+        assert_eq!(retrieved.status, EpisodeStatus::New);
         assert_eq!(retrieved.duration, Some(Duration::from_secs(300)));
         assert_eq!(retrieved.playback_error, None);
         assert_eq!(retrieved.publication_date, None);
@@ -490,8 +480,7 @@ mod tests {
                 feed_id,
                 episode_number: Some(8),
                 title: Some("title-upd".to_string()),
-                is_new: true,
-                status: EpisodeStatus::NotStarted,
+                status: EpisodeStatus::New,
                 duration: Some(Duration::from_secs(300)),
                 playback_error: None,
                 publication_date: None,
@@ -505,8 +494,7 @@ mod tests {
                 feed_id,
                 episode_number: None,
                 title: Some("second-title".to_string()),
-                is_new: true,
-                status: EpisodeStatus::NotStarted,
+                status: EpisodeStatus::New,
                 duration: None,
                 playback_error: None,
                 publication_date: None,

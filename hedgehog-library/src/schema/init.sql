@@ -21,9 +21,8 @@ CREATE TABLE episodes (
     "publication_date" TEXT,
     "episode_number" INTEGER,
     "media_url" TEXT NOT NULL,
-    "is_new" INTEGER NOT NULL DEFAULT 1,
-    "is_finished" INTEGER NOT NULL DEFAULT 0,
-    "position" INTEGER,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "position" INTEGER NOT NULL DEFAULT 0,
     "error_code" INTEGER,
     FOREIGN KEY("feed_id") REFERENCES feeds("id") ON DELETE CASCADE
 );

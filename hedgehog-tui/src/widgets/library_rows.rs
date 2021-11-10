@@ -1,7 +1,7 @@
 use super::list::ListItemRenderingDelegate;
 use crate::options::Options;
 use crate::theming;
-use hedgehog_library::model::{EpisodeId, FeedId, FeedStatus, FeedSummary};
+use hedgehog_library::model::{EpisodeId, EpisodeStatus, FeedId, FeedStatus, FeedSummary};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -50,7 +50,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         if item.is_some() && self.playing_id == item.map(|item| item.id) {
             item_state |= theming::ListState::ACTIVE;
         }
-        if item.map(|item| item.is_new) == Some(true) {
+        if item.map(|item| matches!(item.status, EpisodeStatus::New)) == Some(true) {
             item_state |= theming::ListState::NEW;
         }
 
@@ -95,7 +95,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
                     buf,
                 );
 
-                if item.is_new {
+                if matches!(item.status, EpisodeStatus::New) {
                     buf.set_string(
                         area.x,
                         area.y,

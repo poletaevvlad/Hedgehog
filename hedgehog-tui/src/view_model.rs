@@ -9,9 +9,7 @@ use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
-use hedgehog_library::model::{
-    EpisodeId, EpisodeSummary, EpisodeSummaryUpdate, FeedId, FeedSummary,
-};
+use hedgehog_library::model::{EpisodeId, EpisodeStatus, EpisodeSummary, FeedId, FeedSummary};
 use hedgehog_library::{
     EpisodeSummariesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
 };
@@ -233,17 +231,23 @@ impl<D: ActionDelegate> ViewModel<D> {
             }
             Command::SetNew(is_new) => {
                 if let Some(selected) = self.episodes_list.selection() {
-                    if selected.is_new != is_new {
-                        let update = EpisodeSummaryUpdate {
-                            is_new: Some(is_new),
-                            ..Default::default()
-                        };
-                        self.episodes_list
-                            .update_selection(|summary| update.apply(summary));
-                        return Ok(true);
+                    match selected.status {
+                        EpisodeStatus::New if !is_new => {
+                            self.episodes_list.update_selection(|summary| {
+                                summary.status = EpisodeStatus::NotStarted
+                            });
+                            Ok(true)
+                        }
+                        EpisodeStatus::NotStarted if is_new => {
+                            self.episodes_list
+                                .update_selection(|summary| summary.status = EpisodeStatus::New);
+                            Ok(true)
+                        }
+                        _ => Ok(false),
                     }
+                } else {
+                    Ok(false)
                 }
-                Ok(false)
             }
         }
     }

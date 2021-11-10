@@ -143,17 +143,19 @@ pub struct Feed {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EpisodeStatus {
+    New,
     NotStarted,
     Finished,
     Started(Duration),
 }
 
 impl EpisodeStatus {
-    pub(crate) fn from_db(is_finished: bool, position: Option<Duration>) -> Self {
-        match (is_finished, position) {
-            (_, Some(position)) => EpisodeStatus::Started(position),
-            (true, None) => EpisodeStatus::Finished,
-            (false, None) => EpisodeStatus::NotStarted,
+    pub(crate) fn from_db(status: usize, position: Duration) -> Self {
+        match status {
+            1 => EpisodeStatus::NotStarted,
+            2 => EpisodeStatus::Finished,
+            3 => EpisodeStatus::Started(position),
+            _ => EpisodeStatus::New,
         }
     }
 }
@@ -189,27 +191,11 @@ pub struct EpisodeSummary {
     pub feed_id: FeedId,
     pub episode_number: Option<u64>,
     pub title: Option<String>,
-    pub is_new: bool,
     pub status: EpisodeStatus,
     pub duration: Option<Duration>,
     pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
     pub media_url: String,
-}
-
-#[derive(Debug, Default)]
-pub struct EpisodeSummaryUpdate {
-    pub is_new: Option<bool>,
-    pub status: Option<EpisodeStatus>,
-}
-
-impl EpisodeSummaryUpdate {
-    pub fn apply(self, summary: &mut EpisodeSummary) {
-        summary.is_new = self.is_new.unwrap_or(summary.is_new);
-        if let Some(status) = self.status {
-            summary.status = status;
-        }
-    }
 }
 
 impl Identifiable for EpisodeSummary {
@@ -227,7 +213,6 @@ pub struct Episode {
     pub title: Option<String>,
     pub description: Option<String>,
     pub link: Option<String>,
-    pub is_new: bool,
     pub status: EpisodeStatus,
     pub duration: Option<Duration>,
     pub playback_error: Option<PlaybackError>,

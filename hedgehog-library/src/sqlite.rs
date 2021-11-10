@@ -1,6 +1,6 @@
 use crate::datasource::{
-    DataProvider, EpisodeSummariesQuery, EpisodeWriter, FeedSummariesQuery, PagedQueryHandler,
-    QueryError, QueryHandler, WritableDataProvider,
+    DataProvider, EpisodeSummariesQuery, EpisodeWriter, PagedQueryHandler, QueryError,
+    WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -88,6 +88,21 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
+    fn get_feed_summaries(&self) -> Result<Vec<FeedSummary>, QueryError> {
+        let mut select = self
+            .connection
+            .prepare("SELECT id, CASE WHEN title IS NOT NULL THEN title ELSE source END, title IS NOT NULL, status, error_code FROM feeds ORDER BY title, source")?;
+        let rows = select.query_map([], |row| {
+            Ok(FeedSummary {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                has_title: row.get(2)?,
+                status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
+            })
+        })?;
+        Ok(collect_results(rows)?)
+    }
+
     fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError> {
         let mut statement =
             self.connection.prepare("SELECT feed_id, episode_number, title, description, link, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
@@ -150,23 +165,6 @@ impl DataProvider for SqliteDataProvider {
         statement
             .query_row(named_params! {":id": id}, |row| row.get(0))
             .map_err(QueryError::from)
-    }
-}
-
-impl QueryHandler<FeedSummariesQuery> for SqliteDataProvider {
-    fn query(&self, _request: FeedSummariesQuery) -> Result<Vec<FeedSummary>, QueryError> {
-        let mut select = self
-            .connection
-            .prepare("SELECT id, CASE WHEN title IS NOT NULL THEN title ELSE source END, title IS NOT NULL, status, error_code FROM feeds ORDER BY title, source")?;
-        let rows = select.query_map([], |row| {
-            Ok(FeedSummary {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                has_title: row.get(2)?,
-                status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
-            })
-        })?;
-        Ok(collect_results(rows)?)
     }
 }
 
@@ -320,19 +318,13 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use crate::{
-        datasource::{
-            DataProvider, EpisodeWriter, PagedQueryHandler, QueryHandler, WritableDataProvider,
-        },
-        metadata::{EpisodeMetadata, FeedMetadata},
-        model::{EpisodeStatus, EpisodeSummary, FeedStatus},
-        EpisodeSummariesQuery, FeedSummariesQuery,
-    };
-
     use super::{ConnectionError, SqliteDataProvider};
+    use crate::datasource::{DataProvider, EpisodeWriter, PagedQueryHandler, WritableDataProvider};
+    use crate::metadata::{EpisodeMetadata, FeedMetadata};
+    use crate::model::{EpisodeStatus, EpisodeSummary, FeedStatus};
+    use crate::EpisodeSummariesQuery;
     use pretty_assertions::assert_eq;
+    use std::time::Duration;
 
     #[test]
     fn initializes_if_new() {
@@ -378,7 +370,7 @@ mod tests {
             .create_feed_pending("http://example.com/feed.xml")
             .unwrap();
 
-        let feed_summaries = provider.query(FeedSummariesQuery).unwrap();
+        let feed_summaries = provider.get_feed_summaries().unwrap();
         assert_eq!(feed_summaries.len(), 1);
         assert_eq!(feed_summaries[0].id, id);
         assert_eq!(feed_summaries[0].title, "http://example.com/feed.xml");

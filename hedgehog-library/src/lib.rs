@@ -11,7 +11,7 @@ pub use actor::Library;
 pub use sqlite::SqliteDataProvider;
 
 pub use actor::{
-    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, PagedQueryRequest, QueryRequest,
-    SizeRequest,
+    FeedSummariesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
+    PagedQueryRequest, SizeRequest,
 };
-pub use datasource::{EpisodeSummariesQuery, FeedSummariesQuery, ListQuery};
+pub use datasource::{EpisodeSummariesQuery, ListQuery};

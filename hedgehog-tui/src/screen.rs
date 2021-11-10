@@ -15,7 +15,7 @@ use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use hedgehog_library::{
     EpisodeSummariesQuery, FeedSummariesQuery, FeedUpdateNotification, Library, PagedQueryRequest,
-    QueryRequest, SizeRequest,
+    SizeRequest,
 };
 use hedgehog_player::{Player, PlayerNotification};
 use tui::backend::CrosstermBackend;
@@ -151,7 +151,6 @@ impl Actor for UI {
                 actor: ctx.address(),
             });
         self.view_model.feeds_list.set_provider(FeedsListProvider {
-            query: FeedSummariesQuery,
             actor: ctx.address(),
         });
         self.view_model.init_rc();
@@ -246,7 +245,6 @@ impl DataProvider for EpisodesListProvider {
 }
 
 pub(crate) struct FeedsListProvider {
-    query: FeedSummariesQuery,
     actor: Addr<UI>,
 }
 
@@ -254,8 +252,7 @@ impl DataProvider for FeedsListProvider {
     type Request = ListDataRequest;
 
     fn request(&self, request: Versioned<Self::Request>) {
-        self.actor
-            .do_send(DataFetchingRequest::Feeds(self.query.clone(), request));
+        self.actor.do_send(DataFetchingRequest::Feeds(request));
     }
 }
 
@@ -263,7 +260,7 @@ impl DataProvider for FeedsListProvider {
 #[rtype(result = "()")]
 enum DataFetchingRequest {
     Episodes(EpisodeSummariesQuery, Versioned<PaginatedDataRequest>),
-    Feeds(FeedSummariesQuery, Versioned<ListDataRequest>),
+    Feeds(Versioned<ListDataRequest>),
 }
 
 type LibraryQueryResult<T> = Result<Result<T, QueryError>, MailboxError>;
@@ -348,8 +345,8 @@ impl Handler<DataFetchingRequest> for UI {
                     }
                 }
             }
-            DataFetchingRequest::Feeds(query, request) => {
-                Box::pin(self.library.send(QueryRequest(query)).into_actor(self).map(
+            DataFetchingRequest::Feeds(request) => {
+                Box::pin(self.library.send(FeedSummariesQuery).into_actor(self).map(
                     move |data, actor, _ctx| {
                         actor.handle_feeds_data_response(request.version(), data)
                     },

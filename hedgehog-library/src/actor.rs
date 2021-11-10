@@ -1,6 +1,5 @@
 use crate::datasource::{
-    DataProvider, EpisodeWriter, ListQuery, PagedQueryHandler, QueryError, QueryHandler,
-    WritableDataProvider,
+    DataProvider, EpisodeWriter, ListQuery, PagedQueryHandler, QueryError, WritableDataProvider,
 };
 use crate::model::{FeedError, FeedId, FeedStatus, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
@@ -86,18 +85,17 @@ where
 }
 
 #[derive(Message)]
-#[rtype(result = "Result<Vec<Q::Item>, QueryError>")]
-pub struct QueryRequest<Q: ListQuery>(pub Q);
+#[rtype(result = "Result<Vec<FeedSummary>, QueryError>")]
+pub struct FeedSummariesQuery;
 
-impl<D, Q> Handler<QueryRequest<Q>> for Library<D>
+impl<D> Handler<FeedSummariesQuery> for Library<D>
 where
-    D: DataProvider + QueryHandler<Q> + 'static,
-    Q: ListQuery,
+    D: DataProvider + 'static,
 {
-    type Result = Result<Vec<Q::Item>, QueryError>;
+    type Result = Result<Vec<FeedSummary>, QueryError>;
 
-    fn handle(&mut self, msg: QueryRequest<Q>, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider.query(msg.0)
+    fn handle(&mut self, _msg: FeedSummariesQuery, _ctx: &mut Self::Context) -> Self::Result {
+        self.data_provider.get_feed_summaries()
     }
 }
 

@@ -2,6 +2,7 @@ use crate::{
     metadata::{EpisodeMetadata, FeedMetadata},
     model::{Episode, EpisodeId, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary},
 };
+use std::marker::Unpin;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -26,17 +27,6 @@ pub trait PagedQueryHandler<P: ListQuery> {
     ) -> Result<Vec<P::Item>, QueryError>;
 }
 
-pub trait QueryHandler<P: ListQuery> {
-    fn query(&self, request: P) -> Result<Vec<P::Item>, QueryError>;
-}
-
-#[derive(Debug, Clone)]
-pub struct FeedSummariesQuery;
-
-impl ListQuery for FeedSummariesQuery {
-    type Item = FeedSummary;
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct EpisodeSummariesQuery {
     pub feed_id: Option<FeedId>,
@@ -53,15 +43,14 @@ impl ListQuery for EpisodeSummariesQuery {
     type Item = EpisodeSummary;
 }
 
-pub trait DataProvider:
-    std::marker::Unpin + QueryHandler<FeedSummariesQuery> + PagedQueryHandler<EpisodeSummariesQuery>
-{
+pub trait DataProvider: Unpin + PagedQueryHandler<EpisodeSummariesQuery> {
     fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, QueryError>;
+    fn get_feed_summaries(&self) -> Result<Vec<FeedSummary>, QueryError>;
+
     fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError>;
     fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError>;
     fn delete_feed(&self, id: FeedId) -> Result<(), QueryError>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> Result<(), QueryError>;
-
     fn get_feed_source(&self, id: FeedId) -> Result<String, QueryError>;
 }
 

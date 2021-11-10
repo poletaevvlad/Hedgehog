@@ -206,18 +206,47 @@ impl DataProvider for SqliteDataProvider {
         })?;
         Ok(collect_results(rows)?)
     }
+
+    fn set_episode_status(
+        &self,
+        query: EpisodeSummariesQuery,
+        status: EpisodeStatus,
+    ) -> DbResult<()> {
+        let mut sql = "UPDATE feeds SET status = :status, position = :position ".to_string();
+        query.build_where_clause(&mut sql);
+        let mut statement = self.connection.prepare(&sql)?;
+
+        let (status, position) = status.db_view();
+        let position = position.as_nanos() as u64;
+        let mut params = vec![
+            (":status", &status as &dyn rusqlite::ToSql),
+            (":position", &position as &dyn rusqlite::ToSql),
+        ];
+        query.build_params(&mut params);
+
+        statement.execute(&*params)?;
+        Ok(())
+    }
 }
 
 impl EpisodeSummariesQuery {
     fn build_where_clause(&self, query: &mut String) {
-        if self.feed_id.is_some() {
-            query.push_str(" WHERE feed_id = :feed_id")
+        match self {
+            EpisodeSummariesQuery::Single(_) => query.push_str(" WHERE id = :id"),
+            EpisodeSummariesQuery::Multiple { feed_id: Some(_) } => {
+                query.push_str(" WHERE feed_id = :feed_id")
+            }
+            _ => {}
         }
     }
 
     fn build_params<'a>(&'a self, params: &mut Vec<(&'static str, &'a dyn rusqlite::ToSql)>) {
-        if let Some(ref feed_id) = self.feed_id {
-            params.push((":feed_id", feed_id));
+        match self {
+            EpisodeSummariesQuery::Single(id) => params.push((":id", id)),
+            EpisodeSummariesQuery::Multiple {
+                feed_id: Some(feed_id),
+            } => params.push((":feed_id", feed_id)),
+            _ => {}
         }
     }
 }
@@ -466,7 +495,7 @@ mod tests {
 
         let mut episodes = provider
             .get_episode_summaries(
-                EpisodeSummariesQuery {
+                EpisodeSummariesQuery::Multiple {
                     feed_id: Some(feed_id),
                 },
                 Page::new(0, 100),

@@ -293,8 +293,9 @@ impl<D: ActionDelegate> ViewModel<D> {
         }
 
         self.episodes_list.update_provider(|provider| {
-            provider.query = selected_id
-                .map(|selected_id| EpisodeSummariesQuery::default().with_feed_id(selected_id))
+            provider.query = selected_id.map(|selected_id| EpisodeSummariesQuery::Multiple {
+                feed_id: Some(selected_id),
+            })
         });
         self.selected_feed = selected_id;
     }

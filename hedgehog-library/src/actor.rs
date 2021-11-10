@@ -1,7 +1,7 @@
 use crate::datasource::{
     DataProvider, DbResult, EpisodeWriter, Page, QueryError, WritableDataProvider,
 };
-use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus, FeedSummary};
+use crate::model::{EpisodeStatus, EpisodeSummary, FeedError, FeedId, FeedStatus, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
 use crate::EpisodeSummariesQuery;
@@ -207,6 +207,7 @@ pub enum FeedUpdateRequest {
     AddFeed(String),
     DeleteFeed(FeedId),
     UpdateSingle(FeedId),
+    SetStatus(EpisodeSummariesQuery, EpisodeStatus),
 }
 
 impl<D: DataProvider + 'static> Handler<FeedUpdateRequest> for Library<D>
@@ -241,6 +242,11 @@ where
                     Err(error) => {
                         self.notify_update_listener(FeedUpdateNotification::Error(error.into()))
                     }
+                }
+            }
+            FeedUpdateRequest::SetStatus(query, status) => {
+                if let Err(error) = self.data_provider.set_episode_status(query, status) {
+                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             }
         }

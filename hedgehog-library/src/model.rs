@@ -158,6 +158,15 @@ impl EpisodeStatus {
             _ => EpisodeStatus::New,
         }
     }
+
+    pub(crate) fn db_view(&self) -> (usize, Duration) {
+        match self {
+            EpisodeStatus::New => (0, Duration::ZERO),
+            EpisodeStatus::NotStarted => (1, Duration::ZERO),
+            EpisodeStatus::Finished => (2, Duration::ZERO),
+            EpisodeStatus::Started(position) => (3, *position),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

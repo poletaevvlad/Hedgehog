@@ -1,6 +1,8 @@
 use crate::{
     metadata::{EpisodeMetadata, FeedMetadata},
-    model::{Episode, EpisodeId, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary},
+    model::{
+        Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
+    },
 };
 use std::marker::Unpin;
 use thiserror::Error;
@@ -14,16 +16,10 @@ pub enum QueryError {
 
 pub type DbResult<T> = Result<T, QueryError>;
 
-#[derive(Default, Debug, Clone)]
-pub struct EpisodeSummariesQuery {
-    pub feed_id: Option<FeedId>,
-}
-
-impl EpisodeSummariesQuery {
-    pub fn with_feed_id(mut self, feed_id: impl Into<Option<FeedId>>) -> Self {
-        self.feed_id = feed_id.into();
-        self
-    }
+#[derive(Debug, Clone)]
+pub enum EpisodeSummariesQuery {
+    Single(EpisodeId),
+    Multiple { feed_id: Option<FeedId> },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -58,6 +54,11 @@ pub trait DataProvider: Unpin {
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
     fn get_feed_source(&self, id: FeedId) -> DbResult<String>;
+    fn set_episode_status(
+        &self,
+        query: EpisodeSummariesQuery,
+        status: EpisodeStatus,
+    ) -> DbResult<()>;
 }
 
 pub trait WritableDataProvider {

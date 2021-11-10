@@ -1,4 +1,5 @@
 use hedgehog_library::model::Identifiable;
+use hedgehog_library::Page;
 use std::collections::VecDeque;
 use std::ops::Range;
 
@@ -141,7 +142,7 @@ impl<T: Identifiable> UpdatableDataView for ListData<T> {
 #[derive(Debug, PartialEq)]
 pub(crate) enum PaginatedDataRequest {
     Size,
-    Page { index: usize, range: Range<usize> },
+    Page(Page),
 }
 
 #[derive(Debug)]
@@ -179,10 +180,7 @@ impl<T> PaginatedData<T> {
     }
 
     fn request_page(&self, index: usize, request_data: &impl Fn(PaginatedDataRequest)) {
-        request_data(PaginatedDataRequest::Page {
-            index,
-            range: (index * self.page_size)..((index + 1) * self.page_size),
-        });
+        request_data(PaginatedDataRequest::Page(Page::new(index, self.page_size)));
     }
 
     #[cfg(test)]
@@ -605,6 +603,7 @@ mod tests {
         PaginatedDataMessage, PaginatedDataRequest, Versioned,
     };
     use hedgehog_library::model::Identifiable;
+    use hedgehog_library::Page;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -777,17 +776,11 @@ mod tests {
 
         assert_eq!(
             requests.borrow_mut().pop_front().unwrap().into_inner(),
-            PaginatedDataRequest::Page {
-                index: 0,
-                range: 0..4
-            }
+            PaginatedDataRequest::Page(Page::new(0, 4))
         );
         assert_eq!(
             requests.borrow_mut().pop_front().unwrap().into_inner(),
-            PaginatedDataRequest::Page {
-                index: 1,
-                range: 4..8
-            }
+            PaginatedDataRequest::Page(Page::new(1, 4))
         );
 
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
@@ -836,10 +829,7 @@ mod tests {
         );
         assert_eq!(
             requests.borrow_mut().pop_front().unwrap().into_inner(),
-            PaginatedDataRequest::Page {
-                index: 2,
-                range: 8..12
-            }
+            PaginatedDataRequest::Page(Page::new(2, 4))
         );
 
         scroll_list.move_cursor(1);
@@ -888,10 +878,10 @@ mod tests {
             while let Some(request) = requests.borrow_mut().pop_front() {
                 match request.as_inner() {
                     PaginatedDataRequest::Size => panic!(),
-                    PaginatedDataRequest::Page { index, range } => {
+                    PaginatedDataRequest::Page(page) => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
-                            index: *index,
-                            values: vec![*index as u8; range.len()],
+                            index: page.index,
+                            values: vec![page.index as u8; page.size],
                         }));
                     }
                 }
@@ -921,10 +911,10 @@ mod tests {
             while let Some(request) = requests.borrow_mut().pop_front() {
                 match request.as_inner() {
                     PaginatedDataRequest::Size => panic!(),
-                    PaginatedDataRequest::Page { index, range } => {
+                    PaginatedDataRequest::Page(page) => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
-                            index: *index,
-                            values: vec![*index as u8; range.len()],
+                            index: page.index,
+                            values: vec![page.index as u8; page.size],
                         }));
                     }
                 }

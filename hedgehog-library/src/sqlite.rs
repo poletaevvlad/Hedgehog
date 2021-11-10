@@ -1,6 +1,5 @@
 use crate::datasource::{
-    DataProvider, EpisodeSummariesQuery, EpisodeWriter, PagedQueryHandler, QueryError,
-    WritableDataProvider,
+    DataProvider, EpisodeSummariesQuery, EpisodeWriter, Page, QueryError, WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -166,24 +165,8 @@ impl DataProvider for SqliteDataProvider {
             .query_row(named_params! {":id": id}, |row| row.get(0))
             .map_err(QueryError::from)
     }
-}
 
-impl EpisodeSummariesQuery {
-    fn build_where_clause(&self, query: &mut String) {
-        if self.feed_id.is_some() {
-            query.push_str(" WHERE feed_id = :feed_id")
-        }
-    }
-
-    fn build_params<'a>(&'a self, params: &mut Vec<(&'static str, &'a dyn rusqlite::ToSql)>) {
-        if let Some(ref feed_id) = self.feed_id {
-            params.push((":feed_id", feed_id));
-        }
-    }
-}
-
-impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
-    fn get_size(&self, request: EpisodeSummariesQuery) -> Result<usize, QueryError> {
+    fn get_episodes_count(&self, request: EpisodeSummariesQuery) -> Result<usize, QueryError> {
         let mut sql = "SELECT COUNT(id) FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
@@ -193,11 +176,10 @@ impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
         Ok(statement.query_row(&*params, |row| row.get(0))?)
     }
 
-    fn query_page(
+    fn get_episode_summaries(
         &self,
         request: EpisodeSummariesQuery,
-        offset: usize,
-        count: usize,
+        page: Page,
     ) -> Result<Vec<EpisodeSummary>, QueryError> {
         let mut sql = "SELECT id, feed_id, episode_number, title, is_new, is_finished, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
@@ -206,8 +188,9 @@ impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
         );
         let mut statement = self.connection.prepare(&sql)?;
 
+        let offset = page.offset();
         let mut params = vec![
-            (":limit", &count as &dyn rusqlite::ToSql),
+            (":limit", &page.size as &dyn rusqlite::ToSql),
             (":offset", &offset as &dyn rusqlite::ToSql),
         ];
         request.build_params(&mut params);
@@ -232,6 +215,19 @@ impl PagedQueryHandler<EpisodeSummariesQuery> for SqliteDataProvider {
     }
 }
 
+impl EpisodeSummariesQuery {
+    fn build_where_clause(&self, query: &mut String) {
+        if self.feed_id.is_some() {
+            query.push_str(" WHERE feed_id = :feed_id")
+        }
+    }
+
+    fn build_params<'a>(&'a self, params: &mut Vec<(&'static str, &'a dyn rusqlite::ToSql)>) {
+        if let Some(ref feed_id) = self.feed_id {
+            params.push((":feed_id", feed_id));
+        }
+    }
+}
 fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Result<Vec<T>, E> {
     let iter = items.into_iter();
     let mut result = Vec::with_capacity(iter.size_hint().0);
@@ -319,7 +315,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 #[cfg(test)]
 mod tests {
     use super::{ConnectionError, SqliteDataProvider};
-    use crate::datasource::{DataProvider, EpisodeWriter, PagedQueryHandler, WritableDataProvider};
+    use crate::datasource::{DataProvider, EpisodeWriter, Page, WritableDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeStatus, EpisodeSummary, FeedStatus};
     use crate::EpisodeSummariesQuery;
@@ -481,12 +477,11 @@ mod tests {
         writer.close().unwrap();
 
         let mut episodes = provider
-            .query_page(
+            .get_episode_summaries(
                 EpisodeSummariesQuery {
                     feed_id: Some(feed_id),
                 },
-                0,
-                100,
+                Page::new(0, 100),
             )
             .unwrap();
         episodes.sort_by_key(|episode| episode.id.0);

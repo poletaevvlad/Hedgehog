@@ -12,21 +12,6 @@ pub enum QueryError {
     SqliteError(#[from] rusqlite::Error),
 }
 
-pub trait ListQuery: Send {
-    type Item: 'static + Send;
-}
-
-pub trait PagedQueryHandler<P: ListQuery> {
-    fn get_size(&self, request: P) -> Result<usize, QueryError>;
-
-    fn query_page(
-        &self,
-        request: P,
-        offset: usize,
-        count: usize,
-    ) -> Result<Vec<P::Item>, QueryError>;
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct EpisodeSummariesQuery {
     pub feed_id: Option<FeedId>,
@@ -39,15 +24,34 @@ impl EpisodeSummariesQuery {
     }
 }
 
-impl ListQuery for EpisodeSummariesQuery {
-    type Item = EpisodeSummary;
+#[derive(Debug, PartialEq, Eq)]
+pub struct Page {
+    pub index: usize,
+    pub size: usize,
 }
 
-pub trait DataProvider: Unpin + PagedQueryHandler<EpisodeSummariesQuery> {
+impl Page {
+    pub fn new(index: usize, size: usize) -> Self {
+        Page { index, size }
+    }
+
+    pub(crate) fn offset(&self) -> usize {
+        self.index * self.size
+    }
+}
+
+pub trait DataProvider: Unpin {
     fn get_feed(&self, id: FeedId) -> Result<Option<Feed>, QueryError>;
     fn get_feed_summaries(&self) -> Result<Vec<FeedSummary>, QueryError>;
 
     fn get_episode(&self, episode_id: EpisodeId) -> Result<Option<Episode>, QueryError>;
+    fn get_episodes_count(&self, query: EpisodeSummariesQuery) -> Result<usize, QueryError>;
+    fn get_episode_summaries(
+        &self,
+        query: EpisodeSummariesQuery,
+        page: Page,
+    ) -> Result<Vec<EpisodeSummary>, QueryError>;
+
     fn create_feed_pending(&self, source: &str) -> Result<FeedId, QueryError>;
     fn delete_feed(&self, id: FeedId) -> Result<(), QueryError>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> Result<(), QueryError>;

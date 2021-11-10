@@ -14,8 +14,8 @@ use crossterm::event::Event;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{EpisodeSummary, FeedSummary};
 use hedgehog_library::{
-    EpisodeSummariesQuery, FeedSummariesQuery, FeedUpdateNotification, Library, PagedQueryRequest,
-    SizeRequest,
+    EpisodeSummariesQuery, EpisodeSummariesRequest, EpisodesCountRequest, FeedSummariesRequest,
+    FeedUpdateNotification, Library,
 };
 use hedgehog_player::{Player, PlayerNotification};
 use tui::backend::CrosstermBackend;
@@ -324,34 +324,33 @@ impl Handler<DataFetchingRequest> for UI {
             DataFetchingRequest::Episodes(query, request) => {
                 let (version, request) = request.deconstruct();
                 match request {
-                    PaginatedDataRequest::Size => {
-                        Box::pin(self.library.send(SizeRequest(query)).into_actor(self).map(
-                            move |size, actor, _ctx| {
+                    PaginatedDataRequest::Size => Box::pin(
+                        self.library
+                            .send(EpisodesCountRequest(query))
+                            .into_actor(self)
+                            .map(move |size, actor, _ctx| {
                                 actor.handle_episode_size_response(version, size)
-                            },
-                        ))
-                    }
-                    PaginatedDataRequest::Page { index, range } => {
-                        let request = PagedQueryRequest {
-                            data: query,
-                            offset: range.start,
-                            count: range.len(),
-                        };
+                            }),
+                    ),
+                    PaginatedDataRequest::Page(page) => {
+                        let page_index = page.index;
+                        let request = EpisodeSummariesRequest::new(query, page);
                         Box::pin(self.library.send(request).into_actor(self).map(
                             move |data, actor, _ctx| {
-                                actor.handle_episode_data_response(version, data, index)
+                                actor.handle_episode_data_response(version, data, page_index)
                             },
                         ))
                     }
                 }
             }
-            DataFetchingRequest::Feeds(request) => {
-                Box::pin(self.library.send(FeedSummariesQuery).into_actor(self).map(
-                    move |data, actor, _ctx| {
+            DataFetchingRequest::Feeds(request) => Box::pin(
+                self.library
+                    .send(FeedSummariesRequest)
+                    .into_actor(self)
+                    .map(move |data, actor, _ctx| {
                         actor.handle_feeds_data_response(request.version(), data)
-                    },
-                ))
-            }
+                    }),
+            ),
         }
     }
 }

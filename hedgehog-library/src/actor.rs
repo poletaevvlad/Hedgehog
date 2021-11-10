@@ -1,9 +1,8 @@
-use crate::datasource::{
-    DataProvider, EpisodeWriter, ListQuery, PagedQueryHandler, QueryError, WritableDataProvider,
-};
-use crate::model::{FeedError, FeedId, FeedStatus, FeedSummary};
+use crate::datasource::{DataProvider, EpisodeWriter, Page, QueryError, WritableDataProvider};
+use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus, FeedSummary};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
+use crate::EpisodeSummariesQuery;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use std::collections::HashSet;
@@ -33,68 +32,56 @@ impl<D: DataProvider + 'static> Actor for Library<D> {
 }
 
 #[derive(Message)]
-#[rtype(result = "Result<Vec<Q::Item>, QueryError>")]
-pub struct PagedQueryRequest<Q: ListQuery> {
-    pub data: Q,
-    pub count: usize,
-    pub offset: usize,
+#[rtype(result = "Result<Vec<EpisodeSummary>, QueryError>")]
+pub struct EpisodeSummariesRequest {
+    pub query: EpisodeSummariesQuery,
+    pub page: Page,
 }
 
-impl<Q: ListQuery> PagedQueryRequest<Q> {
-    pub fn new(data: Q, count: usize) -> Self {
-        PagedQueryRequest {
-            data,
-            count,
-            offset: 0,
-        }
-    }
-
-    pub fn with_offset(mut self, offset: usize) -> Self {
-        self.offset = offset;
-        self
+impl EpisodeSummariesRequest {
+    pub fn new(query: EpisodeSummariesQuery, page: Page) -> Self {
+        EpisodeSummariesRequest { query, page }
     }
 }
 
-impl<D, Q> Handler<PagedQueryRequest<Q>> for Library<D>
+impl<D> Handler<EpisodeSummariesRequest> for Library<D>
 where
-    D: DataProvider + PagedQueryHandler<Q> + 'static,
-    Q: ListQuery,
+    D: DataProvider + 'static,
 {
-    type Result = Result<Vec<Q::Item>, QueryError>;
+    type Result = Result<Vec<EpisodeSummary>, QueryError>;
 
-    fn handle(&mut self, msg: PagedQueryRequest<Q>, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: EpisodeSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider
-            .query_page(msg.data, msg.offset, msg.count)
+            .get_episode_summaries(msg.query, msg.page)
     }
 }
 
 #[derive(Message)]
 #[rtype(result = "Result<usize, QueryError>")]
-pub struct SizeRequest<Q: ListQuery>(pub Q);
+pub struct EpisodesCountRequest(pub EpisodeSummariesQuery);
 
-impl<D, Q> Handler<SizeRequest<Q>> for Library<D>
+impl<D> Handler<EpisodesCountRequest> for Library<D>
 where
-    D: DataProvider + PagedQueryHandler<Q> + 'static,
-    Q: ListQuery,
+    D: DataProvider + 'static,
 {
     type Result = Result<usize, QueryError>;
 
-    fn handle(&mut self, msg: SizeRequest<Q>, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider.get_size(msg.0)
+    fn handle(&mut self, msg: EpisodesCountRequest, _ctx: &mut Self::Context) -> Self::Result {
+        self.data_provider.get_episodes_count(msg.0)
     }
 }
 
 #[derive(Message)]
 #[rtype(result = "Result<Vec<FeedSummary>, QueryError>")]
-pub struct FeedSummariesQuery;
+pub struct FeedSummariesRequest;
 
-impl<D> Handler<FeedSummariesQuery> for Library<D>
+impl<D> Handler<FeedSummariesRequest> for Library<D>
 where
     D: DataProvider + 'static,
 {
     type Result = Result<Vec<FeedSummary>, QueryError>;
 
-    fn handle(&mut self, _msg: FeedSummariesQuery, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider.get_feed_summaries()
     }
 }

@@ -41,6 +41,7 @@ impl Page {
 pub trait DataProvider: Unpin {
     fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
+    fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>>;
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episodes_count(&self, query: EpisodesQuery) -> DbResult<usize>;

@@ -249,6 +249,11 @@ impl<D: ActionDelegate> ViewModel<D> {
                     Ok(false)
                 }
             }
+            Command::UpdateAll => {
+                self.action_delegate
+                    .send_feed_update_request(FeedUpdateRequest::UpdateAll);
+                Ok(false)
+            }
         }
     }
 
@@ -378,6 +383,7 @@ pub(crate) enum Command {
     AddFeed(String),
     DeleteFeed,
     Update,
+    UpdateAll,
     SetNew(bool),
 }
 

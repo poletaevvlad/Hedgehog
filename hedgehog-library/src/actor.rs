@@ -100,22 +100,21 @@ impl<D: DataProvider + 'static> Library<D> {
 
     fn schedule_update(
         &mut self,
-        mut feed_ids: Vec<FeedId>,
+        mut feeds: Vec<(FeedId, String)>,
         ctx: &mut <Library<D> as Actor>::Context,
     ) where
         for<'a> &'a mut D: WritableDataProvider,
     {
-        feed_ids.retain(|feed_id| !self.updating_feeds.contains(feed_id));
-        if feed_ids.is_empty() {
+        feeds.retain(|(feed_id, _)| !self.updating_feeds.contains(feed_id));
+        if feeds.is_empty() {
             return;
         }
 
+        let feed_ids: Vec<FeedId> = feeds.iter().map(|(id, _)| id).cloned().collect();
         self.updating_feeds.extend(feed_ids.iter().cloned());
-        self.notify_update_listener(FeedUpdateNotification::UpdateStarted(feed_ids.clone()));
+        self.notify_update_listener(FeedUpdateNotification::UpdateStarted(feed_ids));
 
-        for feed_id in feed_ids {
-            let source = self.data_provider.get_feed_source(feed_id).unwrap();
-
+        for (feed_id, source) in feeds {
             let permit_fut = Arc::clone(&self.feeds_semaphore).acquire_owned();
             let future = wrap_future(async move {
                 let _permit = permit_fut.await.unwrap();
@@ -207,6 +206,7 @@ pub enum FeedUpdateRequest {
     AddFeed(String),
     DeleteFeed(FeedId),
     UpdateSingle(FeedId),
+    UpdateAll,
     SetStatus(EpisodesQuery, EpisodeStatus),
 }
 
@@ -219,7 +219,22 @@ where
     fn handle(&mut self, msg: FeedUpdateRequest, ctx: &mut Self::Context) -> Self::Result {
         match msg {
             FeedUpdateRequest::Subscribe(recipient) => self.update_listener = Some(recipient),
-            FeedUpdateRequest::UpdateSingle(feed_id) => self.schedule_update(vec![feed_id], ctx),
+            FeedUpdateRequest::UpdateSingle(feed_id) => {
+                let source = match self.data_provider.get_feed_source(feed_id) {
+                    Ok(source) => source,
+                    Err(error) => {
+                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                        return;
+                    }
+                };
+                self.schedule_update(vec![(feed_id, source)], ctx)
+            }
+            FeedUpdateRequest::UpdateAll => match self.data_provider.get_update_sources() {
+                Ok(sources) => self.schedule_update(sources, ctx),
+                Err(error) => {
+                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()))
+                }
+            },
             FeedUpdateRequest::AddFeed(source) => {
                 let feed_id = match self.data_provider.create_feed_pending(&source) {
                     Ok(feed_id) => feed_id,
@@ -230,9 +245,9 @@ where
                 };
 
                 self.notify_update_listener(FeedUpdateNotification::FeedAdded(
-                    FeedSummary::new_created(feed_id, source),
+                    FeedSummary::new_created(feed_id, source.clone()),
                 ));
-                self.schedule_update(vec![feed_id], ctx);
+                self.schedule_update(vec![(feed_id, source)], ctx);
             }
             FeedUpdateRequest::DeleteFeed(feed_id) => {
                 match self.data_provider.delete_feed(feed_id) {

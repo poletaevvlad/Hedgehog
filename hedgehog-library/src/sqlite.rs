@@ -222,6 +222,12 @@ impl DataProvider for SqliteDataProvider {
         statement.execute(&*params)?;
         Ok(())
     }
+
+    fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>> {
+        let mut statement = self.connection.prepare("SELECT id, source FROM feeds")?;
+        let rows = statement.query_map(named_params! {}, |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(collect_results(rows)?)
+    }
 }
 
 impl EpisodesQuery {

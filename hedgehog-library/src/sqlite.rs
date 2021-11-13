@@ -3,8 +3,8 @@ use crate::datasource::{
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
-    Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
-    PlaybackError,
+    Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
+    Feed, FeedId, FeedStatus, FeedSummary, PlaybackError,
 };
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
@@ -177,7 +177,7 @@ impl DataProvider for SqliteDataProvider {
         request: EpisodesQuery,
         page: Page,
     ) -> DbResult<Vec<EpisodeSummary>> {
-        let mut sql = "SELECT id, feed_id, episode_number, title, status, position, duration, error_code, publication_date, media_url FROM episodes".to_string();
+        let mut sql = "SELECT id, feed_id, episode_number, title, status, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         sql.push_str(
             " ORDER BY episode_number DESC, publication_date DESC LIMIT :limit OFFSET :offset",
@@ -196,11 +196,10 @@ impl DataProvider for SqliteDataProvider {
                 feed_id: row.get(1)?,
                 episode_number: row.get(2)?,
                 title: row.get(3)?,
-                status: EpisodeStatus::from_db(row.get(4)?, Duration::from_nanos(row.get(5)?)),
-                duration: row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(7)?.map(PlaybackError::from_u32),
-                publication_date: row.get(8)?,
-                media_url: row.get(9)?,
+                status: EpisodeSummaryStatus::from_db(row.get(4)?),
+                duration: row.get::<_, Option<u64>>(5)?.map(Duration::from_nanos),
+                playback_error: row.get::<_, Option<u32>>(6)?.map(PlaybackError::from_u32),
+                publication_date: row.get(7)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -237,6 +236,22 @@ impl DataProvider for SqliteDataProvider {
             .prepare("UPDATE feeds SET enabled = :enabled WHERE id = :id")?;
         statement.execute(named_params! {":enabled": enabled, ":id": feed_id})?;
         Ok(())
+    }
+
+    fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT media_url, position, duration FROM episodes WHERE id = :id LIMIT 1")?;
+        statement
+            .query_row(named_params! {":id": episode_id}, |row| {
+                Ok(EpisodePlaybackData {
+                    id: episode_id,
+                    media_url: row.get(0)?,
+                    position: Duration::from_nanos(row.get(1)?),
+                    duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
+                })
+            })
+            .map_err(QueryError::from)
     }
 }
 
@@ -347,7 +362,7 @@ mod tests {
     use super::{ConnectionError, SqliteDataProvider};
     use crate::datasource::{DataProvider, EpisodeWriter, Page, WritableDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
-    use crate::model::{EpisodeStatus, EpisodeSummary, FeedStatus};
+    use crate::model::{EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, FeedStatus};
     use crate::EpisodesQuery;
     use pretty_assertions::assert_eq;
     use std::time::Duration;
@@ -520,11 +535,10 @@ mod tests {
                 feed_id,
                 episode_number: Some(8),
                 title: Some("title-upd".to_string()),
-                status: EpisodeStatus::New,
+                status: EpisodeSummaryStatus::New,
                 duration: Some(Duration::from_secs(300)),
                 playback_error: None,
                 publication_date: None,
-                media_url: "http://example.com/feed2.xml".to_string(),
             }
         );
         assert_eq!(
@@ -534,11 +548,10 @@ mod tests {
                 feed_id,
                 episode_number: None,
                 title: Some("second-title".to_string()),
-                status: EpisodeStatus::New,
+                status: EpisodeSummaryStatus::New,
                 duration: None,
                 playback_error: None,
                 publication_date: None,
-                media_url: "http://example.com/feed3.xml".to_string(),
             }
         );
     }

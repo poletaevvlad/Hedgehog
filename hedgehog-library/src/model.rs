@@ -169,6 +169,25 @@ impl EpisodeStatus {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EpisodeSummaryStatus {
+    New,
+    NotStarted,
+    Finished,
+    Started,
+}
+
+impl EpisodeSummaryStatus {
+    pub(crate) fn from_db(status: usize) -> Self {
+        match status {
+            1 => EpisodeSummaryStatus::NotStarted,
+            2 => EpisodeSummaryStatus::Finished,
+            3 => EpisodeSummaryStatus::Started,
+            _ => EpisodeSummaryStatus::New,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaybackError {
     NotFound,
@@ -200,11 +219,10 @@ pub struct EpisodeSummary {
     pub feed_id: FeedId,
     pub episode_number: Option<u64>,
     pub title: Option<String>,
-    pub status: EpisodeStatus,
+    pub status: EpisodeSummaryStatus,
     pub duration: Option<Duration>,
     pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
-    pub media_url: String,
 }
 
 impl Identifiable for EpisodeSummary {
@@ -227,4 +245,11 @@ pub struct Episode {
     pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
     pub media_url: String,
+}
+
+pub struct EpisodePlaybackData {
+    pub id: EpisodeId,
+    pub media_url: String,
+    pub position: Duration,
+    pub duration: Option<Duration>,
 }

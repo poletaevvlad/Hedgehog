@@ -9,7 +9,9 @@ use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
-use hedgehog_library::model::{EpisodeId, EpisodeStatus, EpisodeSummary, FeedId, FeedSummary};
+use hedgehog_library::model::{
+    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, FeedId, FeedSummary,
+};
 use hedgehog_library::{
     EpisodesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
 };
@@ -194,10 +196,10 @@ impl<D: ActionDelegate> ViewModel<D> {
             }
             Command::PlayCurrent => {
                 if let Some(current_episode) = self.episodes_list.selection() {
-                    self.action_delegate
-                        .send_playback_command(PlaybackCommand::Play(
-                            current_episode.media_url.to_string(),
-                        ));
+                    // self.action_delegate
+                    //     .send_playback_command(PlaybackCommand::Play(
+                    //         current_episode.media_url.to_string(),
+                    //     ));
                     self.playing_episode = Some(current_episode.id);
                 }
                 Ok(false)
@@ -240,15 +242,16 @@ impl<D: ActionDelegate> ViewModel<D> {
             Command::SetNew(is_new) => {
                 if let Some(selected) = self.episodes_list.selection() {
                     match selected.status {
-                        EpisodeStatus::New if !is_new => {
+                        EpisodeSummaryStatus::New if !is_new => {
                             self.episodes_list.update_selection(|summary| {
-                                summary.status = EpisodeStatus::NotStarted
+                                summary.status = EpisodeSummaryStatus::NotStarted
                             });
                             Ok(true)
                         }
-                        EpisodeStatus::NotStarted if is_new => {
-                            self.episodes_list
-                                .update_selection(|summary| summary.status = EpisodeStatus::New);
+                        EpisodeSummaryStatus::NotStarted if is_new => {
+                            self.episodes_list.update_selection(|summary| {
+                                summary.status = EpisodeSummaryStatus::New
+                            });
                             Ok(true)
                         }
                         _ => Ok(false),

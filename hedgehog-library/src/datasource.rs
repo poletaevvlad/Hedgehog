@@ -1,7 +1,8 @@
 use crate::{
     metadata::{EpisodeMetadata, FeedMetadata},
     model::{
-        Episode, EpisodeId, EpisodeStatus, EpisodeSummary, Feed, FeedId, FeedStatus, FeedSummary,
+        Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, Feed, FeedId,
+        FeedStatus, FeedSummary,
     },
 };
 use std::marker::Unpin;
@@ -44,6 +45,7 @@ pub trait DataProvider: Unpin {
     fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>>;
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
+    fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData>;
     fn get_episodes_count(&self, query: EpisodesQuery) -> DbResult<usize>;
     fn get_episode_summaries(
         &self,

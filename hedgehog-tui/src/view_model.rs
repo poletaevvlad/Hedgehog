@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 pub(crate) trait ActionDelegate {
+    fn start_playback(&self, episode_id: EpisodeId);
     fn send_volume_command(&self, command: VolumeCommand);
     fn send_playback_command(&self, command: PlaybackCommand);
     fn send_feed_update_request(&self, command: FeedUpdateRequest);
@@ -47,7 +48,7 @@ pub(crate) struct ViewModel<D> {
     selected_feed: Option<FeedId>,
     pub(crate) playing_episode: Option<EpisodeId>,
     pub(crate) playback_state: PlaybackState,
-    action_delegate: D,
+    pub(crate) action_delegate: D,
     pub(crate) updating_feeds: HashSet<FeedId>,
 }
 
@@ -196,10 +197,7 @@ impl<D: ActionDelegate> ViewModel<D> {
             }
             Command::PlayCurrent => {
                 if let Some(current_episode) = self.episodes_list.selection() {
-                    // self.action_delegate
-                    //     .send_playback_command(PlaybackCommand::Play(
-                    //         current_episode.media_url.to_string(),
-                    //     ));
+                    self.action_delegate.start_playback(current_episode.id);
                     self.playing_episode = Some(current_episode.id);
                 }
                 Ok(false)
@@ -422,6 +420,7 @@ mod tests {
     struct NoopPlayerDelagate;
 
     impl ActionDelegate for NoopPlayerDelagate {
+        fn start_playback(&self, _episode_id: hedgehog_library::model::EpisodeId) {}
         fn send_volume_command(&self, _command: hedgehog_player::volume::VolumeCommand) {}
         fn send_playback_command(&self, _command: hedgehog_player::PlaybackCommand) {}
         fn send_feed_update_request(&self, _command: hedgehog_library::FeedUpdateRequest) {}

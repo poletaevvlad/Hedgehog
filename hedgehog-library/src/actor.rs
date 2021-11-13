@@ -1,7 +1,10 @@
 use crate::datasource::{
     DataProvider, DbResult, EpisodeWriter, Page, QueryError, WritableDataProvider,
 };
-use crate::model::{EpisodeStatus, EpisodeSummary, FeedError, FeedId, FeedStatus, FeedSummary};
+use crate::model::{
+    EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, FeedError, FeedId, FeedStatus,
+    FeedSummary,
+};
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
 use crate::EpisodesQuery;
@@ -85,6 +88,22 @@ where
 
     fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider.get_feed_summaries()
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "DbResult<EpisodePlaybackData>")]
+pub struct EpisodePlaybackDataRequest(pub EpisodeId);
+
+impl<D: DataProvider + 'static> Handler<EpisodePlaybackDataRequest> for Library<D> {
+    type Result = DbResult<EpisodePlaybackData>;
+
+    fn handle(
+        &mut self,
+        msg: EpisodePlaybackDataRequest,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
+        self.data_provider.get_episode_playback_data(msg.0)
     }
 }
 

@@ -12,10 +12,10 @@ use crate::widgets::player_state::PlayerState;
 use actix::prelude::*;
 use crossterm::event::Event;
 use hedgehog_library::datasource::QueryError;
-use hedgehog_library::model::{EpisodeSummary, FeedSummary};
+use hedgehog_library::model::{EpisodeId, EpisodeSummary, FeedSummary};
 use hedgehog_library::{
-    EpisodeSummariesRequest, EpisodesCountRequest, EpisodesQuery, FeedSummariesRequest,
-    FeedUpdateNotification, Library,
+    EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesCountRequest, EpisodesQuery,
+    FeedSummariesRequest, FeedUpdateNotification, Library,
 };
 use hedgehog_player::{Player, PlayerNotification};
 use tui::backend::CrosstermBackend;
@@ -46,7 +46,14 @@ impl UI {
             commands_history: CommandsHistory::new(),
             library: library.clone(),
             player: player.clone(),
-            view_model: ViewModel::new(size, ActorActionDelegate { player, library }),
+            view_model: ViewModel::new(
+                size,
+                ActorActionDelegate {
+                    ui: None,
+                    player,
+                    library,
+                },
+            ),
         }
     }
 
@@ -143,7 +150,7 @@ impl Actor for UI {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        ctx.add_stream(crossterm::event::EventStream::new());
+        self.view_model.action_delegate.ui = Some(ctx.address());
         self.view_model
             .episodes_list
             .set_provider(EpisodesListProvider {
@@ -158,6 +165,8 @@ impl Actor for UI {
             .do_send(hedgehog_player::ActorCommand::Subscribe(
                 ctx.address().recipient(),
             ));
+
+        ctx.add_stream(crossterm::event::EventStream::new());
         self.render();
     }
 }
@@ -373,12 +382,43 @@ impl Handler<FeedUpdateNotification> for UI {
     }
 }
 
+#[derive(Message)]
+#[rtype(result = "()")]
+struct StartPlaybackRequest(EpisodeId);
+
+impl Handler<StartPlaybackRequest> for UI {
+    type Result = ResponseActFuture<Self, ()>;
+
+    fn handle(&mut self, msg: StartPlaybackRequest, _ctx: &mut Self::Context) -> Self::Result {
+        let future = self
+            .library
+            .send(EpisodePlaybackDataRequest(msg.0))
+            .into_actor(self)
+            .map(|result, actor, _ctx| match result {
+                Ok(Ok(playback_data)) => actor.player.do_send(
+                    hedgehog_player::PlaybackCommand::Play(playback_data.media_url),
+                ),
+                Ok(Err(error)) => actor.view_model.error(error),
+                Err(error) => actor.view_model.error(error),
+            });
+        Box::pin(future)
+    }
+}
+
 struct ActorActionDelegate {
+    ui: Option<Addr<UI>>,
     player: Addr<Player>,
     library: Addr<Library>,
 }
 
 impl ActionDelegate for ActorActionDelegate {
+    fn start_playback(&self, episode_id: EpisodeId) {
+        self.ui
+            .as_ref()
+            .expect("ui is not initialized")
+            .do_send(StartPlaybackRequest(episode_id))
+    }
+
     fn send_volume_command(&self, command: hedgehog_player::volume::VolumeCommand) {
         self.player.do_send(command)
     }

@@ -229,6 +229,14 @@ impl<D: ActionDelegate> ViewModel<D> {
                 self.options.update(options_update);
                 Ok(true)
             }
+            Command::SetFeedEnabled(enabled) => {
+                if let Some(selected_feed) = self.feeds_list.selection() {
+                    self.action_delegate.send_feed_update_request(
+                        FeedUpdateRequest::SetFeedEnabled(selected_feed.id, enabled),
+                    );
+                }
+                Ok(false)
+            }
             Command::SetNew(is_new) => {
                 if let Some(selected) = self.episodes_list.selection() {
                     match selected.status {
@@ -374,6 +382,7 @@ pub(crate) enum Command {
     Volume(VolumeCommand),
     PlayCurrent,
     Playback(PlaybackCommand),
+    SetFeedEnabled(bool),
     #[serde(alias = "q")]
     Quit,
     SetFocus(FocusedPane),

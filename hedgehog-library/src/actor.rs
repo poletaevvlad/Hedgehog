@@ -208,6 +208,7 @@ pub enum FeedUpdateRequest {
     UpdateSingle(FeedId),
     UpdateAll,
     SetStatus(EpisodesQuery, EpisodeStatus),
+    SetFeedEnabled(FeedId, bool),
 }
 
 impl<D: DataProvider + 'static> Handler<FeedUpdateRequest> for Library<D>
@@ -261,6 +262,11 @@ where
             }
             FeedUpdateRequest::SetStatus(query, status) => {
                 if let Err(error) = self.data_provider.set_episode_status(query, status) {
+                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                }
+            }
+            FeedUpdateRequest::SetFeedEnabled(feed_id, enabled) => {
+                if let Err(error) = self.data_provider.set_feed_enabled(feed_id, enabled) {
                     self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             }

@@ -224,9 +224,19 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>> {
-        let mut statement = self.connection.prepare("SELECT id, source FROM feeds")?;
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, source FROM feeds WHERE enabled")?;
         let rows = statement.query_map(named_params! {}, |row| Ok((row.get(0)?, row.get(1)?)))?;
         Ok(collect_results(rows)?)
+    }
+
+    fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET enabled = :enabled WHERE id = :id")?;
+        statement.execute(named_params! {":enabled": enabled, ":id": feed_id})?;
+        Ok(())
     }
 }
 

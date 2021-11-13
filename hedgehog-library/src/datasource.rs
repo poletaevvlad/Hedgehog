@@ -54,7 +54,9 @@ pub trait DataProvider: Unpin {
     fn create_feed_pending(&self, source: &str) -> DbResult<FeedId>;
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
+    fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;
     fn get_feed_source(&self, id: FeedId) -> DbResult<String>;
+
     fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()>;
 }
 

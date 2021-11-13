@@ -7,7 +7,8 @@ CREATE TABLE feeds (
     "copyright" TEXT,
     "status" INTEGER DEFAULT 0 NOT NULL,
     "error_code" INTEGER DEFAULT 0,
-    "source" TEXT NOT NULL
+    "source" TEXT NOT NULL,
+    "enabled" INTEGER DEFAULT 1 NOT NULL
 );
 
 CREATE TABLE episodes (

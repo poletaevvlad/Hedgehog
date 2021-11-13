@@ -1,3 +1,5 @@
+use std::io::{stdout, Write};
+
 use crate::dataview::{
     DataProvider, ListDataRequest, PaginatedDataMessage, PaginatedDataRequest, Version, Versioned,
 };
@@ -11,6 +13,7 @@ use crate::widgets::list::List;
 use crate::widgets::player_state::PlayerState;
 use actix::prelude::*;
 use crossterm::event::Event;
+use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{EpisodeId, EpisodeSummary, FeedSummary};
 use hedgehog_library::{
@@ -142,6 +145,16 @@ impl UI {
             }
         };
         self.terminal.draw(draw).unwrap();
+
+        let title = self
+            .view_model
+            .playing_episode
+            .as_ref()
+            .and_then(|episode| episode.title.as_deref())
+            .unwrap_or("hedgehog");
+        let mut stdout = stdout();
+        stdout.queue(terminal::SetTitle(title)).unwrap();
+        stdout.flush().unwrap();
     }
 
     fn handle_error<T, E>(&mut self, result: Result<T, E>) -> Option<T>

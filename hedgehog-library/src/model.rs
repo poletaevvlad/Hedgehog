@@ -213,7 +213,7 @@ impl PlaybackError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EpisodeSummary {
     pub id: EpisodeId,
     pub feed_id: FeedId,

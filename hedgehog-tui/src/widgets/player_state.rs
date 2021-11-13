@@ -8,11 +8,20 @@ use tui::widgets::Widget;
 pub(crate) struct PlayerState<'a> {
     state: &'a PlaybackState,
     theme: &'a theming::Theme,
+    playing_episode_title: Option<&'a str>,
 }
 
 impl<'a> PlayerState<'a> {
-    pub(crate) fn new(state: &'a PlaybackState, theme: &'a theming::Theme) -> Self {
-        PlayerState { state, theme }
+    pub(crate) fn new(
+        state: &'a PlaybackState,
+        theme: &'a theming::Theme,
+        playing_episode_title: Option<&'a str>,
+    ) -> Self {
+        PlayerState {
+            state,
+            theme,
+            playing_episode_title,
+        }
     }
 }
 
@@ -50,5 +59,13 @@ impl<'a> Widget for PlayerState<'a> {
         }
 
         buf.set_style(area, self.theme.get(theming::Player::Title));
+        if let Some(title) = self.playing_episode_title {
+            buf.set_span(
+                area.x + 1,
+                area.y,
+                &Span::raw(title),
+                area.width.saturating_sub(2),
+            );
+        }
     }
 }

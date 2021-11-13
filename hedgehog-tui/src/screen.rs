@@ -99,14 +99,26 @@ impl UI {
                             view_model.focus == FocusedPane::EpisodesList,
                             &view_model.options,
                         )
-                        .with_playing_id(view_model.playing_episode),
+                        .with_playing_id(
+                            view_model
+                                .playing_episode
+                                .as_ref()
+                                .map(|episode| episode.id),
+                        ),
                         iter,
                     ),
                     layout[1],
                 );
             }
 
-            let player_widget = PlayerState::new(&view_model.playback_state, &view_model.theme);
+            let player_widget = PlayerState::new(
+                &view_model.playback_state,
+                &view_model.theme,
+                view_model
+                    .playing_episode
+                    .as_ref()
+                    .and_then(|episode| episode.title.as_deref()),
+            );
             let player_rect = Rect::new(0, area.height - 2, area.width, 1);
             f.render_widget(player_widget, player_rect);
 

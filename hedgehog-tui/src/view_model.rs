@@ -46,7 +46,7 @@ pub(crate) struct ViewModel<D> {
     pub(crate) theme: Theme,
     pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
-    pub(crate) playing_episode: Option<EpisodeId>,
+    pub(crate) playing_episode: Option<EpisodeSummary>,
     pub(crate) playback_state: PlaybackState,
     pub(crate) action_delegate: D,
     pub(crate) updating_feeds: HashSet<FeedId>,
@@ -198,7 +198,7 @@ impl<D: ActionDelegate> ViewModel<D> {
             Command::PlayCurrent => {
                 if let Some(current_episode) = self.episodes_list.selection() {
                     self.action_delegate.start_playback(current_episode.id);
-                    self.playing_episode = Some(current_episode.id);
+                    self.playing_episode = Some(current_episode.clone());
                 }
                 Ok(false)
             }

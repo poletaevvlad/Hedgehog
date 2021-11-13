@@ -197,6 +197,11 @@ impl<D: ActionDelegate> ViewModel<D> {
             }
             Command::PlayCurrent => {
                 if let Some(current_episode) = self.episodes_list.selection() {
+                    if Some(current_episode.id)
+                        == self.playing_episode.as_ref().map(|episode| episode.id)
+                    {
+                        return Ok(false);
+                    }
                     self.action_delegate.start_playback(current_episode.id);
                     self.playing_episode = Some(current_episode.clone());
                 }

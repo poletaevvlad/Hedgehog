@@ -1,11 +1,24 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};
 
 fn derive_fields(name: &Ident, fields: Fields) -> Result<proc_macro2::TokenStream, syn::Error> {
     match fields {
         Fields::Named(_) => todo!(),
-        Fields::Unnamed(_) => todo!(),
+        Fields::Unnamed(fields) => {
+            let field_parse = fields.unnamed.iter().enumerate().map(|(index, field)| {
+                let ident = format_ident!("field_{}", index);
+                let field_type = &field.ty;
+                quote! { let (#ident, input) = #field_type::parse_cmd(input)?; }
+            });
+            let field_var_names =
+                (0..fields.unnamed.len()).map(|index| format_ident!("field_{}", index));
+
+            Ok(quote! {
+                #(#field_parse)*
+                Ok((#name(#(#field_var_names),*), input))
+            })
+        }
         Fields::Unit => Ok(quote! {Ok((#name, input))}),
     }
 }

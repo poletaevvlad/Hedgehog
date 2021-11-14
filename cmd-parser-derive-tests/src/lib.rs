@@ -11,4 +11,15 @@ mod simple_struct {
         let result = UnitStruct::parse_cmd("abc").unwrap();
         assert_eq!(result, (UnitStruct, "abc"));
     }
+
+    #[test]
+    fn struct_unnamed() {
+        #[derive(Debug, PartialEq, CmdParsable)]
+        struct Struct(u8, String);
+
+        assert_eq!(
+            Struct::parse_cmd("10 abc def").unwrap(),
+            (Struct(10, "abc".to_string()), "def")
+        )
+    }
 }

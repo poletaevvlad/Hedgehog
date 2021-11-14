@@ -180,9 +180,7 @@ impl DataProvider for SqliteDataProvider {
     ) -> DbResult<Vec<EpisodeSummary>> {
         let mut sql = "SELECT id, feed_id, episode_number, season_number, title, status, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
-        sql.push_str(
-            " ORDER BY episode_number DESC, publication_date DESC LIMIT :limit OFFSET :offset",
-        );
+        sql.push_str(" ORDER BY publication_date DESC LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
 
         let offset = page.offset();

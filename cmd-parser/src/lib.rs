@@ -6,7 +6,8 @@ use std::num::{IntErrorKind, ParseIntError};
 pub enum ParseErrorKind<'a> {
     TokenParse(Cow<'a, str>, Option<Cow<'static, str>>),
     TokenRequired,
-    UnexpectedString,
+    UnexpectedToken(Cow<'a, str>),
+    UnbalancedParenthesis,
 }
 
 #[derive(Debug)]
@@ -44,22 +45,50 @@ impl<'a> fmt::Display for ParseError<'a> {
             ParseErrorKind::TokenRequired => {
                 f.write_fmt(format_args!("{} is required", self.expected))
             }
-            &ParseErrorKind::UnexpectedString => f.write_fmt(format_args!(
-                "expected {} but found a string",
-                self.expected
-            )),
+            ParseErrorKind::UnexpectedToken(token) => {
+                f.write_fmt(format_args!("unexpected token: \"{}\"", token))
+            }
+            ParseErrorKind::UnbalancedParenthesis => f.write_str("unbalanced parenthesis"),
         }
     }
 }
 
 pub trait CmdParsable: Sized {
-    fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>>;
+    fn parse_cmd(mut input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        input = skip_ws(input);
+        if input.starts_with(')') {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnbalancedParenthesis,
+                expected: "".into(),
+            });
+        }
+
+        if let Some(input) = input.strip_prefix('(') {
+            let (value, mut remaining) = Self::parse_cmd_raw(input)?;
+            if remaining.starts_with(')') {
+                remaining = skip_ws(&remaining[1..])
+            } else {
+                let (token, _) = take_token(remaining);
+                if let Some(token) = token {
+                    return Err(ParseError {
+                        kind: ParseErrorKind::UnexpectedToken(token),
+                        expected: "".into(),
+                    });
+                }
+            }
+            Ok((value, remaining))
+        } else {
+            Self::parse_cmd_raw(input)
+        }
+    }
+
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>>;
 }
 
 macro_rules! gen_parsable_int {
     ($type:ty) => {
         impl CmdParsable for $type {
-            fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+            fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
                 let (token, remaining) = take_token(input);
                 let result = match token {
                     Some(token) => token
@@ -91,7 +120,7 @@ gen_parsable_int!(i128);
 macro_rules! gen_parsable_float {
     ($type:ty) => {
         impl CmdParsable for $type {
-            fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+            fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
                 let (token, remaining) = take_token(input);
                 let result = match token {
                     Some(token) => token
@@ -113,7 +142,7 @@ gen_parsable_float!(f32);
 gen_parsable_float!(f64);
 
 impl CmdParsable for String {
-    fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
         let (token, remaining) = take_token(input);
         match token {
             Some(token) => Ok((token.into_owned(), remaining)),
@@ -126,7 +155,7 @@ impl CmdParsable for String {
 }
 
 impl<T: CmdParsable> CmdParsable for Vec<T> {
-    fn parse_cmd(mut input: &str) -> Result<(Self, &str), ParseError<'_>> {
+    fn parse_cmd_raw(mut input: &str) -> Result<(Self, &str), ParseError<'_>> {
         let mut result = Vec::new();
         while has_tokens(input) {
             let (item, remaining) = T::parse_cmd(input)?;
@@ -150,10 +179,14 @@ fn skip_ws(mut input: &str) -> &str {
 }
 
 pub fn has_tokens(input: &str) -> bool {
-    !input.is_empty()
+    !input.is_empty() && !input.starts_with(')')
 }
 
 pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
+    if input.starts_with(')') {
+        return (None, input);
+    }
+
     let token_start = input;
     if input.starts_with('"') || input.starts_with('\'') {
         let mut result = String::new();
@@ -177,7 +210,7 @@ pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
         loop {
             let mut chars = input.chars();
             match chars.next() {
-                Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' => {
+                Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' => {
                     input = chars.as_str()
                 }
                 _ => break,
@@ -250,6 +283,14 @@ mod tests {
             assert_eq!(
                 &String::parse_cmd("").unwrap_err().to_string(),
                 "string is required"
+            )
+        }
+
+        #[test]
+        fn unexpected_token() {
+            assert_eq!(
+                &String::parse_cmd("(first second)").unwrap_err().to_string(),
+                "unexpected token: \"second\""
             )
         }
     }
@@ -340,17 +381,43 @@ mod tests {
         }
     }
 
-    #[test]
-    fn parse_vec() {
-        let (vector, remaining) = Vec::<u8>::parse_cmd("10 20 30 40 50").unwrap();
-        assert_eq!(vector, vec![10, 20, 30, 40, 50]);
-        assert!(remaining.is_empty());
-    }
+    mod parse_vec {
+        use super::*;
 
-    #[test]
-    fn parse_vec_empty() {
-        let (vector, remaining) = Vec::<u8>::parse_cmd("").unwrap();
-        assert_eq!(vector, vec![]);
-        assert!(remaining.is_empty());
+        #[test]
+        fn parse_vec() {
+            let (vector, remaining) = Vec::<u8>::parse_cmd("10 20 30 40 50").unwrap();
+            assert_eq!(vector, vec![10, 20, 30, 40, 50]);
+            assert!(remaining.is_empty());
+        }
+
+        #[test]
+        fn parse_vec_empty() {
+            let (vector, remaining) = Vec::<u8>::parse_cmd("").unwrap();
+            assert_eq!(vector, vec![]);
+            assert!(remaining.is_empty());
+        }
+
+        #[test]
+        fn empty_parenthesis() {
+            let (vector, remaining) = Vec::<u8>::parse_cmd("() 10 20").unwrap();
+            assert_eq!(vector, vec![]);
+            assert_eq!(remaining, "10 20");
+        }
+
+        #[test]
+        fn stops_at_parenthesis() {
+            let (vector, remaining) = Vec::<u8>::parse_cmd("(10 20) 30 40").unwrap();
+            assert_eq!(vector, vec![10, 20]);
+            assert_eq!(remaining, "30 40");
+        }
+
+        #[test]
+        fn unbalanced_parenthesis() {
+            assert_eq!(
+                &Vec::<u8>::parse_cmd(")first").unwrap_err().to_string(),
+                "unbalanced parenthesis"
+            )
+        }
     }
 }

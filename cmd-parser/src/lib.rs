@@ -1,30 +1,90 @@
+use std::borrow::Cow;
+use std::fmt;
+use std::num::{IntErrorKind, ParseIntError};
+
 #[derive(Debug)]
-pub enum ParseError<'a> {
-    TokenParse(&'a str, Box<dyn std::error::Error>),
+pub enum ParseErrorKind<'a> {
+    TokenParse(&'a str, Option<Cow<'static, str>>),
     TokenRequired,
 }
 
-pub trait CmdParsable {
-    fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>>
-    where
-        Self: Sized;
+#[derive(Debug)]
+pub struct ParseError<'a> {
+    kind: ParseErrorKind<'a>,
+    expected: Cow<'static, str>,
 }
 
-impl CmdParsable for u8 {
-    fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>>
-    where
-        Self: Sized,
-    {
-        let (token, remaining) = take_token(input);
-        match token {
-            Some(token) => match token.parse() {
-                Ok(num) => Ok((num, remaining)),
-                Err(error) => Err(ParseError::TokenParse(token, Box::new(error))),
-            },
-            None => Err(ParseError::TokenRequired),
+impl<'a> ParseErrorKind<'a> {
+    fn from_parse_error(token: &'a str, error: ParseIntError) -> Self {
+        match error.kind() {
+            IntErrorKind::PosOverflow => {
+                ParseErrorKind::TokenParse(token, Some("too large".into()))
+            }
+            IntErrorKind::NegOverflow => {
+                ParseErrorKind::TokenParse(token, Some("too small".into()))
+            }
+            _ => ParseErrorKind::TokenParse(token, None),
         }
     }
 }
+
+impl<'a> std::error::Error for ParseError<'a> {}
+
+impl<'a> fmt::Display for ParseError<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.kind {
+            ParseErrorKind::TokenParse(token, error) => {
+                f.write_fmt(format_args!("invalid {} \"{}\"", self.expected, token))?;
+                if let Some(error) = error {
+                    f.write_fmt(format_args!(": {}", error))?;
+                }
+                Ok(())
+            }
+            ParseErrorKind::TokenRequired => {
+                f.write_fmt(format_args!("{} is required", self.expected))
+            }
+        }
+    }
+}
+
+pub trait CmdParsable: Sized {
+    fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>>;
+}
+
+macro_rules! gen_parsable_int {
+    ($type:ty) => {
+        impl CmdParsable for $type {
+            fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>>
+            where
+                Self: Sized,
+            {
+                let (token, remaining) = take_token(input);
+                let result = match token {
+                    Some(token) => token
+                        .parse()
+                        .map(|num| (num, remaining))
+                        .map_err(|error| ParseErrorKind::from_parse_error(token, error)),
+                    None => Err(ParseErrorKind::TokenRequired),
+                };
+                result.map_err(|kind| ParseError {
+                    kind,
+                    expected: "integer".into(),
+                })
+            }
+        }
+    };
+}
+
+gen_parsable_int!(u8);
+gen_parsable_int!(i8);
+gen_parsable_int!(u16);
+gen_parsable_int!(i16);
+gen_parsable_int!(u32);
+gen_parsable_int!(i32);
+gen_parsable_int!(u64);
+gen_parsable_int!(i64);
+gen_parsable_int!(u128);
+gen_parsable_int!(i128);
 
 fn skip_ws(mut input: &str) -> &str {
     loop {
@@ -66,6 +126,22 @@ mod tests {
         #[test]
         fn parse_u8() {
             assert_eq!(u8::parse_cmd(" 15 ").unwrap(), (15, ""));
+        }
+
+        #[test]
+        fn parse_error() {
+            assert_eq!(
+                &i16::parse_cmd("123456781234567").unwrap_err().to_string(),
+                "invalid integer \"123456781234567\": too large"
+            );
+        }
+
+        #[test]
+        fn parse_error_no_description() {
+            assert_eq!(
+                &i16::parse_cmd("abc").unwrap_err().to_string(),
+                "invalid integer \"abc\""
+            );
         }
     }
 

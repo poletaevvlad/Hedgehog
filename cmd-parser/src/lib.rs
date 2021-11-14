@@ -15,7 +15,7 @@ pub struct ParseError<'a> {
 }
 
 impl<'a> ParseErrorKind<'a> {
-    fn from_parse_error(token: &'a str, error: ParseIntError) -> Self {
+    fn from_parse_int_error(token: &'a str, error: ParseIntError) -> Self {
         match error.kind() {
             IntErrorKind::PosOverflow => {
                 ParseErrorKind::TokenParse(token, Some("too large".into()))
@@ -54,16 +54,13 @@ pub trait CmdParsable: Sized {
 macro_rules! gen_parsable_int {
     ($type:ty) => {
         impl CmdParsable for $type {
-            fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>>
-            where
-                Self: Sized,
-            {
+            fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>> {
                 let (token, remaining) = take_token(input);
                 let result = match token {
                     Some(token) => token
                         .parse()
                         .map(|num| (num, remaining))
-                        .map_err(|error| ParseErrorKind::from_parse_error(token, error)),
+                        .map_err(|error| ParseErrorKind::from_parse_int_error(token, error)),
                     None => Err(ParseErrorKind::TokenRequired),
                 };
                 result.map_err(|kind| ParseError {
@@ -85,6 +82,30 @@ gen_parsable_int!(u64);
 gen_parsable_int!(i64);
 gen_parsable_int!(u128);
 gen_parsable_int!(i128);
+
+macro_rules! gen_parsable_float {
+    ($type:ty) => {
+        impl CmdParsable for $type {
+            fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+                let (token, remaining) = take_token(input);
+                let result = match token {
+                    Some(token) => token
+                        .parse()
+                        .map(|num| (num, remaining))
+                        .map_err(|_| ParseErrorKind::TokenParse(token, None)),
+                    None => Err(ParseErrorKind::TokenRequired),
+                };
+                result.map_err(|kind| ParseError {
+                    kind,
+                    expected: "real number".into(),
+                })
+            }
+        }
+    };
+}
+
+gen_parsable_float!(f32);
+gen_parsable_float!(f64);
 
 fn skip_ws(mut input: &str) -> &str {
     loop {
@@ -129,6 +150,11 @@ mod tests {
         }
 
         #[test]
+        fn parse_f32() {
+            assert_eq!(f32::parse_cmd(" 14.0 ").unwrap(), (14.0, ""));
+        }
+
+        #[test]
         fn parse_error() {
             assert_eq!(
                 &i16::parse_cmd("123456781234567").unwrap_err().to_string(),
@@ -141,6 +167,14 @@ mod tests {
             assert_eq!(
                 &i16::parse_cmd("abc").unwrap_err().to_string(),
                 "invalid integer \"abc\""
+            );
+        }
+
+        #[test]
+        fn parse_float_error() {
+            assert_eq!(
+                &f32::parse_cmd("abc").unwrap_err().to_string(),
+                "invalid real number \"abc\""
             );
         }
     }

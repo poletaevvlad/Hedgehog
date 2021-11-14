@@ -4,8 +4,9 @@ use std::num::{IntErrorKind, ParseIntError};
 
 #[derive(Debug)]
 pub enum ParseErrorKind<'a> {
-    TokenParse(&'a str, Option<Cow<'static, str>>),
+    TokenParse(Cow<'a, str>, Option<Cow<'static, str>>),
     TokenRequired,
+    UnexpectedString,
 }
 
 #[derive(Debug)]
@@ -15,7 +16,7 @@ pub struct ParseError<'a> {
 }
 
 impl<'a> ParseErrorKind<'a> {
-    fn from_parse_int_error(token: &'a str, error: ParseIntError) -> Self {
+    fn from_parse_int_error(token: Cow<'a, str>, error: ParseIntError) -> Self {
         match error.kind() {
             IntErrorKind::PosOverflow => {
                 ParseErrorKind::TokenParse(token, Some("too large".into()))
@@ -43,6 +44,10 @@ impl<'a> fmt::Display for ParseError<'a> {
             ParseErrorKind::TokenRequired => {
                 f.write_fmt(format_args!("{} is required", self.expected))
             }
+            &ParseErrorKind::UnexpectedString => f.write_fmt(format_args!(
+                "expected {} but found a string",
+                self.expected
+            )),
         }
     }
 }
@@ -107,6 +112,19 @@ macro_rules! gen_parsable_float {
 gen_parsable_float!(f32);
 gen_parsable_float!(f64);
 
+impl CmdParsable for String {
+    fn parse_cmd(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let (token, remaining) = take_token(input);
+        match token {
+            Some(token) => Ok((token.into_owned(), remaining)),
+            None => Err(ParseError {
+                kind: ParseErrorKind::TokenRequired,
+                expected: "string".into(),
+            }),
+        }
+    }
+}
+
 fn skip_ws(mut input: &str) -> &str {
     loop {
         let mut chars = input.chars();
@@ -119,12 +137,7 @@ fn skip_ws(mut input: &str) -> &str {
     }
 }
 
-pub fn take_token(input: &str) -> (Option<&str>, &str) {
-    let mut input = skip_ws(input);
-    if input.is_empty() {
-        return (None, input);
-    }
-
+pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
     let token_start = input;
     loop {
         let mut chars = input.chars();
@@ -134,7 +147,11 @@ pub fn take_token(input: &str) -> (Option<&str>, &str) {
         }
     }
     let token = &token_start[..(token_start.len() - input.len())];
-    (Some(token), skip_ws(input))
+    if !token.is_empty() {
+        (Some(Cow::Borrowed(token)), skip_ws(input))
+    } else {
+        (None, skip_ws(input))
+    }
 }
 
 #[cfg(test)]
@@ -146,12 +163,12 @@ mod tests {
 
         #[test]
         fn parse_u8() {
-            assert_eq!(u8::parse_cmd(" 15 ").unwrap(), (15, ""));
+            assert_eq!(u8::parse_cmd("15 ").unwrap(), (15, ""));
         }
 
         #[test]
         fn parse_f32() {
-            assert_eq!(f32::parse_cmd(" 14.0 ").unwrap(), (14.0, ""));
+            assert_eq!(f32::parse_cmd("14.0 ").unwrap(), (14.0, ""));
         }
 
         #[test]
@@ -179,8 +196,29 @@ mod tests {
         }
     }
 
+    mod string {
+        use super::*;
+
+        #[test]
+        fn parse_string() {
+            assert_eq!(
+                String::parse_cmd("abc def").unwrap(),
+                ("abc".to_string(), "def")
+            )
+        }
+
+        #[test]
+        fn missing_string() {
+            assert_eq!(
+                &String::parse_cmd("").unwrap_err().to_string(),
+                "string is required"
+            )
+        }
+    }
+
     mod take_token_tests {
         use super::*;
+        use std::borrow::Cow;
 
         #[test]
         fn empty_string() {
@@ -194,12 +232,12 @@ mod tests {
 
         #[test]
         fn takes_entire_string() {
-            assert_eq!(take_token("abcdef"), (Some("abcdef"), ""));
+            assert_eq!(take_token("abcdef"), (Some(Cow::Borrowed("abcdef")), ""));
         }
 
         #[test]
         fn takes_entire_string_with_whitespaces() {
-            assert_eq!(take_token("  abcdef  "), (Some("abcdef"), ""));
+            assert_eq!(take_token("abcdef  "), (Some(Cow::Borrowed("abcdef")), ""));
         }
 
         #[test]

@@ -70,6 +70,7 @@ pub(crate) enum ListSubitem {
     Date,
     NewIndicator,
     Duration,
+    EpisodeNumber,
 }
 
 impl ListSubitem {
@@ -81,6 +82,7 @@ impl ListSubitem {
             ListSubitem::Date,
             ListSubitem::NewIndicator,
             ListSubitem::Duration,
+            ListSubitem::EpisodeNumber,
         ]
     }
 }
@@ -118,6 +120,8 @@ impl List {
                     ".error" => Some(ListSubitem::ErrorIndicator),
                     ".date" => Some(ListSubitem::Date),
                     ".new" => Some(ListSubitem::NewIndicator),
+                    ".duration" => Some(ListSubitem::Duration),
+                    ".episodenumber" => Some(ListSubitem::EpisodeNumber),
                     _ => None,
                 };
                 Ok(List::Item(state, subitem))

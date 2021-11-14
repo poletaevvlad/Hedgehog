@@ -101,6 +101,31 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
                     area.width = area.width.saturating_sub(width);
                 }
 
+                let episode_number = match (item.season_number, item.episode_number) {
+                    (None, Some(episode_number)) => Some(format!(" {}. ", episode_number)),
+                    (Some(season_number), Some(episode_number)) => {
+                        Some(format!(" {}x{}. ", season_number, episode_number))
+                    }
+                    _ => None,
+                };
+                if let Some(episode_number) = episode_number {
+                    let width = episode_number.width() as u16;
+                    buf.set_span(
+                        area.x,
+                        area.y,
+                        &Span::styled(
+                            episode_number,
+                            self.theme.get(theming::List::Item(
+                                item_state,
+                                Some(theming::ListSubitem::EpisodeNumber),
+                            )),
+                        ),
+                        width,
+                    );
+                    area.x += width;
+                    area.width = area.width.saturating_sub(width);
+                }
+
                 let style = self.theme.get(theming::List::Item(item_state, subitem));
                 buf.set_style(area, style);
                 let paragraph = Paragraph::new(item.title.as_deref().unwrap_or("Untitled"));

@@ -125,6 +125,18 @@ impl CmdParsable for String {
     }
 }
 
+impl<T: CmdParsable> CmdParsable for Vec<T> {
+    fn parse_cmd(mut input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let mut result = Vec::new();
+        while has_tokens(input) {
+            let (item, remaining) = T::parse_cmd(input)?;
+            input = remaining;
+            result.push(item);
+        }
+        Ok((result, input))
+    }
+}
+
 fn skip_ws(mut input: &str) -> &str {
     loop {
         let mut chars = input.chars();
@@ -135,6 +147,10 @@ fn skip_ws(mut input: &str) -> &str {
             None | Some(_) => return input,
         }
     }
+}
+
+pub fn has_tokens(input: &str) -> bool {
+    !input.is_empty()
 }
 
 pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
@@ -322,5 +338,19 @@ mod tests {
                 (Some(Cow::Borrowed("abc")), "'def'")
             );
         }
+    }
+
+    #[test]
+    fn parse_vec() {
+        let (vector, remaining) = Vec::<u8>::parse_cmd("10 20 30 40 50").unwrap();
+        assert_eq!(vector, vec![10, 20, 30, 40, 50]);
+        assert!(remaining.is_empty());
+    }
+
+    #[test]
+    fn parse_vec_empty() {
+        let (vector, remaining) = Vec::<u8>::parse_cmd("").unwrap();
+        assert_eq!(vector, vec![]);
+        assert!(remaining.is_empty());
     }
 }

@@ -2,6 +2,7 @@ use super::list::ListItemRenderingDelegate;
 use crate::options::Options;
 use crate::theming;
 use hedgehog_library::model::{EpisodeId, EpisodeSummaryStatus, FeedId, FeedStatus, FeedSummary};
+use hedgehog_player::state::DurationFormatter;
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -80,6 +81,24 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
                         );
                         area.width = area.width.saturating_sub(width);
                     }
+                }
+
+                if let Some(duration) = item.duration {
+                    let formatted = format!(" {} ", DurationFormatter(duration));
+                    let width = formatted.width() as u16;
+                    buf.set_span(
+                        area.right().saturating_sub(width),
+                        area.y,
+                        &Span::styled(
+                            formatted,
+                            self.theme.get(theming::List::Item(
+                                item_state,
+                                Some(theming::ListSubitem::Duration),
+                            )),
+                        ),
+                        width,
+                    );
+                    area.width = area.width.saturating_sub(width);
                 }
 
                 let style = self.theme.get(theming::List::Item(item_state, subitem));

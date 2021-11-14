@@ -69,6 +69,7 @@ pub(crate) enum ListSubitem {
     LoadingIndicator,
     Date,
     NewIndicator,
+    Duration,
 }
 
 impl ListSubitem {
@@ -79,6 +80,7 @@ impl ListSubitem {
             ListSubitem::LoadingIndicator,
             ListSubitem::Date,
             ListSubitem::NewIndicator,
+            ListSubitem::Duration,
         ]
     }
 }

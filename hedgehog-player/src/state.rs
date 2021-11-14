@@ -65,6 +65,15 @@ impl fmt::Display for PlaybackTiming {
     }
 }
 
+pub struct DurationFormatter(pub Duration);
+
+impl fmt::Display for DurationFormatter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let precision = get_duration_precision(self.0);
+        format_duration(f, self.0, precision)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct PlaybackState(Option<(State, PlaybackTiming)>);
 

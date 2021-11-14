@@ -33,7 +33,8 @@ pub struct EpisodeMetadata<'a> {
     pub(crate) guid: &'a str,
     pub(crate) duration: Option<Duration>,
     pub(crate) publication_date: Option<DateTime<Utc>>,
-    pub(crate) episode_number: Option<u64>,
+    pub(crate) episode_number: Option<i64>,
+    pub(crate) season_number: Option<i64>,
     pub(crate) media_url: &'a str,
 }
 
@@ -62,6 +63,11 @@ impl<'a> EpisodeMetadata<'a> {
             .as_ref()
             .and_then(|ext| ext.episode.as_ref())
             .and_then(|episode| episode.parse().ok());
+        let season_number = item
+            .itunes_ext
+            .as_ref()
+            .and_then(|ext| ext.season.as_ref())
+            .and_then(|season| season.parse().ok());
 
         Some(Self {
             title: item.title.as_deref(),
@@ -72,6 +78,7 @@ impl<'a> EpisodeMetadata<'a> {
             publication_date,
             episode_number,
             media_url,
+            season_number,
         })
     }
 }
@@ -145,6 +152,7 @@ mod tests {
             itunes_ext: Some(rss::extension::itunes::ITunesItemExtension {
                 duration: Some("30:00".to_string()),
                 episode: Some("4".to_string()),
+                season: Some("2".to_string()),
                 ..Default::default()
             }),
             dublin_core_ext: None,
@@ -161,6 +169,7 @@ mod tests {
                 duration: Some(Duration::from_secs(1800)),
                 publication_date: Some(chrono::Utc.ymd(2021, 9, 1).and_hms(14, 30, 0)),
                 episode_number: Some(4),
+                season_number: Some(2),
                 media_url: "http://example.com/episode.mp3",
             }
         );
@@ -188,6 +197,7 @@ mod tests {
                 duration: None,
                 publication_date: None,
                 episode_number: None,
+                season_number: None,
                 media_url: "http://example.com/episode.mp3",
             }
         );

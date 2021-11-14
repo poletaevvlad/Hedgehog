@@ -21,6 +21,7 @@ CREATE TABLE episodes (
     "duration" INTEGER,
     "publication_date" TEXT,
     "episode_number" INTEGER,
+    "season_number" INTEGER,
     "media_url" TEXT NOT NULL,
     "status" INTEGER NOT NULL DEFAULT 0,
     "position" INTEGER NOT NULL DEFAULT 0,

@@ -217,7 +217,8 @@ impl PlaybackError {
 pub struct EpisodeSummary {
     pub id: EpisodeId,
     pub feed_id: FeedId,
-    pub episode_number: Option<u64>,
+    pub episode_number: Option<i64>,
+    pub season_number: Option<i64>,
     pub title: Option<String>,
     pub status: EpisodeSummaryStatus,
     pub duration: Option<Duration>,
@@ -236,7 +237,8 @@ impl Identifiable for EpisodeSummary {
 pub struct Episode {
     pub id: EpisodeId,
     pub feed_id: FeedId,
-    pub episode_number: Option<u64>,
+    pub episode_number: Option<i64>,
+    pub season_number: Option<i64>,
     pub title: Option<String>,
     pub description: Option<String>,
     pub link: Option<String>,

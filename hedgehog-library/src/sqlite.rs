@@ -104,20 +104,21 @@ impl DataProvider for SqliteDataProvider {
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
-            self.connection.prepare("SELECT feed_id, episode_number, title, description, link, status, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
+            self.connection.prepare("SELECT feed_id, episode_number, season_number, title, description, link, status, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
         let result = statement.query_row(named_params! {":id": episode_id}, |row| {
             Ok(Episode {
                 id: episode_id,
                 feed_id: row.get(0)?,
                 episode_number: row.get(1)?,
-                title: row.get(2)?,
-                description: row.get(3)?,
-                link: row.get(4)?,
-                status: EpisodeStatus::from_db(row.get(5)?, Duration::from_nanos(row.get(6)?)),
-                duration: row.get::<_, Option<u64>>(7)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(8)?.map(PlaybackError::from_u32),
-                publication_date: row.get(9)?,
-                media_url: row.get(10)?,
+                season_number: row.get(2)?,
+                title: row.get(3)?,
+                description: row.get(4)?,
+                link: row.get(5)?,
+                status: EpisodeStatus::from_db(row.get(6)?, Duration::from_nanos(row.get(7)?)),
+                duration: row.get::<_, Option<u64>>(8)?.map(Duration::from_nanos),
+                playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_u32),
+                publication_date: row.get(10)?,
+                media_url: row.get(11)?,
             })
         });
         match result {
@@ -177,7 +178,7 @@ impl DataProvider for SqliteDataProvider {
         request: EpisodesQuery,
         page: Page,
     ) -> DbResult<Vec<EpisodeSummary>> {
-        let mut sql = "SELECT id, feed_id, episode_number, title, status, duration, error_code, publication_date, media_url FROM episodes".to_string();
+        let mut sql = "SELECT id, feed_id, episode_number, season_number, title, status, duration, error_code, publication_date, media_url FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         sql.push_str(
             " ORDER BY episode_number DESC, publication_date DESC LIMIT :limit OFFSET :offset",
@@ -195,11 +196,12 @@ impl DataProvider for SqliteDataProvider {
                 id: row.get(0)?,
                 feed_id: row.get(1)?,
                 episode_number: row.get(2)?,
-                title: row.get(3)?,
-                status: EpisodeSummaryStatus::from_db(row.get(4)?),
-                duration: row.get::<_, Option<u64>>(5)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(6)?.map(PlaybackError::from_u32),
-                publication_date: row.get(7)?,
+                season_number: row.get(3)?,
+                title: row.get(4)?,
+                status: EpisodeSummaryStatus::from_db(row.get(5)?),
+                duration: row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
+                playback_error: row.get::<_, Option<u32>>(7)?.map(PlaybackError::from_u32),
+                publication_date: row.get(8)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -326,11 +328,11 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 
     fn set_episode_metadata(&mut self, metadata: &EpisodeMetadata) -> DbResult<EpisodeId> {
         let mut statement = self.transaction.prepare(
-            "INSERT INTO episodes (feed_id, guid, title, description, link, duration, publication_date, episode_number, media_url)
-            VALUES (:feed_id, :guid, :title, :description, :link, :duration, :publication_date, :episode_number, :media_url)
+            "INSERT INTO episodes (feed_id, guid, title, description, link, duration, publication_date, episode_number, season_number, media_url)
+            VALUES (:feed_id, :guid, :title, :description, :link, :duration, :publication_date, :episode_number, :season_number, :media_url)
             ON CONFLICT (feed_id, guid) DO UPDATE SET
             title = :title, description = :description, link = :link, duration = :duration, publication_date = :publication_date, 
-            episode_number = :episode_number, media_url = :media_url
+            episode_number = :episode_number, season_number = :season_number, media_url = :media_url
             WHERE feed_id = :feed_id AND guid = :guid
             RETURNING id"
         )?;
@@ -345,6 +347,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
                     ":duration": metadata.duration.map(|duration|duration.as_nanos() as u64),
                     ":publication_date": metadata.publication_date,
                     ":episode_number": metadata.episode_number,
+                    ":season_number": metadata.season_number,
                     ":media_url": metadata.media_url
                 },
                 |row| row.get(0),
@@ -457,6 +460,7 @@ mod tests {
                 duration: None,
                 publication_date: None,
                 episode_number: Some(3),
+                season_number: Some(4),
                 media_url: "http://example.com/feed.xml",
             })
             .unwrap();
@@ -466,6 +470,7 @@ mod tests {
         assert_eq!(retrieved.id, episode_id);
         assert_eq!(retrieved.feed_id, feed_id);
         assert_eq!(retrieved.episode_number, Some(3));
+        assert_eq!(retrieved.season_number, Some(4));
         assert_eq!(retrieved.title.as_deref(), Some("title"));
         assert_eq!(retrieved.description.as_deref(), Some("description"));
         assert_eq!(retrieved.link.as_deref(), Some("link"));
@@ -485,6 +490,7 @@ mod tests {
                 duration: Some(Duration::from_secs(300)),
                 publication_date: None,
                 episode_number: Some(8),
+                season_number: None,
                 media_url: "http://example.com/feed2.xml",
             })
             .unwrap();
@@ -495,6 +501,7 @@ mod tests {
         assert_eq!(retrieved.id, episode_id);
         assert_eq!(retrieved.feed_id, feed_id);
         assert_eq!(retrieved.episode_number, Some(8));
+        assert_eq!(retrieved.season_number, None);
         assert_eq!(retrieved.title.as_deref(), Some("title-upd"));
         assert_eq!(retrieved.description.as_deref(), Some("description-upd"));
         assert_eq!(retrieved.link.as_deref(), Some("link-upd"));
@@ -514,6 +521,7 @@ mod tests {
                 duration: None,
                 publication_date: None,
                 episode_number: None,
+                season_number: None,
                 media_url: "http://example.com/feed3.xml",
             })
             .unwrap();
@@ -534,6 +542,7 @@ mod tests {
                 id: episode_id_1,
                 feed_id,
                 episode_number: Some(8),
+                season_number: None,
                 title: Some("title-upd".to_string()),
                 status: EpisodeSummaryStatus::New,
                 duration: Some(Duration::from_secs(300)),
@@ -547,6 +556,7 @@ mod tests {
                 id: episode_id_2,
                 feed_id,
                 episode_number: None,
+                season_number: None,
                 title: Some("second-title".to_string()),
                 status: EpisodeSummaryStatus::New,
                 duration: None,

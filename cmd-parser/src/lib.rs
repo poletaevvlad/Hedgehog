@@ -43,7 +43,7 @@ impl<'a> fmt::Display for ParseError<'a> {
                 Ok(())
             }
             ParseErrorKind::TokenRequired => {
-                f.write_fmt(format_args!("{} is required", self.expected))
+                f.write_fmt(format_args!("expected {}", self.expected))
             }
             ParseErrorKind::UnexpectedToken(token) => {
                 f.write_fmt(format_args!("unexpected token: \"{}\"", token))
@@ -56,12 +56,6 @@ impl<'a> fmt::Display for ParseError<'a> {
 pub trait CmdParsable: Sized {
     fn parse_cmd(mut input: &str) -> Result<(Self, &str), ParseError<'_>> {
         input = skip_ws(input);
-        if input.starts_with(')') {
-            return Err(ParseError {
-                kind: ParseErrorKind::UnbalancedParenthesis,
-                expected: "".into(),
-            });
-        }
 
         if let Some(input) = input.strip_prefix('(') {
             let (value, mut remaining) = Self::parse_cmd_raw(input)?;
@@ -165,6 +159,35 @@ impl<T: CmdParsable> CmdParsable for Vec<T> {
         Ok((result, input))
     }
 }
+
+macro_rules! gen_parsable_tuple {
+    ($($name:ident)*) => {
+        impl<$($name: CmdParsable),*> CmdParsable for ($($name),*,) {
+            #[allow(non_snake_case)]
+            fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+                $(let ($name, input) = $name::parse_cmd(input)?;)*
+                Ok((($($name),*,), input))
+            }
+        }
+    }
+}
+
+gen_parsable_tuple!(T1);
+gen_parsable_tuple!(T1 T2);
+gen_parsable_tuple!(T1 T2 T3);
+gen_parsable_tuple!(T1 T2 T3 T4);
+gen_parsable_tuple!(T1 T2 T3 T4 T5);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14 T15);
+gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14 T15 T16);
 
 fn skip_ws(mut input: &str) -> &str {
     loop {
@@ -282,7 +305,7 @@ mod tests {
         fn missing_string() {
             assert_eq!(
                 &String::parse_cmd("").unwrap_err().to_string(),
-                "string is required"
+                "expected string"
             )
         }
 
@@ -411,13 +434,33 @@ mod tests {
             assert_eq!(vector, vec![10, 20]);
             assert_eq!(remaining, "30 40");
         }
+    }
+
+    mod parse_tuples {
+        use super::*;
 
         #[test]
-        fn unbalanced_parenthesis() {
+        fn parse_tuples() {
+            let (result, remaining) =
+                <(u8, u8, (u8, u8), (u8,))>::parse_cmd("10 20 30 40 50 60").unwrap();
+            assert_eq!(result, (10, 20, (30, 40), (50,)));
+            assert_eq!(remaining, "60");
+        }
+
+        #[test]
+        fn too_many_values() {
             assert_eq!(
-                &Vec::<u8>::parse_cmd(")first").unwrap_err().to_string(),
-                "unbalanced parenthesis"
-            )
+                &<(u8, u8)>::parse_cmd("(10 20 30)").unwrap_err().to_string(),
+                "unexpected token: \"30\""
+            );
+        }
+
+        #[test]
+        fn too_few_values() {
+            assert_eq!(
+                &<(u8, u8)>::parse_cmd("(10)").unwrap_err().to_string(),
+                "expected integer"
+            );
         }
     }
 }

@@ -143,11 +143,18 @@ pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
         let mut result = String::new();
         let mut chars = input.chars();
         let quote_ch = chars.next().unwrap();
+        let mut escaped = false;
         for ch in &mut chars {
-            if ch == quote_ch {
-                break;
+            if escaped {
+                result.push(ch);
+                escaped = false;
+            } else {
+                match ch {
+                    ch if ch == quote_ch => break,
+                    '\\' => escaped = true,
+                    ch => result.push(ch),
+                }
             }
-            result.push(ch);
         }
         (Some(result.into()), skip_ws(chars.as_str()))
     } else {
@@ -289,6 +296,30 @@ mod tests {
             assert_eq!(
                 take_token("\"abc 'def\"  a"),
                 (Some(Cow::Owned("abc 'def".to_string())), "a")
+            );
+        }
+
+        #[test]
+        fn string_with_escape_sequence() {
+            assert_eq!(
+                take_token(r#"'"\'\\\a'  a"#),
+                (Some(Cow::Owned(r#""'\a"#.to_string())), "a")
+            );
+            assert_eq!(
+                take_token(r#""\"'\\\a"  a"#),
+                (Some(Cow::Owned(r#""'\a"#.to_string())), "a")
+            );
+        }
+
+        #[test]
+        fn token_followed_by_string() {
+            assert_eq!(
+                take_token("abc\"def\""),
+                (Some(Cow::Borrowed("abc")), "\"def\"")
+            );
+            assert_eq!(
+                take_token("abc'def'"),
+                (Some(Cow::Borrowed("abc")), "'def'")
             );
         }
     }

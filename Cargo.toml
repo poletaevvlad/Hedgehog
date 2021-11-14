@@ -5,5 +5,7 @@ members = [
     "hedgehog-library",
     "hedgehog-tui",
     "cmd-parser",
+    "cmd-parser-derive",
+    "cmd-parser-derive-tests",
 ]
 default-members = ["hedgehog-tui"]

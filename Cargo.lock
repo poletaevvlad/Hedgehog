@@ -404,6 +404,25 @@ dependencies = [
 [[package]]
 name = "cmd-parser"
 version = "0.1.0"
+dependencies = [
+ "cmd-parser-derive",
+]
+
+[[package]]
+name = "cmd-parser-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "cmd-parser-derive-tests"
+version = "0.1.0"
+dependencies = [
+ "cmd-parser",
+]
 
 [[package]]
 name = "concurrent-queue"

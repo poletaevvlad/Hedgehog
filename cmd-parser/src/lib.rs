@@ -1,3 +1,5 @@
+pub use cmd_parser_derive::*;
+
 use std::borrow::Cow;
 use std::fmt;
 use std::num::{IntErrorKind, ParseIntError};

@@ -1,4 +1,4 @@
-#[cfg(test)]
+#![cfg(test)]
 
 mod simple_struct {
     use cmd_parser::CmdParsable;
@@ -20,6 +20,26 @@ mod simple_struct {
         assert_eq!(
             Struct::parse_cmd("10 abc def").unwrap(),
             (Struct(10, "abc".to_string()), "def")
+        )
+    }
+
+    #[test]
+    fn struct_named() {
+        #[derive(Debug, PartialEq, CmdParsable)]
+        struct Struct {
+            int: u8,
+            text: String,
+        }
+
+        assert_eq!(
+            Struct::parse_cmd("10 abc def").unwrap(),
+            (
+                Struct {
+                    int: 10,
+                    text: "abc".to_string()
+                },
+                "def"
+            )
         )
     }
 }

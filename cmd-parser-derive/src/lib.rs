@@ -4,7 +4,21 @@ use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput
 
 fn derive_fields(name: &Ident, fields: Fields) -> Result<proc_macro2::TokenStream, syn::Error> {
     match fields {
-        Fields::Named(_) => todo!(),
+        Fields::Named(fields) => {
+            let field_parse = fields.named.iter().map(|field| {
+                let ident = field.ident.as_ref().unwrap();
+                let field_type = &field.ty;
+                quote! { let (#ident, input) = #field_type::parse_cmd(input)?; }
+            });
+            let field_idents = fields
+                .named
+                .iter()
+                .map(|field| field.ident.as_ref().unwrap());
+            Ok(quote! {
+                #(#field_parse)*
+                Ok((#name { #(#field_idents),* }, input))
+            })
+        }
         Fields::Unnamed(fields) => {
             let field_parse = fields.unnamed.iter().enumerate().map(|(index, field)| {
                 let ident = format_ident!("field_{}", index);

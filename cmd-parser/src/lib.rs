@@ -139,18 +139,33 @@ fn skip_ws(mut input: &str) -> &str {
 
 pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
     let token_start = input;
-    loop {
+    if input.starts_with('"') || input.starts_with('\'') {
+        let mut result = String::new();
         let mut chars = input.chars();
-        match chars.next() {
-            Some(ch) if !ch.is_whitespace() => input = chars.as_str(),
-            _ => break,
+        let quote_ch = chars.next().unwrap();
+        for ch in &mut chars {
+            if ch == quote_ch {
+                break;
+            }
+            result.push(ch);
         }
-    }
-    let token = &token_start[..(token_start.len() - input.len())];
-    if !token.is_empty() {
-        (Some(Cow::Borrowed(token)), skip_ws(input))
+        (Some(result.into()), skip_ws(chars.as_str()))
     } else {
-        (None, skip_ws(input))
+        loop {
+            let mut chars = input.chars();
+            match chars.next() {
+                Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' => {
+                    input = chars.as_str()
+                }
+                _ => break,
+            }
+        }
+        let token = &token_start[..(token_start.len() - input.len())];
+        if !token.is_empty() {
+            (Some(Cow::Borrowed(token)), skip_ws(input))
+        } else {
+            (None, skip_ws(input))
+        }
     }
 }
 
@@ -254,6 +269,27 @@ mod tests {
                 input = remaining;
             }
             assert_eq!(tokens, vec!["first", "second", "third"]);
+        }
+
+        #[test]
+        fn empry_quoted_string() {
+            assert_eq!(take_token("''  a"), (Some(Cow::Owned(String::new())), "a"));
+            assert_eq!(
+                take_token("\"\"  a"),
+                (Some(Cow::Owned(String::new())), "a")
+            );
+        }
+
+        #[test]
+        fn non_empty_quoted_string() {
+            assert_eq!(
+                take_token("'abc \"def'  a"),
+                (Some(Cow::Owned("abc \"def".to_string())), "a")
+            );
+            assert_eq!(
+                take_token("\"abc 'def\"  a"),
+                (Some(Cow::Owned("abc 'def".to_string())), "a")
+            );
         }
     }
 }

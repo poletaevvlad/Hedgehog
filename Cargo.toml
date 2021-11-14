@@ -4,5 +4,6 @@ members = [
     "hedgehog-player",
     "hedgehog-library",
     "hedgehog-tui",
+    "cmd-parser",
 ]
 default-members = ["hedgehog-tui"]

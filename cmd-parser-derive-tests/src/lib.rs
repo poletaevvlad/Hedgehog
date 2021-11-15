@@ -94,6 +94,23 @@ mod enum_attributes {
         Fourth,
         #[cmd(alias = "5")]
         Fifth,
+        #[cmd(transparent)]
+        Nested1(Nested1),
+        #[cmd(transparent)]
+        Nested2(Nested2),
+    }
+
+    #[derive(Debug, PartialEq, CmdParsable)]
+    enum Nested1 {
+        A,
+        B,
+        C,
+    }
+
+    #[derive(Debug, PartialEq, CmdParsable)]
+    enum Nested2 {
+        D,
+        E,
     }
 
     #[test]
@@ -106,6 +123,11 @@ mod enum_attributes {
         assert_eq!(Enum::parse_cmd("t2").unwrap().0, Enum::Third);
         assert_eq!(Enum::parse_cmd("Fifth").unwrap().0, Enum::Fifth);
         assert_eq!(Enum::parse_cmd("5").unwrap().0, Enum::Fifth);
+        assert_eq!(Enum::parse_cmd("A").unwrap().0, Enum::Nested1(Nested1::A));
+        assert_eq!(Enum::parse_cmd("B").unwrap().0, Enum::Nested1(Nested1::B));
+        assert_eq!(Enum::parse_cmd("C").unwrap().0, Enum::Nested1(Nested1::C));
+        assert_eq!(Enum::parse_cmd("D").unwrap().0, Enum::Nested2(Nested2::D));
+        assert_eq!(Enum::parse_cmd("E").unwrap().0, Enum::Nested2(Nested2::E));
     }
 
     #[test]

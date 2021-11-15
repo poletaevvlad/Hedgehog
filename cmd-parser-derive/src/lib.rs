@@ -45,36 +45,45 @@ fn derive_fields(
 
 fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, syn::Error> {
     let mut variant_parse = Vec::new();
+    let mut transparent_parse = Vec::new();
     for variant in data.variants.iter() {
         let variant_ident = &variant.ident;
         let variant_path = quote! { #name::#variant_ident };
         let parse_fields = derive_fields(variant_path, &variant.fields)?;
 
         let attrs = VariantAttributes::from_attributes(variant.attrs.iter())?;
-        let mut discriminators = attrs.aliases;
-        if !attrs.ignore {
-            discriminators.push(variant.ident.to_string());
-        }
-        if discriminators.is_empty() {
-            continue;
-        }
-
-        let pattern = discriminators.iter().enumerate().map(|(index, value)| {
-            if index == 0 {
-                quote! { #value }
-            } else {
-                quote! { | #value }
+        if attrs.transparent {
+            transparent_parse.push(quote! {
+                let parsed: ::std::result::Result<(#name ,&str), ::cmd_parser::ParseError> = (||{ #parse_fields })();
+                if let Ok((result, remaining)) = parsed{
+                    return Ok((result, remaining));
+                }
+            });
+        } else {
+            let mut discriminators = attrs.aliases;
+            if !attrs.ignore {
+                discriminators.push(variant.ident.to_string());
             }
-        });
+            if discriminators.is_empty() {
+                continue;
+            }
 
-        variant_parse.push(quote! {
-            #(#pattern)* => { #parse_fields }
-        });
+            let pattern = discriminators.iter().enumerate().map(|(index, value)| {
+                if index == 0 {
+                    quote! { #value }
+                } else {
+                    quote! { | #value }
+                }
+            });
+            variant_parse.push(quote! {
+                #(#pattern)* => { #parse_fields }
+            });
+        }
     }
     Ok(quote! {
         impl cmd_parser::CmdParsable for #name {
-            fn parse_cmd_raw(mut input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
-                let (discriminator, input) = cmd_parser::take_token(input);
+            fn parse_cmd_raw(mut original_input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+                let (discriminator, input) = cmd_parser::take_token(original_input);
                 let discriminator = match discriminator {
                     Some(discriminator) => discriminator,
                     None => return Err(cmd_parser::ParseError {
@@ -86,10 +95,14 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
                 let d_str: &str = &discriminator;
                 match d_str {
                     #(#variant_parse)*
-                    _ => Err(cmd_parser::ParseError{
-                        kind: cmd_parser::ParseErrorKind::UnknownVariant(discriminator),
-                        expected: "name".into(),
-                    })
+                    _ => {
+                        let input = original_input;
+                        #(#transparent_parse)*
+                        Err(cmd_parser::ParseError{
+                            kind: cmd_parser::ParseErrorKind::UnknownVariant(discriminator),
+                            expected: "name".into(),
+                        })
+                    }
                 }
             }
         }

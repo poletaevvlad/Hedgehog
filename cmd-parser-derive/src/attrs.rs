@@ -4,6 +4,7 @@ use syn::{spanned::Spanned, Attribute, Error, Lit, Meta, MetaNameValue, NestedMe
 pub(crate) struct VariantAttributes {
     pub(crate) aliases: Vec<String>,
     pub(crate) ignore: bool,
+    pub(crate) transparent: bool,
 }
 
 impl VariantAttributes {
@@ -45,6 +46,9 @@ impl VariantAttributes {
                     }
                     Meta::Path(path) if compare_path(path, "ignore") => {
                         attributes.ignore = true;
+                    }
+                    Meta::Path(path) if compare_path(path, "transparent") => {
+                        attributes.transparent = true;
                     }
                     Meta::Path(path) => {
                         return Err(Error::new(path.span(), "Unknown argument"));

@@ -1,3 +1,6 @@
+mod attrs;
+
+use attrs::VariantAttributes;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};
@@ -46,8 +49,26 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
         let variant_ident = &variant.ident;
         let variant_path = quote! { #name::#variant_ident };
         let parse_fields = derive_fields(variant_path, &variant.fields)?;
+
+        let attrs = VariantAttributes::from_attributes(variant.attrs.iter())?;
+        let mut discriminators = attrs.aliases;
+        if !attrs.ignore {
+            discriminators.push(variant.ident.to_string());
+        }
+        if discriminators.is_empty() {
+            continue;
+        }
+
+        let pattern = discriminators.iter().enumerate().map(|(index, value)| {
+            if index == 0 {
+                quote! { #value }
+            } else {
+                quote! { | #value }
+            }
+        });
+
         variant_parse.push(quote! {
-            stringify!(#variant_ident) => { #parse_fields }
+            #(#pattern)* => { #parse_fields }
         });
     }
     Ok(quote! {
@@ -87,7 +108,7 @@ fn derive_struct(name: Ident, data: DataStruct) -> Result<proc_macro2::TokenStre
     })
 }
 
-#[proc_macro_derive(CmdParsable)]
+#[proc_macro_derive(CmdParsable, attributes(cmd))]
 pub fn derive_parseable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;

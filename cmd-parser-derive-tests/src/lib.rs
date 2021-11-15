@@ -1,4 +1,4 @@
-#![cfg(test)]
+// #![cfg(test)]
 
 mod simple_struct {
     use cmd_parser::CmdParsable;
@@ -73,5 +73,45 @@ mod simple_enum {
             Enum::parse_cmd("Struct 10 20 def").unwrap(),
             (Enum::Struct { a: 10, b: 20 }, "def")
         )
+    }
+}
+
+mod enum_attributes {
+    use cmd_parser::CmdParsable;
+
+    #[derive(Debug, PartialEq, CmdParsable)]
+    enum Enum {
+        #[cmd(rename = "f")]
+        First,
+        #[cmd(ignore, alias = "s2", alias = "second2")]
+        Second,
+        #[cmd(rename = "t")]
+        #[cmd(alias = "t1")]
+        #[cmd(alias = "t2")]
+        Third,
+        #[cmd(ignore)]
+        #[allow(dead_code)]
+        Fourth,
+        #[cmd(alias = "5")]
+        Fifth,
+    }
+
+    #[test]
+    fn can_parse() {
+        assert_eq!(Enum::parse_cmd("f").unwrap().0, Enum::First);
+        assert_eq!(Enum::parse_cmd("s2").unwrap().0, Enum::Second);
+        assert_eq!(Enum::parse_cmd("second2").unwrap().0, Enum::Second);
+        assert_eq!(Enum::parse_cmd("t").unwrap().0, Enum::Third);
+        assert_eq!(Enum::parse_cmd("t1").unwrap().0, Enum::Third);
+        assert_eq!(Enum::parse_cmd("t2").unwrap().0, Enum::Third);
+        assert_eq!(Enum::parse_cmd("Fifth").unwrap().0, Enum::Fifth);
+        assert_eq!(Enum::parse_cmd("5").unwrap().0, Enum::Fifth);
+    }
+
+    #[test]
+    fn cannot_parse() {
+        Enum::parse_cmd("First").unwrap_err();
+        Enum::parse_cmd("Second").unwrap_err();
+        Enum::parse_cmd("Fourth").unwrap_err();
     }
 }

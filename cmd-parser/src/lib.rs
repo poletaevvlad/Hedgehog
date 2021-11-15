@@ -10,12 +10,13 @@ pub enum ParseErrorKind<'a> {
     TokenRequired,
     UnexpectedToken(Cow<'a, str>),
     UnbalancedParenthesis,
+    UnknownVariant(Cow<'a, str>),
 }
 
 #[derive(Debug)]
 pub struct ParseError<'a> {
-    kind: ParseErrorKind<'a>,
-    expected: Cow<'static, str>,
+    pub kind: ParseErrorKind<'a>,
+    pub expected: Cow<'static, str>,
 }
 
 impl<'a> ParseErrorKind<'a> {
@@ -51,6 +52,9 @@ impl<'a> fmt::Display for ParseError<'a> {
                 f.write_fmt(format_args!("unexpected token: \"{}\"", token))
             }
             ParseErrorKind::UnbalancedParenthesis => f.write_str("unbalanced parenthesis"),
+            ParseErrorKind::UnknownVariant(variant) => {
+                f.write_fmt(format_args!("unknown variant: \"{}\"", variant))
+            }
         }
     }
 }

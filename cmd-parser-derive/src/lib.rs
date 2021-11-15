@@ -1,8 +1,11 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};
 
-fn derive_fields(name: &Ident, fields: Fields) -> Result<proc_macro2::TokenStream, syn::Error> {
+fn derive_fields(
+    name: impl ToTokens,
+    fields: &Fields,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
     match fields {
         Fields::Named(fields) => {
             let field_parse = fields.named.iter().map(|field| {
@@ -37,12 +40,43 @@ fn derive_fields(name: &Ident, fields: Fields) -> Result<proc_macro2::TokenStrea
     }
 }
 
-fn derive_enum(_name: Ident, _data: DataEnum) -> Result<proc_macro2::TokenStream, syn::Error> {
-    todo!();
+fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let mut variant_parse = Vec::new();
+    for variant in data.variants.iter() {
+        let variant_ident = &variant.ident;
+        let variant_path = quote! { #name::#variant_ident };
+        let parse_fields = derive_fields(variant_path, &variant.fields)?;
+        variant_parse.push(quote! {
+            stringify!(#variant_ident) => { #parse_fields }
+        });
+    }
+    Ok(quote! {
+        impl cmd_parser::CmdParsable for #name {
+            fn parse_cmd_raw(mut input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+                let (discriminator, input) = cmd_parser::take_token(input);
+                let discriminator = match discriminator {
+                    Some(discriminator) => discriminator,
+                    None => return Err(cmd_parser::ParseError {
+                        kind: cmd_parser::ParseErrorKind::TokenRequired,
+                        expected: "name".into(),
+                    }),
+                };
+
+                let d_str: &str = &discriminator;
+                match d_str {
+                    #(#variant_parse)*
+                    _ => Err(cmd_parser::ParseError{
+                        kind: cmd_parser::ParseErrorKind::UnknownVariant(discriminator),
+                        expected: "name".into(),
+                    })
+                }
+            }
+        }
+    })
 }
 
 fn derive_struct(name: Ident, data: DataStruct) -> Result<proc_macro2::TokenStream, syn::Error> {
-    let struct_create = derive_fields(&name, data.fields)?;
+    let struct_create = derive_fields(&name, &data.fields)?;
 
     Ok(quote! {
         impl cmd_parser::CmdParsable for #name {

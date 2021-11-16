@@ -14,7 +14,7 @@ fn derive_fields(
             let field_parse = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().unwrap();
                 let field_type = &field.ty;
-                quote! { let (#ident, input) = #field_type::parse_cmd(input)?; }
+                quote! { let (#ident, input) = <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input)?; }
             });
             let field_idents = fields
                 .named
@@ -29,7 +29,7 @@ fn derive_fields(
             let field_parse = fields.unnamed.iter().enumerate().map(|(index, field)| {
                 let ident = format_ident!("field_{}", index);
                 let field_type = &field.ty;
-                quote! { let (#ident, input) = #field_type::parse_cmd(input)?; }
+                quote! { let (#ident, input) = <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input)?; }
             });
             let field_var_names =
                 (0..fields.unnamed.len()).map(|index| format_ident!("field_{}", index));

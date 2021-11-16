@@ -42,6 +42,37 @@ mod simple_struct {
             )
         )
     }
+
+    #[test]
+    fn struct_generic_type() {
+        #[derive(Debug, PartialEq, CmdParsable)]
+        struct Struct {
+            a: u8,
+            b: Vec<u8>,
+        }
+
+        assert_eq!(
+            Struct::parse_cmd("10 20 30 40").unwrap(),
+            (
+                Struct {
+                    a: 10,
+                    b: vec![20, 30, 40]
+                },
+                ""
+            )
+        );
+    }
+
+    #[test]
+    fn tuple_generic_type() {
+        #[derive(Debug, PartialEq, CmdParsable)]
+        struct Struct(u8, Vec<u8>);
+
+        assert_eq!(
+            Struct::parse_cmd("10 20 30 40").unwrap(),
+            (Struct(10, vec![20, 30, 40]), "")
+        );
+    }
 }
 
 mod simple_enum {

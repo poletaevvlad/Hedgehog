@@ -3,6 +3,7 @@ pub use cmd_parser_derive::*;
 use std::borrow::Cow;
 use std::fmt;
 use std::num::{IntErrorKind, ParseIntError};
+use std::time::Duration;
 
 #[derive(Debug)]
 pub enum ParseErrorKind<'a> {
@@ -194,6 +195,47 @@ gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13);
 gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14);
 gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14 T15);
 gen_parsable_tuple!(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14 T15 T16);
+
+impl CmdParsable for Duration {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let (token, input) = take_token(input);
+        match token {
+            Some(token) => {
+                let mut parts = token.rsplitn(3, ':');
+                let mut seconds: f64 = match parts.next().unwrap().parse() {
+                    Ok(seconds) => seconds,
+                    Err(_) => {
+                        return Err(ParseError {
+                            kind: ParseErrorKind::TokenParse(token, None),
+                            expected: "duration".into(),
+                        })
+                    }
+                };
+
+                let mut multiplier = 60.0;
+                for part in parts {
+                    match part.parse::<u64>() {
+                        Ok(part) => {
+                            seconds += multiplier * part as f64;
+                            multiplier *= 60.0;
+                        }
+                        Err(_) => {
+                            return Err(ParseError {
+                                kind: ParseErrorKind::TokenParse(token, None),
+                                expected: "duration".into(),
+                            })
+                        }
+                    }
+                }
+                Ok((Duration::from_secs_f64(seconds), input))
+            }
+            None => Err(ParseError {
+                kind: ParseErrorKind::TokenRequired,
+                expected: "duration".into(),
+            }),
+        }
+    }
+}
 
 fn skip_ws(mut input: &str) -> &str {
     loop {
@@ -467,6 +509,49 @@ mod tests {
                 &<(u8, u8)>::parse_cmd("(10)").unwrap_err().to_string(),
                 "expected integer"
             );
+        }
+    }
+
+    mod parse_duration {
+        use std::time::Duration;
+
+        use super::*;
+
+        #[test]
+        fn parse_seconds() {
+            let (result, _) = Duration::parse_cmd("10").unwrap();
+            assert_eq!(result, Duration::from_secs(10))
+        }
+
+        #[test]
+        fn parse_seconds_decimal() {
+            let (result, _) = Duration::parse_cmd("10.4").unwrap();
+            assert_eq!(result, Duration::from_secs_f64(10.4))
+        }
+
+        #[test]
+        fn parse_munites_seconds() {
+            let (result, _) = Duration::parse_cmd("14:10").unwrap();
+            assert_eq!(result, Duration::from_secs(14 * 60 + 10))
+        }
+
+        #[test]
+        fn parse_hours_munites_seconds() {
+            let (result, _) = Duration::parse_cmd("2:14:10.4").unwrap();
+            assert_eq!(
+                result,
+                Duration::from_secs_f64(2.0 * 3600.0 + 14.0 * 60.0 + 10.4)
+            )
+        }
+
+        #[test]
+        fn too_many_parts() {
+            Duration::parse_cmd("4:2:14:10").unwrap_err();
+        }
+
+        #[test]
+        fn invalid_symbol() {
+            Duration::parse_cmd("1s4:10").unwrap_err();
         }
     }
 }

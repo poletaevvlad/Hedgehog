@@ -1,6 +1,6 @@
 pub use cmd_parser_derive::*;
 
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::fmt;
 use std::num::{IntErrorKind, ParseIntError};
 use std::time::Duration;
@@ -84,6 +84,32 @@ pub trait CmdParsable: Sized {
     }
 
     fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>>;
+}
+
+impl CmdParsable for bool {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let (token, remaining) = take_token(input);
+        let token = match token {
+            Some(token) => token,
+            None => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::TokenRequired,
+                    expected: "boolean".into(),
+                })
+            }
+        };
+        let value = match token.borrow() {
+            "true" | "t" | "yes" | "y" => true,
+            "false" | "f" | "no" | "n" => false,
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::TokenParse(token, None),
+                    expected: "boolean".into(),
+                })
+            }
+        };
+        Ok((value, remaining))
+    }
 }
 
 macro_rules! gen_parsable_int {
@@ -334,6 +360,38 @@ mod tests {
             assert_eq!(
                 &f32::parse_cmd("abc").unwrap_err().to_string(),
                 "invalid real number \"abc\""
+            );
+        }
+    }
+
+    mod boolean {
+        use super::*;
+
+        #[test]
+        fn success() {
+            assert_eq!(bool::parse_cmd("true 1").unwrap(), (true, "1"));
+            assert_eq!(bool::parse_cmd("t 1").unwrap(), (true, "1"));
+            assert_eq!(bool::parse_cmd("yes 1").unwrap(), (true, "1"));
+            assert_eq!(bool::parse_cmd("y 1").unwrap(), (true, "1"));
+            assert_eq!(bool::parse_cmd("false 1").unwrap(), (false, "1"));
+            assert_eq!(bool::parse_cmd("f 1").unwrap(), (false, "1"));
+            assert_eq!(bool::parse_cmd("no 1").unwrap(), (false, "1"));
+            assert_eq!(bool::parse_cmd("n 1").unwrap(), (false, "1"));
+        }
+
+        #[test]
+        fn unknown_variant() {
+            assert_eq!(
+                &bool::parse_cmd("unknown").unwrap_err().to_string(),
+                "invalid boolean \"unknown\""
+            );
+        }
+
+        #[test]
+        fn missing() {
+            assert_eq!(
+                &bool::parse_cmd("").unwrap_err().to_string(),
+                "expected boolean"
             );
         }
     }

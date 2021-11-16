@@ -1,6 +1,6 @@
 mod attrs;
 
-use attrs::VariantAttributes;
+use attrs::{BuildableAttributes, VariantAttributes};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};

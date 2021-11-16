@@ -1,9 +1,11 @@
 pub use cmd_parser_derive::*;
 
 use std::borrow::{Borrow, Cow};
-use std::fmt;
+use std::fmt::{self, Display};
 use std::num::{IntErrorKind, ParseIntError};
+use std::ops::Deref;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -85,6 +87,27 @@ pub trait CmdParsable: Sized {
     }
 
     fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>>;
+}
+
+pub fn parse_cmd_token<T: FromStr>(
+    input: &str,
+    expected: impl Into<Cow<'static, str>>,
+) -> Result<(T, &str), ParseError<'_>>
+where
+    T::Err: Display,
+{
+    let (token, input) = take_token(input);
+    match token.as_ref().map(|token| token.deref().parse()) {
+        Some(Ok(value)) => Ok((value, input)),
+        Some(Err(error)) => Err(ParseError {
+            kind: ParseErrorKind::TokenParse(token.unwrap(), Some(error.to_string().into())),
+            expected: expected.into(),
+        }),
+        None => Err(ParseError {
+            kind: ParseErrorKind::TokenRequired,
+            expected: expected.into(),
+        }),
+    }
 }
 
 impl CmdParsable for bool {

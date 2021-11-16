@@ -1,4 +1,6 @@
-use syn::{spanned::Spanned, Attribute, Error, Lit, Meta, MetaNameValue, NestedMeta, Path};
+use syn::{
+    spanned::Spanned, Attribute, Error, Lit, Meta, MetaList, MetaNameValue, NestedMeta, Path,
+};
 
 #[derive(Default)]
 pub(crate) struct VariantAttributes {
@@ -7,11 +9,16 @@ pub(crate) struct VariantAttributes {
     pub(crate) transparent: bool,
 }
 
-impl VariantAttributes {
-    pub(crate) fn from_attributes<'a>(
-        attrs: impl Iterator<Item = &'a Attribute>,
-    ) -> Result<Self, Error> {
-        let mut attributes = VariantAttributes::default();
+pub(crate) trait BuildableAttributes {
+    fn visit_name_value(&mut self, name_value: &MetaNameValue) -> Result<(), Error>;
+    fn visit_path(&mut self, path: &Path) -> Result<(), Error>;
+    fn visit_list(&mut self, list: &MetaList) -> Result<(), Error>;
+
+    fn from_attributes<'a>(attrs: impl Iterator<Item = &'a Attribute>) -> Result<Self, Error>
+    where
+        Self: Default,
+    {
+        let mut attributes = Self::default();
 
         for attr in attrs {
             let meta = attr.parse_meta()?;
@@ -37,33 +44,43 @@ impl VariantAttributes {
                     }
                 };
                 match meta {
-                    Meta::NameValue(name_value) if compare_path(&name_value.path, "rename") => {
-                        attributes.aliases.push(get_name_value_string(name_value)?);
-                        attributes.ignore = true;
-                    }
-                    Meta::NameValue(name_value) if compare_path(&name_value.path, "alias") => {
-                        attributes.aliases.push(get_name_value_string(name_value)?);
-                    }
-                    Meta::Path(path) if compare_path(path, "ignore") => {
-                        attributes.ignore = true;
-                    }
-                    Meta::Path(path) if compare_path(path, "transparent") => {
-                        attributes.transparent = true;
-                    }
-                    Meta::Path(path) => {
-                        return Err(Error::new(path.span(), "Unknown argument"));
-                    }
-                    Meta::NameValue(name_value) => {
-                        return Err(Error::new(name_value.path.span(), "Unknown argument"));
-                    }
-                    Meta::List(list) => {
-                        return Err(Error::new(list.span(), "Unknown argument"));
-                    }
+                    Meta::Path(path) => attributes.visit_path(path)?,
+                    Meta::NameValue(name_value) => attributes.visit_name_value(name_value)?,
+                    Meta::List(list) => attributes.visit_list(list)?,
                 }
             }
         }
 
         Ok(attributes)
+    }
+}
+
+impl BuildableAttributes for VariantAttributes {
+    fn visit_name_value(&mut self, name_value: &MetaNameValue) -> Result<(), Error> {
+        if compare_path(&name_value.path, "rename") {
+            self.aliases.push(get_name_value_string(name_value)?);
+            self.ignore = true;
+        } else if compare_path(&name_value.path, "alias") {
+            self.aliases.push(get_name_value_string(name_value)?);
+        } else {
+            return Err(Error::new(name_value.span(), "Unknown argument"));
+        }
+        Ok(())
+    }
+
+    fn visit_path(&mut self, path: &Path) -> Result<(), Error> {
+        if compare_path(path, "ignore") {
+            self.ignore = true;
+        } else if compare_path(path, "transparent") {
+            self.transparent = true;
+        } else {
+            return Err(Error::new(path.span(), "Unknown argument"));
+        }
+        Ok(())
+    }
+
+    fn visit_list(&mut self, list: &MetaList) -> Result<(), Error> {
+        Err(Error::new(list.span(), "Unknown argument"))
     }
 }
 

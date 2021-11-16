@@ -3,6 +3,7 @@ pub use cmd_parser_derive::*;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
 use std::num::{IntErrorKind, ParseIntError};
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -263,6 +264,22 @@ impl CmdParsable for Duration {
     }
 }
 
+impl CmdParsable for PathBuf {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let (token, input) = take_token(input);
+        match token {
+            Some(token) => {
+                let path = PathBuf::from(token.into_owned());
+                Ok((path, input))
+            }
+            None => Err(ParseError {
+                kind: ParseErrorKind::TokenRequired,
+                expected: "path".into(),
+            }),
+        }
+    }
+}
+
 fn skip_ws(mut input: &str) -> &str {
     loop {
         let mut chars = input.chars();
@@ -364,7 +381,7 @@ mod tests {
         }
     }
 
-    mod boolean {
+    mod parse_boolean {
         use super::*;
 
         #[test]
@@ -396,7 +413,7 @@ mod tests {
         }
     }
 
-    mod string {
+    mod parse_string {
         use super::*;
 
         #[test]
@@ -420,6 +437,27 @@ mod tests {
             assert_eq!(
                 &String::parse_cmd("(first second)").unwrap_err().to_string(),
                 "unexpected token: \"second\""
+            )
+        }
+    }
+
+    mod parse_path {
+        use super::*;
+        use std::path::PathBuf;
+
+        #[test]
+        fn success() {
+            assert_eq!(
+                PathBuf::parse_cmd("/usr/bin/bash 1").unwrap(),
+                (PathBuf::from("/usr/bin/bash".to_string()), "1")
+            );
+        }
+
+        #[test]
+        fn missing() {
+            assert_eq!(
+                &PathBuf::parse_cmd("").unwrap_err().to_string(),
+                "expected path"
             )
         }
     }

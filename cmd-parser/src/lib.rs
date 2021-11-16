@@ -280,6 +280,24 @@ impl CmdParsable for PathBuf {
     }
 }
 
+impl<T: CmdParsable> CmdParsable for Box<T> {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let (result, input) = T::parse_cmd_raw(input)?;
+        Ok((Box::new(result), input))
+    }
+}
+
+impl<T: CmdParsable> CmdParsable for Option<T> {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        if has_tokens(input) {
+            let (value, input) = T::parse_cmd_raw(input)?;
+            Ok((Some(value), input))
+        } else {
+            Ok((None, input))
+        }
+    }
+}
+
 fn skip_ws(mut input: &str) -> &str {
     loop {
         let mut chars = input.chars();
@@ -462,6 +480,11 @@ mod tests {
         }
     }
 
+    #[test]
+    fn parse_box() {
+        assert_eq!(Box::<u8>::parse_cmd("10 20").unwrap(), (Box::new(10), "20"));
+    }
+
     mod take_token_tests {
         use super::*;
         use std::borrow::Cow;
@@ -580,6 +603,20 @@ mod tests {
         }
     }
 
+    mod parse_option {
+        use super::*;
+
+        #[test]
+        fn parse_some() {
+            assert_eq!(Option::<u32>::parse_cmd("10  a").unwrap(), (Some(10), "a"));
+        }
+
+        #[test]
+        fn parse_none() {
+            assert_eq!(Option::<u32>::parse_cmd("").unwrap(), (None, ""));
+        }
+    }
+
     mod parse_tuples {
         use super::*;
 
@@ -609,9 +646,8 @@ mod tests {
     }
 
     mod parse_duration {
-        use std::time::Duration;
-
         use super::*;
+        use std::time::Duration;
 
         #[test]
         fn parse_seconds() {

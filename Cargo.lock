@@ -1075,6 +1075,7 @@ name = "hedgehog-player"
 version = "0.1.0"
 dependencies = [
  "actix",
+ "cmd-parser",
  "gstreamer-base",
  "serde",
 ]
@@ -1085,6 +1086,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "bitflags",
+ "cmd-parser",
  "crossterm 0.20.0",
  "hedgehog-library",
  "hedgehog-player",

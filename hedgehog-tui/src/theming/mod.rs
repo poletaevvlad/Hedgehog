@@ -3,6 +3,7 @@ mod selectors;
 mod style_parser;
 
 use crate::cmdreader::{self, CommandReader, FileResolver};
+use cmd_parser::CmdParsable;
 use selectors::StyleSelector;
 pub(crate) use selectors::{List, ListState, ListSubitem, Player, Selector, StatusBar};
 use std::collections::HashMap;
@@ -81,7 +82,7 @@ impl Default for Theme {
     }
 }
 
-#[derive(Debug, serde::Deserialize, Clone, PartialEq)]
+#[derive(Debug, serde::Deserialize, Clone, PartialEq, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ThemeLoadingMode {
     Reset,
@@ -94,13 +95,15 @@ impl Default for ThemeLoadingMode {
     }
 }
 
-#[derive(Debug, serde::Deserialize, Clone, PartialEq)]
+#[derive(Debug, serde::Deserialize, Clone, PartialEq, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ThemeCommand {
     Reset,
     Set(
         Selector,
-        #[serde(deserialize_with = "style_parser::deserialize")] Style,
+        #[serde(deserialize_with = "style_parser::deserialize")]
+        #[cmd(parse_with = "style_parser::parse_cmd")]
+        Style,
     ),
     Load(PathBuf, Option<ThemeLoadingMode>),
 }

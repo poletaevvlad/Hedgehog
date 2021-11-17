@@ -9,6 +9,7 @@ use crate::screen::{EpisodesListProvider, FeedsListProvider};
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
+use cmd_parser::CmdParsable;
 use hedgehog_library::model::{
     EpisodeId, EpisodeSummary, EpisodeSummaryStatus, FeedId, FeedSummary,
 };
@@ -28,12 +29,14 @@ pub(crate) trait ActionDelegate {
     fn send_feed_update_request(&self, command: FeedUpdateRequest);
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum FocusedPane {
     #[serde(rename = "feeds")]
+    #[cmd(rename = "feeds")]
     FeedsList,
     #[serde(rename = "episodes")]
+    #[cmd(rename = "episodes")]
     EpisodesList,
 }
 
@@ -374,7 +377,7 @@ impl<D: ActionDelegate> ViewModel<D> {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Clone, PartialEq, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Command {
     #[serde(rename = "line")]

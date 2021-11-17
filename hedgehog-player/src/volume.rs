@@ -1,4 +1,5 @@
 use actix::Message;
+use cmd_parser::{CmdParsable, ParseError};
 use gstreamer_base::glib::{ToValue, Type, Value};
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
@@ -90,15 +91,24 @@ impl<'de> Deserialize<'de> for Volume {
     }
 }
 
-#[derive(Debug, Deserialize, Copy, Clone, Message, PartialEq)]
+impl CmdParsable for Volume {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
+        let (percentage, input) = f64::parse_cmd_raw(input)?;
+        Ok((Volume::from_cubic_clip(percentage / 100.0), input))
+    }
+}
+
+#[derive(Debug, Deserialize, Copy, Clone, Message, PartialEq, CmdParsable)]
 #[rtype(result = "()")]
 #[serde(rename_all = "kebab-case")]
 pub enum VolumeCommand {
     Mute,
     Unmute,
     ToggleMute,
+    #[cmd(rename = "set")]
     #[serde(rename = "set")]
     SetVolume(Volume),
+    #[cmd(rename = "adjust")]
     #[serde(rename = "adjust")]
     AdjustVolume(f64),
 }

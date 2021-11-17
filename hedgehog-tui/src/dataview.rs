@@ -1,3 +1,4 @@
+use cmd_parser::CmdParsable;
 use hedgehog_library::model::Identifiable;
 use hedgehog_library::Page;
 use std::collections::VecDeque;
@@ -578,7 +579,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     }
 }
 
-#[derive(Debug, serde::Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, serde::Deserialize, Clone, Copy, PartialEq, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum CursorCommand {
     Next,

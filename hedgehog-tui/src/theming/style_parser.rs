@@ -1,4 +1,5 @@
 use super::parser::ParsableStr;
+use cmd_parser::CmdParsable;
 use tui::style::{Color, Modifier, Style};
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -114,6 +115,35 @@ pub(crate) fn parse_style(input: &str) -> Result<Style, Error> {
     }
 
     Ok(style)
+}
+
+struct StyleCmd(Style);
+
+impl CmdParsable for StyleCmd {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+        let (token, remaining) = cmd_parser::take_token(input);
+        match token {
+            Some(token) => match parse_style(&token) {
+                Ok(style) => Ok((StyleCmd(style), remaining)),
+                Err(err) => Err(cmd_parser::ParseError {
+                    kind: cmd_parser::ParseErrorKind::TokenParse(
+                        token,
+                        Some(err.to_string().into()),
+                    ),
+                    expected: "style".into(),
+                }),
+            },
+            None => Err(cmd_parser::ParseError {
+                kind: cmd_parser::ParseErrorKind::TokenRequired,
+                expected: "style".into(),
+            }),
+        }
+    }
+}
+
+pub(crate) fn parse_cmd(input: &str) -> Result<(Style, &str), cmd_parser::ParseError<'_>> {
+    let (style, remaining) = StyleCmd::parse_cmd(input)?;
+    Ok((style.0, remaining))
 }
 
 struct StyleDeseralizeVisitor;

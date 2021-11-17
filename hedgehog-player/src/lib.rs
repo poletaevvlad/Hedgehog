@@ -3,6 +3,7 @@ pub mod state;
 pub mod volume;
 
 use actix::prelude::*;
+use cmd_parser::CmdParsable;
 use gst_utils::{build_flags, get_property, set_property, GstError};
 use gstreamer_base::{gst, gst::prelude::*, BaseParse};
 use std::error::Error;
@@ -134,14 +135,14 @@ impl Handler<ActorCommand> for Player {
     }
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, serde::Deserialize, PartialEq, Clone, Copy, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 pub enum SeekDirection {
     Forward,
     Backward,
 }
 
-#[derive(Debug, Message, serde::Deserialize, PartialEq, Clone)]
+#[derive(Debug, Message, serde::Deserialize, PartialEq, Clone, CmdParsable)]
 #[serde(rename_all = "kebab-case")]
 #[rtype(result = "()")]
 pub enum PlaybackCommand {

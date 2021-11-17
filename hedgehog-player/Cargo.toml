@@ -7,6 +7,7 @@ edition = "2018"
 gstreamer-base = "0.17"
 actix = "0.12"
 serde = { version = "1.0", features = ["derive"] }
+cmd-parser = { path = "../cmd-parser" }
 
 [[bin]]
 name = "player-client"

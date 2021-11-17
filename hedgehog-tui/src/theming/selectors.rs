@@ -1,8 +1,9 @@
 use super::parser::{match_take, ParsableStr};
 use crate::status::Severity;
 use bitflags::bitflags;
+use cmd_parser::CmdParsable;
 use hedgehog_player::state::PlaybackStatus;
-use std::str::FromStr;
+use std::{borrow::Borrow, str::FromStr};
 
 pub(crate) trait StyleSelector {
     fn for_each_overrides(&self, callback: impl FnMut(Self))
@@ -215,6 +216,29 @@ impl Selector {
     }
 }
 
+impl CmdParsable for Selector {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+        let (token, input) = cmd_parser::take_token(input);
+        match token
+            .as_ref()
+            .map(|selector| Selector::parse(&mut ParsableStr::new(selector.borrow())))
+        {
+            None => Err(cmd_parser::ParseError {
+                kind: cmd_parser::ParseErrorKind::TokenRequired,
+                expected: "selector".into(),
+            }),
+            Some(Ok(selector)) => Ok((selector, input)),
+            Some(Err(err)) => Err(cmd_parser::ParseError {
+                kind: cmd_parser::ParseErrorKind::TokenParse(
+                    token.unwrap(),
+                    Some(err.to_string().into()),
+                ),
+                expected: "selector".into(),
+            }),
+        }
+    }
+}
+
 impl StyleSelector for Selector {
     fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
         match self {
@@ -284,11 +308,11 @@ impl<'de> serde::Deserialize<'de> for Selector {
 
 #[cfg(test)]
 mod tests {
-    use hedgehog_player::state::PlaybackStatus;
-
     use super::{List, ListState, ListSubitem, Player, Selector, StatusBar};
     use crate::cmdparser;
     use crate::status::Severity;
+    use cmd_parser::CmdParsable;
+    use hedgehog_player::state::PlaybackStatus;
 
     #[test]
     fn parse_selectors() {
@@ -320,6 +344,14 @@ mod tests {
             Ok(Selector::Player(Player::Status(Some(
                 PlaybackStatus::Playing
             ))))
+        );
+    }
+
+    #[test]
+    fn parse_cmd_selector() {
+        assert_eq!(
+            Selector::parse_cmd("statusbar.status").unwrap(),
+            (Selector::StatusBar(StatusBar::Status(None)), "")
         );
     }
 

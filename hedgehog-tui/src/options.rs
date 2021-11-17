@@ -1,3 +1,4 @@
+use cmd_parser::CmdParsable;
 use serde::Deserialize;
 
 macro_rules! gen_options {
@@ -14,7 +15,7 @@ macro_rules! gen_options {
             }
         }
 
-        #[derive(Debug, Deserialize, Clone, PartialEq)]
+        #[derive(Debug, Deserialize, Clone, PartialEq, CmdParsable)]
         #[serde(rename_all = "kebab-case")]
         pub(crate) enum OptionsUpdate {
             $($command($value)),*

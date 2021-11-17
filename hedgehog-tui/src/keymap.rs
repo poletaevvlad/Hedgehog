@@ -1,3 +1,4 @@
+use cmd_parser::CmdParsable;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -89,6 +90,12 @@ impl FromStr for Key {
     }
 }
 
+impl CmdParsable for Key {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+        cmd_parser::parse_cmd_token(input, "key")
+    }
+}
+
 struct KeyDeserializerVisitor;
 
 impl<'de> serde::de::Visitor<'de> for KeyDeserializerVisitor {
@@ -154,6 +161,7 @@ impl<T, S> Default for KeyMapping<T, S> {
 mod tests {
     use super::{Key, KeyParsingError};
     use crate::cmdparser;
+    use cmd_parser::CmdParsable;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     #[test]
@@ -177,6 +185,14 @@ mod tests {
                 KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT
             )
             .into()),
+        );
+
+        assert_eq!(
+            Key::parse_cmd("S-Space 10").unwrap(),
+            (
+                KeyEvent::new(KeyCode::Char(' '), KeyModifiers::SHIFT).into(),
+                "10"
+            )
         );
 
         assert_eq!(

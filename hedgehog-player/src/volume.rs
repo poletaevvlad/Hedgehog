@@ -1,7 +1,6 @@
 use actix::Message;
 use cmd_parser::{CmdParsable, ParseError};
 use gstreamer_base::glib::{ToValue, Type, Value};
-use serde::{de, Deserialize, Deserializer};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -56,41 +55,6 @@ impl ToValue for Volume {
     }
 }
 
-struct VolumeVisitor;
-
-impl<'de> de::Visitor<'de> for VolumeVisitor {
-    type Value = Volume;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("volume (percentage)")
-    }
-
-    fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
-        if v.is_finite() {
-            Ok(Volume::from_cubic_clip(v / 100.0))
-        } else {
-            Err(E::invalid_value(
-                de::Unexpected::Float(v),
-                &"finate floating point number",
-            ))
-        }
-    }
-
-    fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
-        Ok(Volume::from_cubic_clip(v as f64 / 100.0))
-    }
-
-    fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
-        Ok(Volume::from_cubic_clip(v as f64 / 100.0))
-    }
-}
-
-impl<'de> Deserialize<'de> for Volume {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_f64(VolumeVisitor)
-    }
-}
-
 impl CmdParsable for Volume {
     fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
         let (percentage, input) = f64::parse_cmd_raw(input)?;
@@ -98,18 +62,15 @@ impl CmdParsable for Volume {
     }
 }
 
-#[derive(Debug, Deserialize, Copy, Clone, Message, PartialEq, CmdParsable)]
+#[derive(Debug, Copy, Clone, Message, PartialEq, CmdParsable)]
 #[rtype(result = "()")]
-#[serde(rename_all = "kebab-case")]
 pub enum VolumeCommand {
     Mute,
     Unmute,
     ToggleMute,
     #[cmd(rename = "set")]
-    #[serde(rename = "set")]
     SetVolume(Volume),
     #[cmd(rename = "adjust")]
-    #[serde(rename = "adjust")]
     AdjustVolume(f64),
 }
 

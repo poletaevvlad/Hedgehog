@@ -37,6 +37,27 @@ impl<'a> ParseErrorKind<'a> {
     }
 }
 
+impl<'a> ParseError<'a> {
+    pub fn into_static(self) -> ParseError<'static> {
+        ParseError {
+            kind: match self.kind {
+                ParseErrorKind::TokenParse(token, error) => {
+                    ParseErrorKind::TokenParse(Cow::Owned(token.into_owned()), error)
+                }
+                ParseErrorKind::TokenRequired => ParseErrorKind::TokenRequired,
+                ParseErrorKind::UnexpectedToken(token) => {
+                    ParseErrorKind::UnexpectedToken(Cow::Owned(token.into_owned()))
+                }
+                ParseErrorKind::UnbalancedParenthesis => ParseErrorKind::UnbalancedParenthesis,
+                ParseErrorKind::UnknownVariant(token) => {
+                    ParseErrorKind::UnknownVariant(Cow::Owned(token.into_owned()))
+                }
+            },
+            expected: self.expected,
+        }
+    }
+}
+
 impl<'a> std::error::Error for ParseError<'a> {}
 
 impl<'a> fmt::Display for ParseError<'a> {
@@ -87,6 +108,18 @@ pub trait CmdParsable: Sized {
     }
 
     fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>>;
+
+    fn parse_cmd_full(input: &str) -> Result<Self, ParseError<'_>> {
+        let (cmd, remaining) = Self::parse_cmd(input)?;
+        if let Some(token) = take_token(remaining).0 {
+            Err(ParseError {
+                kind: ParseErrorKind::UnexpectedToken(token),
+                expected: "".into(),
+            })
+        } else {
+            Ok(cmd)
+        }
+    }
 }
 
 pub fn parse_cmd_token<T: FromStr>(
@@ -165,6 +198,8 @@ gen_parsable_int!(u32);
 gen_parsable_int!(i32);
 gen_parsable_int!(u64);
 gen_parsable_int!(i64);
+gen_parsable_int!(usize);
+gen_parsable_int!(isize);
 gen_parsable_int!(u128);
 gen_parsable_int!(i128);
 

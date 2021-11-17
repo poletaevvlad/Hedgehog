@@ -1,4 +1,3 @@
-mod cmdparser;
 mod cmdreader;
 mod dataview;
 mod events;

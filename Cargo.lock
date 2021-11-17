@@ -1077,7 +1077,6 @@ dependencies = [
  "actix",
  "cmd-parser",
  "gstreamer-base",
- "serde",
 ]
 
 [[package]]
@@ -1090,8 +1089,6 @@ dependencies = [
  "crossterm 0.20.0",
  "hedgehog-library",
  "hedgehog-player",
- "serde",
- "shlex",
  "tempfile",
  "thiserror",
  "tui",
@@ -2058,12 +2055,6 @@ dependencies = [
  "ryu",
  "serde",
 ]
-
-[[package]]
-name = "shlex"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "signal-hook"

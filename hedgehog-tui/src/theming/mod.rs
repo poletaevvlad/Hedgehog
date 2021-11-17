@@ -82,8 +82,7 @@ impl Default for Theme {
     }
 }
 
-#[derive(Debug, serde::Deserialize, Clone, PartialEq, CmdParsable)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, PartialEq, CmdParsable)]
 pub(crate) enum ThemeLoadingMode {
     Reset,
     NoReset,
@@ -95,15 +94,12 @@ impl Default for ThemeLoadingMode {
     }
 }
 
-#[derive(Debug, serde::Deserialize, Clone, PartialEq, CmdParsable)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, PartialEq, CmdParsable)]
 pub(crate) enum ThemeCommand {
     Reset,
     Set(
         Selector,
-        #[serde(deserialize_with = "style_parser::deserialize")]
-        #[cmd(parse_with = "style_parser::parse_cmd")]
-        Style,
+        #[cmd(parse_with = "style_parser::parse_cmd")] Style,
     ),
     Load(PathBuf, Option<ThemeLoadingMode>),
 }

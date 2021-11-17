@@ -286,30 +286,9 @@ impl From<Player> for Selector {
     }
 }
 
-struct SelectorDeserializeVisitor;
-
-impl<'de> serde::de::Visitor<'de> for SelectorDeserializeVisitor {
-    type Value = Selector;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("selector")
-    }
-
-    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-        v.parse().map_err(E::custom)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Selector {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_str(SelectorDeserializeVisitor)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{List, ListState, ListSubitem, Player, Selector, StatusBar};
-    use crate::cmdparser;
     use crate::status::Severity;
     use cmd_parser::CmdParsable;
     use hedgehog_player::state::PlaybackStatus;
@@ -328,7 +307,7 @@ mod tests {
         );
         assert_eq!("list.divider".parse(), Ok(Selector::List(List::Divider)));
         assert_eq!(
-            cmdparser::from_str::<Selector>("list.divider").unwrap(),
+            Selector::parse_cmd_full("list.divider").unwrap(),
             Selector::List(List::Divider)
         );
         assert_eq!(

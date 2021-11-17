@@ -1,11 +1,10 @@
-use super::cmdparser;
 use hedgehog_player::volume::Volume;
 use std::borrow::Cow;
 use std::fmt;
 
 #[derive(Debug)]
 pub(crate) enum Status {
-    CommandParsingError(cmdparser::Error),
+    CommandParsingError(cmd_parser::ParseError<'static>),
     Custom(Cow<'static, str>, Severity),
     VolumeChanged(Option<Volume>),
 }
@@ -39,8 +38,8 @@ impl fmt::Display for Status {
     }
 }
 
-impl From<cmdparser::Error> for Status {
-    fn from(error: cmdparser::Error) -> Self {
+impl From<cmd_parser::ParseError<'static>> for Status {
+    fn from(error: cmd_parser::ParseError<'static>) -> Self {
         Status::CommandParsingError(error)
     }
 }

@@ -1,5 +1,4 @@
-use crate::cmdparser;
-use serde::Deserialize;
+use cmd_parser::CmdParsable;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -93,7 +92,7 @@ pub(crate) enum Error {
     Io(#[from] io::Error),
 
     #[error("invalid command at line {1}: {0}")]
-    Parsing(#[source] cmdparser::Error, usize),
+    Parsing(#[source] cmd_parser::ParseError<'static>, usize),
 
     #[error("cannot find file")]
     Resolution,
@@ -117,7 +116,7 @@ impl CommandReader {
         })
     }
 
-    pub(crate) fn read<'de, C: Deserialize<'de>>(&'de mut self) -> Result<Option<C>, Error> {
+    pub(crate) fn read<C: CmdParsable>(&mut self) -> Result<Option<C>, Error> {
         loop {
             self.buffer.clear();
             let read_count = self.reader.read_line(&mut self.buffer)?;
@@ -130,9 +129,9 @@ impl CommandReader {
             }
 
             self.line_no += 1;
-            return match cmdparser::from_str(&self.buffer) {
+            return match C::parse_cmd_full(&self.buffer) {
                 Ok(command) => Ok(Some(command)),
-                Err(error) => Err(Error::Parsing(error, self.line_no)),
+                Err(error) => Err(Error::Parsing(error.into_static(), self.line_no)),
             };
         }
     }
@@ -141,12 +140,13 @@ impl CommandReader {
 #[cfg(test)]
 mod tests {
     use super::{CommandReader, Error, FileResolver};
+    use cmd_parser::CmdParsable;
     use std::fs::{remove_file, File};
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
-    #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+    #[derive(Debug, PartialEq, Eq, CmdParsable)]
     enum MockCmd {
         First(usize),
         Second(String),

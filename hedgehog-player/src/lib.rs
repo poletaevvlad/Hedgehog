@@ -135,18 +135,16 @@ impl Handler<ActorCommand> for Player {
     }
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Clone, Copy, CmdParsable)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, PartialEq, Clone, Copy, CmdParsable)]
 pub enum SeekDirection {
     Forward,
     Backward,
 }
 
-#[derive(Debug, Message, serde::Deserialize, PartialEq, Clone, CmdParsable)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Message, PartialEq, Clone, CmdParsable)]
 #[rtype(result = "()")]
 pub enum PlaybackCommand {
-    #[serde(skip_deserializing)]
+    #[cmd(ignore)]
     Play(String),
     Stop,
     Pause,

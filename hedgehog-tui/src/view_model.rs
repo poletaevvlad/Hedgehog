@@ -1,4 +1,3 @@
-use crate::cmdparser;
 use crate::cmdreader::{CommandReader, FileResolver};
 use crate::dataview::{
     CursorCommand, InteractiveList, ListData, PaginatedData, PaginatedDataMessage, Versioned,
@@ -18,7 +17,6 @@ use hedgehog_library::{
 };
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::{volume::VolumeCommand, PlaybackCommand, PlayerNotification};
-use serde::Deserialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -29,13 +27,10 @@ pub(crate) trait ActionDelegate {
     fn send_feed_update_request(&self, command: FeedUpdateRequest);
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
 pub(crate) enum FocusedPane {
-    #[serde(rename = "feeds")]
     #[cmd(rename = "feeds")]
     FeedsList,
-    #[serde(rename = "episodes")]
     #[cmd(rename = "episodes")]
     EpisodesList,
 }
@@ -87,11 +82,11 @@ impl<D: ActionDelegate> ViewModel<D> {
     }
 
     pub(crate) fn handle_command_str(&mut self, command: &str) {
-        match cmdparser::from_str(command) {
+        match Command::parse_cmd_full(command) {
             Ok(command) => {
                 self.handle_command_interactive(command);
             }
-            Err(error) => self.status = Some(Status::CommandParsingError(error)),
+            Err(error) => self.status = Some(Status::CommandParsingError(error.into_static())),
         }
     }
 
@@ -377,10 +372,8 @@ impl<D: ActionDelegate> ViewModel<D> {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, PartialEq, CmdParsable)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, PartialEq, CmdParsable)]
 pub(crate) enum Command {
-    #[serde(rename = "line")]
     Cursor(CursorCommand),
     Map(Key, Box<Command>),
     MapState(Key, FocusedPane, Box<Command>),
@@ -392,12 +385,10 @@ pub(crate) enum Command {
     PlayCurrent,
     Playback(PlaybackCommand),
     SetFeedEnabled(bool),
-    #[serde(alias = "q")]
+    #[cmd(alias = "q")]
     Quit,
     SetFocus(FocusedPane),
-    #[serde(rename = "set")]
     SetOption(OptionsUpdate),
-    #[serde(rename = "add")]
     AddFeed(String),
     DeleteFeed,
     Update,
@@ -445,25 +436,25 @@ mod tests {
         write_file(
             global_data.path(),
             "rc",
-            "map Up line previous\nmap Down line next\ntheme load default",
+            "Map Up Cursor Previous\nMap Down Cursor Next\nTheme Load default",
         );
         write_file(
             global_data.path(),
             "default.theme",
-            "load another no-reset\nset statusbar.empty bg:red",
+            "Load another NoReset\nSet statusbar.empty bg:red",
         );
         write_file(
             global_data.path(),
             "another.theme",
-            "set list.divider bg:blue",
+            "Set list.divider bg:blue",
         );
 
         write_file(
             user_data.path(),
             "another.theme",
-            "set statusbar.command bg:yellow",
+            "Set statusbar.command bg:yellow",
         );
-        write_file(user_data.path(), "rc", "map Down line last");
+        write_file(user_data.path(), "rc", "Map Down Cursor Last");
 
         let mut view_model = ViewModel::new((32, 32), NoopPlayerDelagate);
         view_model.init_rc();

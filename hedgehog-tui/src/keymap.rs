@@ -18,10 +18,10 @@ pub(crate) enum KeyParsingError {
     #[error("keybinding cannot be empty")]
     Empty,
 
-    #[error("'{0}' is not a recognized key")]
-    UnknownKey(String),
+    #[error("key is not recognized")]
+    UnknownKey,
 
-    #[error("'{0}' is not a recognized modifier")]
+    #[error("invalid modifier: {0}")]
     UnknownModifier(String),
 
     #[error("duplicate modifiers are not allowed")]
@@ -63,9 +63,9 @@ impl FromStr for Key {
                 } else if first == 'F' {
                     tail.parse()
                         .map(KeyCode::F)
-                        .map_err(|_| KeyParsingError::UnknownKey(key.to_string()))?
+                        .map_err(|_| KeyParsingError::UnknownKey)?
                 } else {
-                    return Err(KeyParsingError::UnknownKey(key.to_string()));
+                    return Err(KeyParsingError::UnknownKey);
                 }
             }
         };
@@ -93,26 +93,6 @@ impl FromStr for Key {
 impl CmdParsable for Key {
     fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
         cmd_parser::parse_cmd_token(input, "key")
-    }
-}
-
-struct KeyDeserializerVisitor;
-
-impl<'de> serde::de::Visitor<'de> for KeyDeserializerVisitor {
-    type Value = Key;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("key")
-    }
-
-    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-        v.parse().map_err(E::custom)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Key {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_str(KeyDeserializerVisitor)
     }
 }
 
@@ -160,7 +140,6 @@ impl<T, S> Default for KeyMapping<T, S> {
 #[cfg(test)]
 mod tests {
     use super::{Key, KeyParsingError};
-    use crate::cmdparser;
     use cmd_parser::CmdParsable;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -195,14 +174,8 @@ mod tests {
             )
         );
 
-        assert_eq!(
-            "S-unknown".parse::<Key>(),
-            Err(KeyParsingError::UnknownKey("unknown".to_string())),
-        );
-        assert_eq!(
-            "F256".parse::<Key>(),
-            Err(KeyParsingError::UnknownKey("F256".to_string())),
-        );
+        assert_eq!("S-unknown".parse::<Key>(), Err(KeyParsingError::UnknownKey),);
+        assert_eq!("F256".parse::<Key>(), Err(KeyParsingError::UnknownKey),);
         assert_eq!("".parse::<Key>(), Err(KeyParsingError::Empty));
         assert_eq!(
             "L-a".parse::<Key>(),
@@ -215,16 +188,14 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_key() {
+    fn parse_cmd() {
         assert_eq!(
-            cmdparser::from_str::<Key>("C-a").unwrap(),
+            Key::parse_cmd_full("C-a").unwrap(),
             KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL).into()
         );
         assert_eq!(
-            &cmdparser::from_str::<Key>("unknown")
-                .unwrap_err()
-                .to_string(),
-            "'unknown' is not a recognized key"
+            &Key::parse_cmd_full("unknown").unwrap_err().to_string(),
+            "invalid key \"unknown\": key is not recognized"
         );
     }
 }

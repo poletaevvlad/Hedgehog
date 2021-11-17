@@ -6,6 +6,18 @@ use quote::{format_ident, quote, ToTokens};
 use std::str::FromStr;
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};
 
+fn to_kebab_case(ident: &str) -> String {
+    let mut result = String::new();
+    for (i, ch) in ident.chars().enumerate() {
+        let lowercase = ch.to_ascii_lowercase();
+        if i > 0 && ch != lowercase {
+            result.push('-');
+        }
+        result.push(lowercase);
+    }
+    result
+}
+
 fn derive_fields(
     name: impl ToTokens,
     fields: &Fields,
@@ -73,7 +85,8 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
         } else {
             let mut discriminators = attrs.aliases;
             if !attrs.ignore {
-                discriminators.push(variant.ident.to_string());
+                let label = to_kebab_case(&variant.ident.to_string());
+                discriminators.push(label);
             }
             if discriminators.is_empty() {
                 continue;
@@ -148,5 +161,16 @@ pub fn derive_parseable(input: TokenStream) -> TokenStream {
     match result {
         Ok(token_stream) => token_stream.into(),
         Err(error) => error.into_compile_error().into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::to_kebab_case;
+
+    #[test]
+    fn rename_kebab_case() {
+        assert_eq!(&to_kebab_case("Word"), "word");
+        assert_eq!(&to_kebab_case("TwoWords"), "two-words");
     }
 }

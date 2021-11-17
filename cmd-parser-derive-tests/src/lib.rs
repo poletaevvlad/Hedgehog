@@ -87,13 +87,13 @@ mod simple_enum {
 
     #[test]
     fn union() {
-        assert_eq!(Enum::parse_cmd("Unit def").unwrap(), (Enum::Unit, "def"))
+        assert_eq!(Enum::parse_cmd("unit def").unwrap(), (Enum::Unit, "def"))
     }
 
     #[test]
     fn tuple() {
         assert_eq!(
-            Enum::parse_cmd("Tuple 10 20 def").unwrap(),
+            Enum::parse_cmd("tuple 10 20 def").unwrap(),
             (Enum::Tuple(10, 20), "def")
         )
     }
@@ -101,7 +101,7 @@ mod simple_enum {
     #[test]
     fn struct_variant() {
         assert_eq!(
-            Enum::parse_cmd("Struct 10 20 def").unwrap(),
+            Enum::parse_cmd("struct 10 20 def").unwrap(),
             (Enum::Struct { a: 10, b: 20 }, "def")
         )
     }
@@ -152,20 +152,20 @@ mod enum_attributes {
         assert_eq!(Enum::parse_cmd("t").unwrap().0, Enum::Third);
         assert_eq!(Enum::parse_cmd("t1").unwrap().0, Enum::Third);
         assert_eq!(Enum::parse_cmd("t2").unwrap().0, Enum::Third);
-        assert_eq!(Enum::parse_cmd("Fifth").unwrap().0, Enum::Fifth);
+        assert_eq!(Enum::parse_cmd("fifth").unwrap().0, Enum::Fifth);
         assert_eq!(Enum::parse_cmd("5").unwrap().0, Enum::Fifth);
-        assert_eq!(Enum::parse_cmd("A").unwrap().0, Enum::Nested1(Nested1::A));
-        assert_eq!(Enum::parse_cmd("B").unwrap().0, Enum::Nested1(Nested1::B));
-        assert_eq!(Enum::parse_cmd("C").unwrap().0, Enum::Nested1(Nested1::C));
-        assert_eq!(Enum::parse_cmd("D").unwrap().0, Enum::Nested2(Nested2::D));
-        assert_eq!(Enum::parse_cmd("E").unwrap().0, Enum::Nested2(Nested2::E));
+        assert_eq!(Enum::parse_cmd("a").unwrap().0, Enum::Nested1(Nested1::A));
+        assert_eq!(Enum::parse_cmd("b").unwrap().0, Enum::Nested1(Nested1::B));
+        assert_eq!(Enum::parse_cmd("c").unwrap().0, Enum::Nested1(Nested1::C));
+        assert_eq!(Enum::parse_cmd("d").unwrap().0, Enum::Nested2(Nested2::D));
+        assert_eq!(Enum::parse_cmd("e").unwrap().0, Enum::Nested2(Nested2::E));
     }
 
     #[test]
     fn cannot_parse() {
-        Enum::parse_cmd("First").unwrap_err();
-        Enum::parse_cmd("Second").unwrap_err();
-        Enum::parse_cmd("Fourth").unwrap_err();
+        Enum::parse_cmd("first").unwrap_err();
+        Enum::parse_cmd("second").unwrap_err();
+        Enum::parse_cmd("fourth").unwrap_err();
     }
 }
 

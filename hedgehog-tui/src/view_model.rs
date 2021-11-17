@@ -374,6 +374,7 @@ impl<D: ActionDelegate> ViewModel<D> {
 
 #[derive(Debug, Clone, PartialEq, CmdParsable)]
 pub(crate) enum Command {
+    #[cmd(rename = "line")]
     Cursor(CursorCommand),
     Map(Key, Box<Command>),
     MapState(Key, FocusedPane, Box<Command>),
@@ -436,29 +437,30 @@ mod tests {
         write_file(
             global_data.path(),
             "rc",
-            "Map Up Cursor Previous\nMap Down Cursor Next\nTheme Load default",
+            "map Up line previous\nmap Down line next\ntheme load default",
         );
         write_file(
             global_data.path(),
             "default.theme",
-            "Load another NoReset\nSet statusbar.empty bg:red",
+            "load another no-reset\nset statusbar.empty bg:red",
         );
         write_file(
             global_data.path(),
             "another.theme",
-            "Set list.divider bg:blue",
+            "set list.divider bg:blue",
         );
 
         write_file(
             user_data.path(),
             "another.theme",
-            "Set statusbar.command bg:yellow",
+            "set statusbar.command bg:yellow",
         );
-        write_file(user_data.path(), "rc", "Map Down Cursor Last");
+        write_file(user_data.path(), "rc", "map Down line last");
 
         let mut view_model = ViewModel::new((32, 32), NoopPlayerDelagate);
         view_model.init_rc();
 
+        println!("{:?}", view_model.status);
         assert!(view_model.status.is_none());
         assert_eq!(
             view_model

@@ -158,9 +158,9 @@ mod tests {
         let path = dir.path().join("cmdrc");
 
         let mut file = File::create(&path).unwrap();
-        writeln!(file, "First 4").unwrap();
+        writeln!(file, "first 4").unwrap();
         writeln!(file).unwrap();
-        writeln!(file, "Second four").unwrap();
+        writeln!(file, "second four").unwrap();
         drop(file);
 
         let mut reader = CommandReader::open(path).unwrap();
@@ -178,8 +178,8 @@ mod tests {
         let path = dir.path().join("cmdrc");
 
         let mut file = File::create(&path).unwrap();
-        writeln!(file, "First 4").unwrap();
-        writeln!(file, "Third 4.0").unwrap();
+        writeln!(file, "first 4").unwrap();
+        writeln!(file, "third 4.0").unwrap();
         drop(file);
 
         let mut reader = CommandReader::open(path).unwrap();

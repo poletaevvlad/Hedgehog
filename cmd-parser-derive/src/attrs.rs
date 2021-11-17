@@ -84,6 +84,30 @@ impl BuildableAttributes for VariantAttributes {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct FieldAttributes {
+    pub(crate) parse_with: Option<String>,
+}
+
+impl BuildableAttributes for FieldAttributes {
+    fn visit_name_value(&mut self, name_value: &MetaNameValue) -> Result<(), Error> {
+        if compare_path(&name_value.path, "parse_with") {
+            self.parse_with = Some(get_name_value_string(name_value)?);
+        } else {
+            return Err(Error::new(name_value.span(), "Unknown argument"));
+        }
+        Ok(())
+    }
+
+    fn visit_path(&mut self, path: &Path) -> Result<(), Error> {
+        Err(Error::new(path.span(), "Unknown argument"))
+    }
+
+    fn visit_list(&mut self, list: &MetaList) -> Result<(), Error> {
+        Err(Error::new(list.span(), "Unknown argument"))
+    }
+}
+
 fn get_name_value_string(name_value: &MetaNameValue) -> Result<String, Error> {
     if let Lit::Str(string) = &name_value.lit {
         Ok(string.value())

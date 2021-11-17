@@ -1,45 +1,56 @@
 mod attrs;
 
-use attrs::{BuildableAttributes, VariantAttributes};
+use attrs::{BuildableAttributes, FieldAttributes, VariantAttributes};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, ToTokens};
+use std::str::FromStr;
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};
 
 fn derive_fields(
     name: impl ToTokens,
     fields: &Fields,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
-    match fields {
-        Fields::Named(fields) => {
-            let field_parse = fields.named.iter().map(|field| {
-                let ident = field.ident.as_ref().unwrap();
-                let field_type = &field.ty;
-                quote! { let (#ident, input) = <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input)?; }
-            });
-            let field_idents = fields
-                .named
-                .iter()
-                .map(|field| field.ident.as_ref().unwrap());
-            Ok(quote! {
-                #(#field_parse)*
-                Ok((#name { #(#field_idents),* }, input))
-            })
-        }
-        Fields::Unnamed(fields) => {
-            let field_parse = fields.unnamed.iter().enumerate().map(|(index, field)| {
-                let ident = format_ident!("field_{}", index);
-                let field_type = &field.ty;
-                quote! { let (#ident, input) = <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input)?; }
-            });
-            let field_var_names =
-                (0..fields.unnamed.len()).map(|index| format_ident!("field_{}", index));
+    let fields_data = match fields {
+        Fields::Named(fields) => &fields.named,
+        Fields::Unnamed(fields) => &fields.unnamed,
+        Fields::Unit => return Ok(quote! {Ok((#name, input))}),
+    };
 
-            Ok(quote! {
-                #(#field_parse)*
-                Ok((#name(#(#field_var_names),*), input))
-            })
+    let mut field_parse = Vec::new();
+    let mut field_construct = Vec::new();
+    for (index, field) in fields_data.iter().enumerate() {
+        let ident = format_ident!("field_{}", index);
+        if let Some(field_ident) = field.ident.as_ref() {
+            field_construct.push(quote! {#field_ident: #ident});
+        } else {
+            field_construct.push(quote! {#ident});
         }
-        Fields::Unit => Ok(quote! {Ok((#name, input))}),
+
+        let attr = FieldAttributes::from_attributes(field.attrs.iter())?;
+        let parse_expr = attr
+            .parse_with
+            .map(|parse_with| {
+                let fn_path = proc_macro2::TokenStream::from_str(&parse_with).unwrap();
+                quote! {#fn_path(input)}
+            })
+            .unwrap_or_else(|| {
+                let field_type = &field.ty;
+                quote! { <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input) }
+            });
+
+        field_parse.push(quote! { let (#ident, input) = #parse_expr?; })
+    }
+
+    if let Fields::Named(_) = fields {
+        Ok(quote! {
+            #(#field_parse)*
+            Ok((#name { #(#field_construct),* }, input))
+        })
+    } else {
+        Ok(quote! {
+            #(#field_parse)*
+            Ok((#name(#(#field_construct),*), input))
+        })
     }
 }
 

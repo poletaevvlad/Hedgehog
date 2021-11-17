@@ -1,4 +1,4 @@
-// #![cfg(test)]
+#![cfg(test)]
 
 mod simple_struct {
     use cmd_parser::CmdParsable;
@@ -166,5 +166,33 @@ mod enum_attributes {
         Enum::parse_cmd("First").unwrap_err();
         Enum::parse_cmd("Second").unwrap_err();
         Enum::parse_cmd("Fourth").unwrap_err();
+    }
+}
+
+mod custom_parser {
+    use cmd_parser::{CmdParsable, ParseError};
+
+    fn mock_parser(input: &str) -> Result<(u8, &str), ParseError> {
+        let mut chars = input.chars();
+        let ch = chars.next().unwrap().to_string().parse().unwrap();
+        Ok((ch, chars.as_str()))
+    }
+
+    #[test]
+    fn parse_struct() {
+        #[derive(Debug, PartialEq, CmdParsable)]
+        struct Struct {
+            #[cmd(parse_with = "mock_parser")]
+            a: u8,
+            b: u8,
+        }
+        assert_eq!(Struct::parse_cmd("12").unwrap().0, Struct { a: 1, b: 2 });
+    }
+
+    #[test]
+    fn parse_tuple_struct() {
+        #[derive(Debug, PartialEq, CmdParsable)]
+        struct Struct(#[cmd(parse_with = "mock_parser")] u8, u8);
+        assert_eq!(Struct::parse_cmd("12").unwrap().0, Struct(1, 2));
     }
 }

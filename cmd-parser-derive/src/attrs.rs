@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use syn::{
     spanned::Spanned, Attribute, Error, Lit, Meta, MetaList, MetaNameValue, NestedMeta, Path,
 };
@@ -87,6 +88,7 @@ impl BuildableAttributes for VariantAttributes {
 #[derive(Default)]
 pub(crate) struct FieldAttributes {
     pub(crate) parse_with: Option<String>,
+    pub(crate) attr_names: HashMap<String, Option<String>>,
 }
 
 impl BuildableAttributes for FieldAttributes {
@@ -104,6 +106,34 @@ impl BuildableAttributes for FieldAttributes {
     }
 
     fn visit_list(&mut self, list: &MetaList) -> Result<(), Error> {
+        if compare_path(&list.path, "attr") {
+            for item in list.nested.iter() {
+                match item {
+                    NestedMeta::Meta(Meta::Path(path)) => {
+                        if path.segments.len() > 1 {
+                            return Err(Error::new(path.span(), "Path is not allowed"));
+                        }
+                        self.attr_names
+                            .insert(path.segments[0].ident.to_string(), None);
+                    }
+                    NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                        if name_value.path.segments.len() > 1 {
+                            return Err(Error::new(name_value.path.span(), "Path is not allowed"));
+                        }
+                        self.attr_names.insert(
+                            name_value.path.segments[0].ident.to_string(),
+                            Some(get_name_value_string(name_value)?),
+                        );
+                    }
+                    NestedMeta::Meta(Meta::List(list)) => {
+                        return Err(Error::new(list.span(), "Unexpected argument"));
+                    }
+                    NestedMeta::Lit(lit) => {
+                        return Err(Error::new(lit.span(), "Unexpected literal"));
+                    }
+                }
+            }
+        }
         Err(Error::new(list.span(), "Unknown argument"))
     }
 }

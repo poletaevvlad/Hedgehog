@@ -11,8 +11,8 @@ map-state Enter feeds set-focus episodes
 map-state Tab episodes set-focus feeds
 map-state Enter episodes play-current 
 
-map Right playback seek-relative 5 0 forward
-map Left playback seek-relative 5 0 backward
+map Right playback seek-relative 5 forward
+map Left playback seek-relative 5 backward
 map c playback toggle-pause
 map m volume toggle-mute
 map Minus volume adjust -0.10

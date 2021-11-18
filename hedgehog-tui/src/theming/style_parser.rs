@@ -1,22 +1,9 @@
-use super::parser::ParsableStr;
-use cmd_parser::CmdParsable;
+use cmd_parser::{skip_ws, take_token, CmdParsable, ParseError, ParseErrorKind};
+use std::borrow::{Borrow, Cow};
 use tui::style::{Color, Modifier, Style};
 
-#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
-pub(crate) enum Error {
-    #[error("character unexpected: '{0}'")]
-    UnexpectedCharacter(char),
-
-    #[error("modifier unknown: '{0}'")]
-    UnknownModifier(String),
-
-    #[error("color is invalid: '{0}'")]
-    InvalidColor(String),
-}
-
-fn modifier(input: &mut ParsableStr<'_>) -> Result<Modifier, Error> {
-    let ident = input.take_while(char::is_ascii_alphanumeric);
-    let modifier = match ident {
+fn parse_modifier(input: &str) -> Result<Modifier, ParseError> {
+    let modifier = match input.borrow() {
         "bold" => Modifier::BOLD,
         "crossedout" => Modifier::CROSSED_OUT,
         "dim" => Modifier::DIM,
@@ -26,35 +13,40 @@ fn modifier(input: &mut ParsableStr<'_>) -> Result<Modifier, Error> {
         "reversed" => Modifier::REVERSED,
         "slowblink" => Modifier::SLOW_BLINK,
         "underlined" => Modifier::UNDERLINED,
-        _ => return Err(Error::UnknownModifier(ident.to_string())),
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::TokenParse(input.to_string().into(), None),
+                expected: "modifier".into(),
+            })
+        }
     };
     Ok(modifier)
 }
 
-fn color_rgb(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
-    let color_str = input.take_while(|ch| ch.is_digit(16));
-    if color_str.len() != 6 {
-        return Err(Error::InvalidColor(format!("#{}", color_str)));
+fn parse_color_rgb(input: &str) -> Result<Color, ParseError> {
+    if input.len() != 6 || input.chars().any(|ch| !ch.is_ascii_hexdigit()) {
+        return Err(ParseError {
+            kind: ParseErrorKind::TokenParse(format!("#{}", input).into(), None),
+            expected: "color".into(),
+        });
     }
 
-    // Cannot fail because color_str contain only valid hex characters
-    let r = u8::from_str_radix(&color_str[0..2], 16).unwrap();
-    let g = u8::from_str_radix(&color_str[2..4], 16).unwrap();
-    let b = u8::from_str_radix(&color_str[4..6], 16).unwrap();
+    // Cannot fail
+    let r = u8::from_str_radix(&input[0..2], 16).unwrap();
+    let g = u8::from_str_radix(&input[2..4], 16).unwrap();
+    let b = u8::from_str_radix(&input[4..6], 16).unwrap();
     Ok(Color::Rgb(r, g, b))
 }
 
-fn color_xterm(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
-    let color_str = input.take_while(|ch| ch.is_digit(10));
-    color_str
-        .parse()
-        .map(Color::Indexed)
-        .map_err(|_| Error::InvalidColor(format!("${}", color_str)))
+fn parse_color_xterm(input: &str) -> Result<Color, ParseError> {
+    input.parse().map(Color::Indexed).map_err(|_| ParseError {
+        kind: ParseErrorKind::TokenParse(format!("${}", input).into(), None),
+        expected: "color".into(),
+    })
 }
 
-fn color_named(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
-    let color_str = input.take_while(char::is_ascii_alphanumeric);
-    let color = match color_str {
+fn parse_color_named(input: &str) -> Result<Color, ParseError> {
+    let color = match input {
         "black" => Color::Black,
         "blue" => Color::Blue,
         "cyan" => Color::Cyan,
@@ -72,72 +64,68 @@ fn color_named(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
         "reset" => Color::Reset,
         "white" => Color::White,
         "yellow" => Color::Yellow,
-        _ => return Err(Error::InvalidColor(color_str.to_string())),
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::TokenParse(input.to_string().into(), None),
+                expected: "color".into(),
+            })
+        }
     };
     Ok(color)
 }
 
-fn color(input: &mut ParsableStr<'_>) -> Result<Color, Error> {
-    if input.take_token("#") {
-        color_rgb(input)
-    } else if input.take_token("$") {
-        color_xterm(input)
+fn parse_color(input: &str) -> Result<Color, ParseError> {
+    if let Some(color) = input.strip_prefix('#') {
+        parse_color_rgb(color)
+    } else if let Some(color) = input.strip_prefix('$') {
+        parse_color_xterm(color)
     } else {
-        color_named(input)
+        parse_color_named(input)
     }
-}
-
-pub(crate) fn parse_style(input: &str) -> Result<Style, Error> {
-    let mut input = ParsableStr::new(input);
-    let mut style = Style::default();
-
-    loop {
-        input.take_while(char::is_ascii_whitespace);
-        if input.is_empty() {
-            break;
-        }
-
-        if input.take_token("fg:") {
-            input.take_while(char::is_ascii_whitespace);
-            style = style.fg(color(&mut input)?);
-        } else if input.take_token("bg:") {
-            input.take_while(char::is_ascii_whitespace);
-            style = style.bg(color(&mut input)?);
-        } else if input.take_token("+") {
-            style = style.add_modifier(modifier(&mut input)?);
-        } else if input.take_token("-") {
-            style = style.remove_modifier(modifier(&mut input)?);
-        } else {
-            let ch = input.take();
-            // input is non-empty
-            return Err(Error::UnexpectedCharacter(ch.unwrap()));
-        }
-    }
-
-    Ok(style)
 }
 
 struct StyleCmd(Style);
 
+fn token_to_str<'a>(token: &'a Option<Cow<'a, str>>) -> &'a str {
+    match token {
+        Some(Cow::Borrowed(token)) => *token,
+        Some(Cow::Owned(token)) => token.as_str(),
+        None => "",
+    }
+}
+
 impl CmdParsable for StyleCmd {
-    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
-        let (token, remaining) = cmd_parser::take_token(input);
-        match token {
-            Some(token) => match parse_style(&token) {
-                Ok(style) => Ok((StyleCmd(style), remaining)),
-                Err(err) => Err(cmd_parser::ParseError {
-                    kind: cmd_parser::ParseErrorKind::TokenParse(
-                        token,
-                        Some(err.to_string().into()),
-                    ),
-                    expected: "style".into(),
-                }),
-            },
-            None => Err(cmd_parser::ParseError {
-                kind: cmd_parser::ParseErrorKind::TokenRequired,
-                expected: "style".into(),
-            }),
+    fn parse_cmd_raw(mut input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+        let mut style = Style::default();
+
+        loop {
+            input = if let Some(remaining) = input.strip_prefix("fg:") {
+                let (color, remaining) = take_token(skip_ws(remaining));
+                style =
+                    style.fg(parse_color(token_to_str(&color)).map_err(ParseError::into_static)?);
+                remaining
+            } else if let Some(remaining) = input.strip_prefix("bg:") {
+                let (color, remaining) = take_token(skip_ws(remaining));
+                style =
+                    style.bg(parse_color(token_to_str(&color)).map_err(ParseError::into_static)?);
+                remaining
+            } else if let Some(remaining) = input.strip_prefix('+') {
+                let (modifier, remaining) = take_token(remaining);
+                style = style.add_modifier(
+                    parse_modifier(token_to_str(&modifier)).map_err(ParseError::into_static)?,
+                );
+                remaining
+            } else if let Some(remaining) = input.strip_prefix('-') {
+                let (modifier, remaining) = take_token(remaining);
+                style = style.remove_modifier(
+                    parse_modifier(token_to_str(&modifier)).map_err(ParseError::into_static)?,
+                );
+                remaining
+            } else {
+                break;
+            };
         }
+        Ok((StyleCmd(style), input))
     }
 }
 
@@ -148,13 +136,13 @@ pub(crate) fn parse_cmd(input: &str) -> Result<(Style, &str), cmd_parser::ParseE
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_style, Error};
+    use super::parse_cmd;
     use tui::style::{Color, Modifier, Style};
 
     #[test]
     fn parse_modifiers() {
         assert_eq!(
-            parse_style("  +bold +underlined -italic   ").unwrap(),
+            parse_cmd("  +bold +underlined -italic   ").unwrap().0,
             Style {
                 fg: None,
                 bg: None,
@@ -167,7 +155,7 @@ mod tests {
     #[test]
     fn parse_color_rgb_indexed() {
         assert_eq!(
-            parse_style("bg: #5982af fg:$45 -bold").unwrap(),
+            parse_cmd("bg: #5982af fg:$45 -bold").unwrap().0,
             Style {
                 fg: Some(Color::Indexed(45)),
                 bg: Some(Color::Rgb(0x59, 0x82, 0xAF)),
@@ -180,7 +168,7 @@ mod tests {
     #[test]
     fn parse_color_named() {
         assert_eq!(
-            parse_style("fg:black bg: white").unwrap(),
+            parse_cmd("fg:black bg: white").unwrap().0,
             Style {
                 fg: Some(Color::Black),
                 bg: Some(Color::White),
@@ -193,32 +181,32 @@ mod tests {
     #[test]
     fn unknown_modifier_error() {
         assert_eq!(
-            parse_style("+nonexistant"),
-            Err(Error::UnknownModifier("nonexistant".to_string()))
+            &parse_cmd("+nonexistant").unwrap_err().to_string(),
+            "invalid modifier \"nonexistant\""
         )
     }
 
     #[test]
     fn invalid_color_rgb() {
         assert_eq!(
-            parse_style("fg: #0011"),
-            Err(Error::InvalidColor("#0011".to_string()))
-        );
+            &parse_cmd("fg: #0011").unwrap_err().to_string(),
+            "invalid color \"#0011\""
+        )
     }
 
     #[test]
     fn invalid_color_xterm() {
         assert_eq!(
-            parse_style("bg: $12345 +bold"),
-            Err(Error::InvalidColor("$12345".to_string()))
-        );
+            &parse_cmd("fg: $12345 +bold").unwrap_err().to_string(),
+            "invalid color \"$12345\""
+        )
     }
 
     #[test]
     fn invalid_color_named() {
         assert_eq!(
-            parse_style("bg:abcdef-bold"),
-            Err(Error::InvalidColor("abcdef".to_string()))
+            &parse_cmd("bg:abcdef-bold").unwrap_err().to_string(),
+            "invalid color \"abcdef-bold\""
         )
     }
 }

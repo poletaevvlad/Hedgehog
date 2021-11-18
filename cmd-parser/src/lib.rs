@@ -356,7 +356,7 @@ impl<T: CmdParsable> CmdParsable for Option<T> {
     }
 }
 
-fn skip_ws(mut input: &str) -> &str {
+pub fn skip_ws(mut input: &str) -> &str {
     loop {
         let mut chars = input.chars();
         match chars.next() {

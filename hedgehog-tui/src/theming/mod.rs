@@ -1,4 +1,3 @@
-mod parser;
 mod selectors;
 mod style_parser;
 

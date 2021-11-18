@@ -1,4 +1,3 @@
-use super::parser::{match_take, ParsableStr};
 use crate::status::Severity;
 use bitflags::bitflags;
 use cmd_parser::CmdParsable;
@@ -23,18 +22,29 @@ pub(crate) enum StatusBar {
     Status(Option<Severity>),
 }
 
+fn split_selector_str(mut input: &str) -> Vec<&str> {
+    let mut sections = Vec::new();
+    while let Some(position) = input[1..].find(|ch| ch == ':' || ch == '.') {
+        sections.push(&input[..=position]);
+        input = &input[(position + 1)..];
+        if sections.len() > 4 {
+            break;
+        }
+    }
+    sections.push(input);
+    sections
+}
+
 impl StatusBar {
-    fn parse(input: &mut ParsableStr<'_>) -> Result<StatusBar, SelectorParsingError> {
-        input.take_token(".");
-        match_take! {
-            input,
-            "empty" => Ok(StatusBar::Empty),
-            "command.prompt" => Ok(StatusBar::CommandPrompt),
-            "command" => Ok(StatusBar::Command),
-            "status.error" => Ok(StatusBar::Status(Some(Severity::Error))),
-            "status.warning" => Ok(StatusBar::Status(Some(Severity::Warning))),
-            "status.information" => Ok(StatusBar::Status(Some(Severity::Information))),
-            "status" => Ok(StatusBar::Status(None)),
+    fn parse(input: &[&str]) -> Result<StatusBar, SelectorParsingError> {
+        match input {
+            [".empty"] => Ok(StatusBar::Empty),
+            [".command"] => Ok(StatusBar::Command),
+            [".command", ".prompt"] => Ok(StatusBar::CommandPrompt),
+            [".status"] => Ok(StatusBar::Status(None)),
+            [".status", ".error"] => Ok(StatusBar::Status(Some(Severity::Error))),
+            [".status", ".warning"] => Ok(StatusBar::Status(Some(Severity::Warning))),
+            [".status", ".information"] => Ok(StatusBar::Status(Some(Severity::Information))),
             _ => Err(SelectorParsingError),
         }
     }
@@ -95,16 +105,14 @@ pub(crate) enum List {
 }
 
 impl List {
-    fn parse(input: &mut ParsableStr<'_>) -> Result<List, SelectorParsingError> {
-        input.take_token(".");
-        match_take! {
-            input,
-            "divider" => Ok(List::Divider),
-            "item" => {
+    fn parse(mut input: &[&str]) -> Result<List, SelectorParsingError> {
+        match input {
+            [".divider"] => Ok(List::Divider),
+            [".item", ..] => {
                 let mut state = ListState::empty();
-                loop {
-                    let state_item = match_take! {
-                        input,
+                input = &input[1..];
+                while let Some(item) = input.get(0) {
+                    let state_item = match *item {
                         ":focused" => ListState::FOCUSED,
                         ":active" => ListState::ACTIVE,
                         ":selected" => ListState::SELECTED,
@@ -112,21 +120,22 @@ impl List {
                         _ => break,
                     };
                     state |= state_item;
+                    input = &input[1..];
                 }
 
-                let subitem = match_take! {
-                    input,
-                    ".missing" => Some(ListSubitem::MissingTitle),
-                    ".loading" => Some(ListSubitem::LoadingIndicator),
-                    ".error" => Some(ListSubitem::ErrorIndicator),
-                    ".date" => Some(ListSubitem::Date),
-                    ".new" => Some(ListSubitem::NewIndicator),
-                    ".duration" => Some(ListSubitem::Duration),
-                    ".episodenumber" => Some(ListSubitem::EpisodeNumber),
-                    _ => None,
+                let subitem = match input {
+                    [] => None,
+                    [".missing"] => Some(ListSubitem::MissingTitle),
+                    [".loading"] => Some(ListSubitem::LoadingIndicator),
+                    [".error"] => Some(ListSubitem::ErrorIndicator),
+                    [".date"] => Some(ListSubitem::Date),
+                    [".new"] => Some(ListSubitem::NewIndicator),
+                    [".duration"] => Some(ListSubitem::Duration),
+                    [".episodenumber"] => Some(ListSubitem::EpisodeNumber),
+                    _ => return Err(SelectorParsingError),
                 };
                 Ok(List::Item(state, subitem))
-            },
+            }
             _ => Err(SelectorParsingError),
         }
     }
@@ -166,22 +175,15 @@ pub(crate) enum Player {
 }
 
 impl Player {
-    fn parse(input: &mut ParsableStr<'_>) -> Result<Player, SelectorParsingError> {
-        input.take_token(".");
-        match_take! {
-            input,
-            "title" => Ok(Player::Title),
-            "timing" => Ok(Player::Timing),
-            "status" => {
-                let status = match_take! { input,
-                    ".none" => Some(PlaybackStatus::None),
-                    ".buffering" => Some(PlaybackStatus::Buffering),
-                    ".playing" => Some(PlaybackStatus::Playing),
-                    ".paused" => Some(PlaybackStatus::Paused),
-                    _ => None,
-                };
-                Ok(Player::Status(status))
-            },
+    fn parse(input: &[&str]) -> Result<Player, SelectorParsingError> {
+        match input {
+            [".title"] => Ok(Player::Title),
+            [".timing"] => Ok(Player::Timing),
+            [".status"] => Ok(Player::Status(None)),
+            [".status", ".none"] => Ok(Player::Status(Some(PlaybackStatus::None))),
+            [".status", ".buffering"] => Ok(Player::Status(Some(PlaybackStatus::Buffering))),
+            [".status", ".playing"] => Ok(Player::Status(Some(PlaybackStatus::Playing))),
+            [".status", ".paused"] => Ok(Player::Status(Some(PlaybackStatus::Paused))),
             _ => Err(SelectorParsingError),
         }
     }
@@ -204,35 +206,20 @@ pub(crate) enum Selector {
     Player(Player),
 }
 
-impl Selector {
-    fn parse(input: &mut ParsableStr<'_>) -> Result<Selector, SelectorParsingError> {
-        match_take! {
-            input,
-            "statusbar" => StatusBar::parse(input).map(Selector::StatusBar),
-            "list" => List::parse(input).map(Selector::List),
-            "player" => Player::parse(input).map(Selector::Player),
-            _ => Err(SelectorParsingError),
-        }
-    }
-}
-
 impl CmdParsable for Selector {
     fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
         let (token, input) = cmd_parser::take_token(input);
         match token
             .as_ref()
-            .map(|selector| Selector::parse(&mut ParsableStr::new(selector.borrow())))
+            .map(|selector| Selector::from_str(selector.borrow()))
         {
             None => Err(cmd_parser::ParseError {
                 kind: cmd_parser::ParseErrorKind::TokenRequired,
                 expected: "selector".into(),
             }),
             Some(Ok(selector)) => Ok((selector, input)),
-            Some(Err(err)) => Err(cmd_parser::ParseError {
-                kind: cmd_parser::ParseErrorKind::TokenParse(
-                    token.unwrap(),
-                    Some(err.to_string().into()),
-                ),
+            Some(Err(_)) => Err(cmd_parser::ParseError {
+                kind: cmd_parser::ParseErrorKind::TokenParse(token.unwrap(), None),
                 expected: "selector".into(),
             }),
         }
@@ -259,12 +246,13 @@ impl FromStr for Selector {
     type Err = SelectorParsingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut input = ParsableStr::new(s);
-        let selector = Selector::parse(&mut input)?;
-        if !input.is_empty() {
-            return Err(SelectorParsingError);
+        let split = split_selector_str(s);
+        match split.get(0) {
+            Some(&"statusbar") => StatusBar::parse(&split[1..]).map(Selector::StatusBar),
+            Some(&"list") => List::parse(&split[1..]).map(Selector::List),
+            Some(&"player") => Player::parse(&split[1..]).map(Selector::Player),
+            _ => Err(SelectorParsingError),
         }
-        Ok(selector)
     }
 }
 

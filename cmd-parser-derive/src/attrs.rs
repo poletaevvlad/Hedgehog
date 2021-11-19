@@ -139,8 +139,10 @@ impl BuildableAttributes for FieldAttributes {
                     }
                 }
             }
+            Ok(())
+        } else {
+            Err(Error::new(list.span(), "Unknown argument"))
         }
-        Err(Error::new(list.span(), "Unknown argument"))
     }
 }
 

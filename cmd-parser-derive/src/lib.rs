@@ -6,7 +6,7 @@ use quote::{format_ident, quote, ToTokens};
 use std::str::FromStr;
 use syn::{parse_macro_input, spanned::Spanned, DataEnum, DataStruct, DeriveInput, Fields, Ident};
 
-fn to_kebab_case(ident: &str) -> String {
+pub(crate) fn variant_to_kebab_case(ident: &str) -> String {
     let mut result = String::new();
     for (i, ch) in ident.chars().enumerate() {
         let lowercase = ch.to_ascii_lowercase();
@@ -16,6 +16,10 @@ fn to_kebab_case(ident: &str) -> String {
         result.push(lowercase);
     }
     result
+}
+
+pub(crate) fn field_to_kebab_case(ident: &str) -> String {
+    ident.replace('_', "-")
 }
 
 fn derive_fields(
@@ -66,7 +70,7 @@ fn derive_fields(
             required_count += 1;
         } else {
             for (label, value) in &attr.attr_names {
-                let label = format!("--{}", label);
+                let label = format!("--{}", field_to_kebab_case(label));
                 if let Some(value) = value {
                     let value = proc_macro2::TokenStream::from_str(value).unwrap();
                     parse_optional.push(quote! {
@@ -105,15 +109,17 @@ fn derive_fields(
     Ok(quote! {
         #(#field_definitions)*
         let mut index = 0;
+        #[allow(unreachable_code)]
         loop {
             if input.starts_with("--") {
                 let (token, remaining) = ::cmd_parser::take_token(input);
                 input = remaining;
-                match token.unwrap() {
+                let token = token.unwrap();
+                match token.as_ref(){
                     #(#parse_optional)*
-                    token => {
+                    _ => {
                         return Err(::cmd_parser::ParseError{
-                            kind: ::cmd_parser::ParseErrorKind::UnknownAttribute(token.into()),
+                            kind: ::cmd_parser::ParseErrorKind::UnknownAttribute(token),
                             expected: "".into()
                         })
                     }
@@ -151,7 +157,7 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
         } else {
             let mut discriminators = attrs.aliases;
             if !attrs.ignore {
-                let label = to_kebab_case(&variant.ident.to_string());
+                let label = variant_to_kebab_case(&variant.ident.to_string());
                 discriminators.push(label);
             }
             if discriminators.is_empty() {
@@ -232,11 +238,17 @@ pub fn derive_parseable(input: TokenStream) -> TokenStream {
 
 #[cfg(test)]
 mod tests {
-    use super::to_kebab_case;
+    use super::{field_to_kebab_case, variant_to_kebab_case};
 
     #[test]
-    fn rename_kebab_case() {
-        assert_eq!(&to_kebab_case("Word"), "word");
-        assert_eq!(&to_kebab_case("TwoWords"), "two-words");
+    fn rename_variant() {
+        assert_eq!(&variant_to_kebab_case("Word"), "word");
+        assert_eq!(&variant_to_kebab_case("TwoWords"), "two-words");
+    }
+
+    #[test]
+    fn rename_field() {
+        assert_eq!(&field_to_kebab_case("word"), "word");
+        assert_eq!(&field_to_kebab_case("two_words"), "two-words");
     }
 }

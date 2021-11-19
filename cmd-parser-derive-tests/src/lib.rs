@@ -196,3 +196,103 @@ mod custom_parser {
         assert_eq!(Struct::parse_cmd("12").unwrap().0, Struct(1, 2));
     }
 }
+
+mod named_attribure {
+    use cmd_parser::CmdParsable;
+
+    #[derive(Debug, PartialEq, CmdParsable)]
+    enum Enum {
+        Tuple(u8, #[cmd(attr(second_attr, two = "2"))] u8),
+        Struct {
+            a: u8,
+            #[cmd(attr(second_attr, two = "2"))]
+            b: u8,
+        },
+        TupleAllOptional(#[cmd(attr(a = "true"))] bool, #[cmd(attr(b = "true"))] bool),
+    }
+
+    #[test]
+    fn using_default() {
+        assert_eq!(Enum::parse_cmd_full("tuple 5").unwrap(), Enum::Tuple(5, 0));
+        assert_eq!(
+            Enum::parse_cmd_full("struct 5").unwrap(),
+            Enum::Struct { a: 5, b: 0 }
+        );
+    }
+
+    #[test]
+    fn setting_named() {
+        assert_eq!(
+            Enum::parse_cmd_full("tuple 5 --second-attr 3").unwrap(),
+            Enum::Tuple(5, 3)
+        );
+        assert_eq!(
+            Enum::parse_cmd_full("struct 5 --second-attr 3").unwrap(),
+            Enum::Struct { a: 5, b: 3 }
+        );
+    }
+
+    #[test]
+    fn setting_predefined() {
+        assert_eq!(
+            Enum::parse_cmd_full("tuple 5 --two").unwrap(),
+            Enum::Tuple(5, 2)
+        );
+        assert_eq!(
+            Enum::parse_cmd_full("struct 5 --two").unwrap(),
+            Enum::Struct { a: 5, b: 2 }
+        );
+    }
+
+    #[test]
+    fn unknown_attribute() {
+        assert_eq!(
+            Enum::parse_cmd_full("tuple 2 --abc")
+                .unwrap_err()
+                .to_string(),
+            "unknown attribute: \"--abc\""
+        );
+        assert_eq!(
+            Enum::parse_cmd_full("struct 2 --abc")
+                .unwrap_err()
+                .to_string(),
+            "unknown attribute: \"--abc\""
+        );
+    }
+
+    #[test]
+    fn all_optional() {
+        assert_eq!(
+            Enum::parse_cmd_full("tuple-all-optional").unwrap(),
+            Enum::TupleAllOptional(false, false)
+        );
+        assert_eq!(
+            Enum::parse_cmd_full("tuple-all-optional --a").unwrap(),
+            Enum::TupleAllOptional(true, false)
+        );
+        assert_eq!(
+            Enum::parse_cmd_full("tuple-all-optional --b").unwrap(),
+            Enum::TupleAllOptional(false, true)
+        );
+        assert_eq!(
+            Enum::parse_cmd_full("tuple-all-optional --b --a").unwrap(),
+            Enum::TupleAllOptional(true, true)
+        );
+    }
+
+    #[test]
+    fn stops_after_last_required() {
+        assert_eq!(
+            <(Enum, Vec<u8>)>::parse_cmd_full("tuple 10 20 30").unwrap(),
+            (Enum::Tuple(10, 0), vec![20, 30])
+        );
+    }
+
+    #[test]
+    fn missing_required() {
+        assert_eq!(
+            &Enum::parse_cmd_full("tuple").unwrap_err().to_string(),
+            "expected integer"
+        );
+    }
+}

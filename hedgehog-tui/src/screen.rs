@@ -15,10 +15,10 @@ use actix::prelude::*;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
-use hedgehog_library::model::{EpisodeId, EpisodeSummary, FeedSummary};
+use hedgehog_library::model::{EpisodeId, EpisodeSummary, EpisodesListMetadata, FeedSummary};
 use hedgehog_library::{
-    EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesCountRequest, EpisodesQuery,
-    FeedSummariesRequest, FeedUpdateNotification, Library,
+    EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
+    EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, Library,
 };
 use hedgehog_player::{Player, PlayerNotification};
 use tui::backend::CrosstermBackend;
@@ -315,10 +315,15 @@ impl UI {
         }
     }
 
-    fn handle_episode_size_response(&mut self, version: Version, size: LibraryQueryResult<usize>) {
-        self.handle_library_response(size, move |actor, size| {
+    fn handle_episode_size_response(
+        &mut self,
+        version: Version,
+        metadata: LibraryQueryResult<EpisodesListMetadata>,
+    ) {
+        self.handle_library_response(metadata, move |actor, metadata| {
             actor.view_model.set_episodes_list_data(
-                Versioned::new(PaginatedDataMessage::size(size)).with_version(version),
+                Versioned::new(PaginatedDataMessage::size(metadata.items_count))
+                    .with_version(version),
             )
         });
     }
@@ -360,10 +365,10 @@ impl Handler<DataFetchingRequest> for UI {
                 match request {
                     PaginatedDataRequest::Size => Box::pin(
                         self.library
-                            .send(EpisodesCountRequest(query))
+                            .send(EpisodesListMetadataRequest(query))
                             .into_actor(self)
-                            .map(move |size, actor, _ctx| {
-                                actor.handle_episode_size_response(version, size)
+                            .map(move |metadata, actor, _ctx| {
+                                actor.handle_episode_size_response(version, metadata)
                             }),
                     ),
                     PaginatedDataRequest::Page(page) => {

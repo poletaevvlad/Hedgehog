@@ -4,7 +4,7 @@ use crate::datasource::{
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    Feed, FeedId, FeedStatus, FeedSummary, PlaybackError,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, PlaybackError,
 };
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
@@ -163,14 +163,23 @@ impl DataProvider for SqliteDataProvider {
             .map_err(QueryError::from)
     }
 
-    fn get_episodes_count(&self, request: EpisodesQuery) -> DbResult<usize> {
-        let mut sql = "SELECT COUNT(id) FROM episodes".to_string();
-        request.build_where_clause(&mut sql);
+    fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata> {
+        let mut sql = "SELECT COUNT(id), MAX(season_number), MAX(episode_number), MAX(duration) FROM episodes".to_string();
+        query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 
         let mut params = Vec::new();
-        request.build_params(&mut params);
-        Ok(statement.query_row(&*params, |row| row.get(0))?)
+        query.build_params(&mut params);
+        statement
+            .query_row(&*params, |row| {
+                Ok(EpisodesListMetadata {
+                    items_count: row.get(0)?,
+                    max_season_number: row.get(1)?,
+                    max_episode_number: row.get(2)?,
+                    max_duration: row.get::<_, Option<u64>>(3)?.map(Duration::from_nanos),
+                })
+            })
+            .map_err(QueryError::from)
     }
 
     fn get_episode_summaries(

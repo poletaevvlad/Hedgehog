@@ -2,8 +2,8 @@ use crate::datasource::{
     DataProvider, DbResult, EpisodeWriter, Page, QueryError, WritableDataProvider,
 };
 use crate::model::{
-    EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, FeedError, FeedId, FeedStatus,
-    FeedSummary,
+    EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata, FeedError,
+    FeedId, FeedStatus, FeedSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
@@ -62,17 +62,21 @@ where
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<usize>")]
-pub struct EpisodesCountRequest(pub EpisodesQuery);
+#[rtype(result = "DbResult<EpisodesListMetadata>")]
+pub struct EpisodesListMetadataRequest(pub EpisodesQuery);
 
-impl<D> Handler<EpisodesCountRequest> for Library<D>
+impl<D> Handler<EpisodesListMetadataRequest> for Library<D>
 where
     D: DataProvider + 'static,
 {
-    type Result = DbResult<usize>;
+    type Result = DbResult<EpisodesListMetadata>;
 
-    fn handle(&mut self, msg: EpisodesCountRequest, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider.get_episodes_count(msg.0)
+    fn handle(
+        &mut self,
+        msg: EpisodesListMetadataRequest,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
+        self.data_provider.get_episodes_list_metadata(msg.0)
     }
 }
 

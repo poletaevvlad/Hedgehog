@@ -255,3 +255,10 @@ pub struct EpisodePlaybackData {
     pub position: Duration,
     pub duration: Option<Duration>,
 }
+
+pub struct EpisodesListMetadata {
+    pub items_count: usize,
+    pub max_season_number: Option<i64>,
+    pub max_episode_number: Option<i64>,
+    pub max_duration: Option<Duration>,
+}

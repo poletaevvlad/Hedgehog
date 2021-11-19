@@ -1,9 +1,7 @@
-use crate::{
-    metadata::{EpisodeMetadata, FeedMetadata},
-    model::{
-        Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, Feed, FeedId,
-        FeedStatus, FeedSummary,
-    },
+use crate::metadata::{EpisodeMetadata, FeedMetadata};
+use crate::model::{
+    Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata,
+    Feed, FeedId, FeedStatus, FeedSummary,
 };
 use std::marker::Unpin;
 use thiserror::Error;
@@ -46,7 +44,7 @@ pub trait DataProvider: Unpin {
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData>;
-    fn get_episodes_count(&self, query: EpisodesQuery) -> DbResult<usize>;
+    fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata>;
     fn get_episode_summaries(
         &self,
         query: EpisodesQuery,

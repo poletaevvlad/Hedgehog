@@ -3,21 +3,21 @@ set statusbar.status.warning fg:yellow
 set statusbar.status.information fg:blue
 set statusbar.command.prompt fg:cyan
 
-set list.item "fg:gray"
-set list.item:focused "fg:white"
-set list.item:selected "bg:gray fg:black"
-set list.item:focused:selected "bg:white fg:black"
-set list.item:active "fg:blue"
-set list.item:selected:active "bg:blue fg:black"
-set list.item:focused:selected:active "bg:blue fg:black"
+set list.item fg:gray
+set list.item:focused fg:white
+set list.item:selected bg:gray fg:black
+set list.item:focused:selected bg:white fg:black
+set list.item:active fg:blue
+set list.item:selected:active bg:blue fg:black
+set list.item:focused:selected:active bg:blue fg:black
 set list.item.missing +italic
-set list.item.loading "fg:green"
-set list.item.error "fg:red"
-set list.item:new "fg:green"
+set list.item.loading fg:green
+set list.item.error fg:red
+set list.item:new fg:green
 
-set player.title "bg:darkgray"
-set player.status.none "bg:black"
-set player.status.playing "bg:green fg:black"
-set player.status.paused "bg:blue fg:black"
-set player.status.buffering "bg:red fg:black"
-set player.timing "bg:blue fg:black"
+set player.title bg:darkgray
+set player.status.none bg:black
+set player.status.playing bg:green fg:black
+set player.status.paused bg:blue fg:black
+set player.status.buffering bg:red fg:black
+set player.timing bg:blue fg:black

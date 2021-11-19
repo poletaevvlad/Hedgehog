@@ -91,6 +91,12 @@ pub(crate) struct FieldAttributes {
     pub(crate) attr_names: HashMap<String, Option<String>>,
 }
 
+impl FieldAttributes {
+    pub(crate) fn is_required(&self) -> bool {
+        self.attr_names.is_empty()
+    }
+}
+
 impl BuildableAttributes for FieldAttributes {
     fn visit_name_value(&mut self, name_value: &MetaNameValue) -> Result<(), Error> {
         if compare_path(&name_value.path, "parse_with") {

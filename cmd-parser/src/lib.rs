@@ -15,6 +15,7 @@ pub enum ParseErrorKind<'a> {
     UnexpectedToken(Cow<'a, str>),
     UnbalancedParenthesis,
     UnknownVariant(Cow<'a, str>),
+    UnknownAttribute(Cow<'a, str>),
 }
 
 #[derive(Debug)]
@@ -52,6 +53,9 @@ impl<'a> ParseError<'a> {
                 ParseErrorKind::UnknownVariant(token) => {
                     ParseErrorKind::UnknownVariant(Cow::Owned(token.into_owned()))
                 }
+                ParseErrorKind::UnknownAttribute(token) => {
+                    ParseErrorKind::UnknownAttribute(Cow::Owned(token.into_owned()))
+                }
             },
             expected: self.expected,
         }
@@ -79,6 +83,9 @@ impl<'a> fmt::Display for ParseError<'a> {
             ParseErrorKind::UnbalancedParenthesis => f.write_str("unbalanced parenthesis"),
             ParseErrorKind::UnknownVariant(variant) => {
                 f.write_fmt(format_args!("unknown variant: \"{}\"", variant))
+            }
+            ParseErrorKind::UnknownAttribute(attribute) => {
+                f.write_fmt(format_args!("unknown attribute: \"{}\"", attribute))
             }
         }
     }

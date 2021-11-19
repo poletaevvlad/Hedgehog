@@ -28,42 +28,108 @@ fn derive_fields(
         Fields::Unit => return Ok(quote! {Ok((#name, input))}),
     };
 
-    let mut field_parse = Vec::new();
+    let mut field_definitions = Vec::new();
+    let mut parse_required = Vec::new();
     let mut field_construct = Vec::new();
+    let mut parse_optional = Vec::new();
+    let mut required_count = 0;
+
     for (index, field) in fields_data.iter().enumerate() {
         let ident = format_ident!("field_{}", index);
-        if let Some(field_ident) = field.ident.as_ref() {
-            field_construct.push(quote! {#field_ident: #ident});
-        } else {
-            field_construct.push(quote! {#ident});
-        }
+
+        let field_type = &field.ty;
+        field_definitions.push(quote! {
+            let mut #ident: Option<#field_type> = None;
+        });
 
         let attr = FieldAttributes::from_attributes(field.attrs.iter())?;
         let parse_expr = attr
             .parse_with
+            .as_deref()
+            .map(str::to_string)
             .map(|parse_with| {
                 let fn_path = proc_macro2::TokenStream::from_str(&parse_with).unwrap();
                 quote! {#fn_path(input)}
             })
             .unwrap_or_else(|| {
-                let field_type = &field.ty;
                 quote! { <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input) }
             });
 
-        field_parse.push(quote! { let (#ident, input) = #parse_expr?; })
+        if attr.is_required() {
+            parse_required.push(quote! {
+                #required_count => {
+                    let (value, remaining) = #parse_expr?;
+                    input = remaining;
+                    #ident = Some(value);
+                }
+            });
+            required_count += 1;
+        } else {
+            for (label, value) in &attr.attr_names {
+                let label = format!("--{}", label);
+                if let Some(value) = value {
+                    let value = proc_macro2::TokenStream::from_str(value).unwrap();
+                    parse_optional.push(quote! {
+                        #label => { #ident = Some(#value) }
+                    });
+                } else {
+                    parse_optional.push(quote! {
+                        #label => {
+                            let (value, remaining) = #parse_expr?;
+                            input = remaining;
+                            #ident = Some(value);
+                        }
+                    });
+                }
+            }
+        }
+
+        let unwrap = if attr.is_required() {
+            quote! {.unwrap()}
+        } else {
+            quote! {.unwrap_or_default()}
+        };
+        if let Some(field_ident) = field.ident.as_ref() {
+            field_construct.push(quote! {#field_ident: #ident #unwrap});
+        } else {
+            field_construct.push(quote! {#ident #unwrap});
+        }
     }
 
-    if let Fields::Named(_) = fields {
-        Ok(quote! {
-            #(#field_parse)*
-            Ok((#name { #(#field_construct),* }, input))
-        })
+    let construct = if let Fields::Named(_) = fields {
+        quote! { Ok((#name { #(#field_construct),* }, input)) }
     } else {
-        Ok(quote! {
-            #(#field_parse)*
-            Ok((#name(#(#field_construct),*), input))
-        })
-    }
+        quote! { Ok((#name(#(#field_construct),*), input)) }
+    };
+
+    Ok(quote! {
+        #(#field_definitions)*
+        let mut index = 0;
+        loop {
+            if input.starts_with("--") {
+                let (token, remaining) = ::cmd_parser::take_token(input);
+                input = remaining;
+                match token.unwrap() {
+                    #(#parse_optional)*
+                    token => {
+                        return Err(::cmd_parser::ParseError{
+                            kind: ::cmd_parser::ParseErrorKind::UnknownAttribute(token.into()),
+                            expected: "".into()
+                        })
+                    }
+                }
+            } else if index >= #required_count {
+                break;
+            } else {
+                match index {
+                    #(#parse_required)*
+                    _ => unreachable!(),
+                }
+                index += 1;
+            }
+        }
+        #construct
+    })
 }
 
 fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, syn::Error> {
@@ -107,7 +173,7 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
     Ok(quote! {
         impl cmd_parser::CmdParsable for #name {
             fn parse_cmd_raw(mut original_input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
-                let (discriminator, input) = cmd_parser::take_token(original_input);
+                let (discriminator, mut input) = cmd_parser::take_token(original_input);
                 let discriminator = match discriminator {
                     Some(discriminator) => discriminator,
                     None => return Err(cmd_parser::ParseError {
@@ -120,7 +186,7 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
                 match d_str {
                     #(#variant_parse)*
                     _ => {
-                        let input = original_input;
+                        let mut input = original_input;
                         #(#transparent_parse)*
                         Err(cmd_parser::ParseError{
                             kind: cmd_parser::ParseErrorKind::UnknownVariant(discriminator),

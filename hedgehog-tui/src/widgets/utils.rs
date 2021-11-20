@@ -1,5 +1,7 @@
+use chrono::{TimeZone, Utc};
 use hedgehog_player::state::PlaybackTiming;
 use std::{fmt, time::Duration};
+use unicode_width::UnicodeWidthStr;
 
 pub(super) fn number_width(number: i64) -> u16 {
     fn width_positive(number: i64) -> u16 {
@@ -77,6 +79,23 @@ impl fmt::Display for PlaybackTimingFormatter {
             format_duration(f, self.0.position, precision)
         }
     }
+}
+
+pub(super) fn date_width(format: &str) -> u16 {
+    // wednesday, september (the longest day of week and month in English)
+    let width1 = Utc
+        .ymd(2021, 9, 22)
+        .and_hms_milli(11, 30, 40, 1234)
+        .format(format)
+        .to_string()
+        .width();
+    let width2 = Utc
+        .ymd(2021, 12, 22)
+        .and_hms_milli(11, 30, 40, 1234)
+        .format(format)
+        .to_string()
+        .width();
+    width1.max(width2) as u16
 }
 
 #[cfg(test)]

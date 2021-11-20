@@ -1,5 +1,5 @@
 use super::list::ListItemRenderingDelegate;
-use super::utils::number_width;
+use super::utils::{date_width, number_width};
 use crate::options::Options;
 use crate::theming;
 use crate::widgets::utils::DurationFormatter;
@@ -25,11 +25,11 @@ pub(crate) struct EpisodesListRowRenderer<'t> {
 pub(crate) struct EpisodesListSizing {
     date_width: u16,
     episode_number_width: u16,
-    position_date: u16,
+    duration_width: u16,
 }
 
 impl EpisodesListSizing {
-    pub(crate) fn compute(_options: &Options, metadata: &EpisodesListMetadata) -> Self {
+    pub(crate) fn compute(options: &Options, metadata: &EpisodesListMetadata) -> Self {
         let episode_number_width = match metadata.max_episode_number {
             Some(episode_number) => {
                 let mut width = number_width(episode_number) + 2;
@@ -40,10 +40,16 @@ impl EpisodesListSizing {
             }
             None => 0,
         };
+
+        let duration_width = metadata
+            .max_duration
+            .map(|duration| DurationFormatter(duration).width())
+            .unwrap_or(0);
+
         EpisodesListSizing {
-            date_width: 0,
+            date_width: date_width(&options.date_format),
             episode_number_width,
-            position_date: 0,
+            duration_width,
         }
     }
 }

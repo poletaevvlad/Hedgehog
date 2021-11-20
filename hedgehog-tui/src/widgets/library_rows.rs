@@ -256,8 +256,8 @@ impl FeedsListStatusIndicator {
 
     fn label(&self) -> &'static str {
         match self {
-            FeedsListStatusIndicator::Error => "E",
-            FeedsListStatusIndicator::Update => "U",
+            FeedsListStatusIndicator::Error => " E ",
+            FeedsListStatusIndicator::Update => " U ",
         }
     }
 }
@@ -301,49 +301,42 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
             item_state |= theming::ListState::SELECTED;
         }
 
-        match item {
-            Some(item) => {
-                if let Some(status_indicator) = self.get_status_indicator(item) {
-                    let style = status_indicator.style(self.theme, item_state);
-                    buf.set_style(
-                        Rect::new(area.right().saturating_sub(3), area.y, 3, area.height),
-                        style,
-                    );
-                    let label = status_indicator.label();
-                    buf.set_string(
-                        area.right().saturating_sub(2),
-                        area.y,
-                        label,
-                        Style::default(),
-                    );
-                    area.width = area.width.saturating_sub(3);
-                }
+        if let Some(item) = item {
+            if let Some(status_indicator) = self.get_status_indicator(item) {
+                let style = status_indicator.style(self.theme, item_state);
+                let label = status_indicator.label();
 
-                let subitem = if !item.has_title {
-                    Some(theming::ListSubitem::MissingTitle)
-                } else {
-                    None
-                };
-                let style = self.theme.get(theming::List::Item(item_state, subitem));
-                buf.set_style(area, style);
-
-                let paragraph = Paragraph::new(item.title.as_str());
-                paragraph.render(
-                    Rect::new(
-                        area.x + 1,
-                        area.y,
-                        area.width.saturating_sub(2),
-                        area.height,
-                    ),
-                    buf,
-                );
+                let (rest, indicator_area) = split_right(area, label.width() as u16);
+                area = rest;
+                buf.set_string(indicator_area.x, indicator_area.y, label, style);
             }
-            None => buf.set_string(
-                area.x,
-                area.y,
-                " . . . ",
-                self.theme.get(theming::List::Item(item_state, None)),
-            ),
+
+            let subitem = match item.has_title {
+                true => None,
+                false => Some(theming::ListSubitem::MissingTitle),
+            };
+            let style = self.theme.get(theming::List::Item(item_state, subitem));
+            buf.set_style(area, style);
+
+            let paragraph = Paragraph::new(item.title.as_str());
+            paragraph.render(
+                Rect::new(
+                    area.x + 1,
+                    area.y,
+                    area.width.saturating_sub(2),
+                    area.height,
+                ),
+                buf,
+            );
+        } else {
+            let style = self.theme.get(theming::List::Item(
+                item_state,
+                Some(theming::ListSubitem::LoadingIndicator),
+            ));
+            let paragraph = Paragraph::new(".  .  .")
+                .style(style)
+                .alignment(Alignment::Center);
+            paragraph.render(area, buf);
         }
     }
 

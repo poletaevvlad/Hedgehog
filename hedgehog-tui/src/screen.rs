@@ -16,6 +16,7 @@ use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{EpisodeId, EpisodeSummary, EpisodesListMetadata, FeedSummary};
+use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, Library,
@@ -35,6 +36,7 @@ pub(crate) struct UI {
     library: Addr<Library>,
     player: Addr<Player>,
     view_model: ViewModel<ActorActionDelegate>,
+    status_writer: Addr<StatusWriter>,
 }
 
 impl UI {
@@ -43,6 +45,7 @@ impl UI {
         terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
         library: Addr<Library>,
         player: Addr<Player>,
+        status_writer: Addr<StatusWriter>,
     ) -> Self {
         UI {
             terminal,
@@ -50,12 +53,14 @@ impl UI {
             commands_history: CommandsHistory::new(),
             library: library.clone(),
             player: player.clone(),
+            status_writer: status_writer.clone(),
             view_model: ViewModel::new(
                 size,
                 ActorActionDelegate {
                     ui: None,
                     player,
                     library,
+                    status_writer,
                 },
             ),
         }
@@ -447,6 +452,7 @@ struct ActorActionDelegate {
     ui: Option<Addr<UI>>,
     player: Addr<Player>,
     library: Addr<Library>,
+    status_writer: Addr<StatusWriter>,
 }
 
 impl ActionDelegate for ActorActionDelegate {
@@ -467,5 +473,12 @@ impl ActionDelegate for ActorActionDelegate {
 
     fn send_feed_update_request(&self, command: hedgehog_library::FeedUpdateRequest) {
         self.library.do_send(command)
+    }
+
+    fn send_status_write_request(
+        &self,
+        command: hedgehog_library::status_writer::StatusWriterCommand,
+    ) {
+        self.status_writer.do_send(command)
     }
 }

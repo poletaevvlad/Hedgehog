@@ -216,7 +216,7 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()> {
-        let mut sql = "UPDATE feeds SET status = :status, position = :position ".to_string();
+        let mut sql = "UPDATE episodes SET status = :status, position = :position ".to_string();
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 

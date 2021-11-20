@@ -4,6 +4,7 @@ pub mod metadata;
 pub mod model;
 mod rss_client;
 mod sqlite;
+pub mod status_writer;
 
 pub use rss;
 

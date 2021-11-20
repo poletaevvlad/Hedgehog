@@ -10,8 +10,10 @@ use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use cmd_parser::CmdParsable;
 use hedgehog_library::model::{
-    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
+    EpisodeId, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId,
+    FeedSummary,
 };
+use hedgehog_library::status_writer::StatusWriterCommand;
 use hedgehog_library::{
     EpisodesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
 };
@@ -25,6 +27,7 @@ pub(crate) trait ActionDelegate {
     fn send_volume_command(&self, command: VolumeCommand);
     fn send_playback_command(&self, command: PlaybackCommand);
     fn send_feed_update_request(&self, command: FeedUpdateRequest);
+    fn send_status_write_request(&self, command: StatusWriterCommand);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
@@ -340,7 +343,16 @@ impl<D: ActionDelegate> ViewModel<D> {
                 }
             }
             PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
-            PlayerNotification::PositionSet(position) => self.playback_state.set_position(position),
+            PlayerNotification::PositionSet(position) => {
+                if let Some(playing_episode) = &self.playing_episode {
+                    self.action_delegate
+                        .send_status_write_request(StatusWriterCommand::Set(
+                            playing_episode.id,
+                            EpisodeStatus::Started(position),
+                        ));
+                }
+                self.playback_state.set_position(position)
+            }
         }
     }
 
@@ -426,6 +438,11 @@ mod tests {
         fn send_volume_command(&self, _command: hedgehog_player::volume::VolumeCommand) {}
         fn send_playback_command(&self, _command: hedgehog_player::PlaybackCommand) {}
         fn send_feed_update_request(&self, _command: hedgehog_library::FeedUpdateRequest) {}
+        fn send_status_write_request(
+            &self,
+            _command: hedgehog_library::status_writer::StatusWriterCommand,
+        ) {
+        }
     }
 
     #[test]

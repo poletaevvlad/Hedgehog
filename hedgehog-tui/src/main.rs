@@ -15,6 +15,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{Library, SqliteDataProvider};
 use hedgehog_player::Player;
 use screen::UI;
@@ -40,12 +41,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let library_arbiter = Arbiter::new();
         let library =
             Library::start_in_arbiter(&library_arbiter.handle(), |_| Library::new(data_provider));
+        let status_writer = StatusWriter::new(library.clone()).start();
+
         let player_arbiter = Arbiter::new();
         let player = Player::start_in_arbiter(
             &player_arbiter.handle(),
             |_| /* TODO */ Player::init().unwrap(),
         );
-        let ui = UI::new((size.width, size.height), terminal, library.clone(), player).start();
+        let ui = UI::new(
+            (size.width, size.height),
+            terminal,
+            library.clone(),
+            player,
+            status_writer,
+        )
+        .start();
         library.do_send(hedgehog_library::FeedUpdateRequest::Subscribe(
             ui.recipient(),
         ))

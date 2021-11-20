@@ -44,6 +44,18 @@ fn get_duration_precision(duration: Duration) -> u32 {
 
 pub(super) struct DurationFormatter(pub(super) Duration);
 
+impl DurationFormatter {
+    pub(super) fn width(&self) -> u16 {
+        let precision = get_duration_precision(self.0);
+        match precision {
+            0 => 4,
+            1 => 5,
+            2 => 6 + number_width((self.0.as_secs() / 3600) as i64),
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl fmt::Display for DurationFormatter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let precision = get_duration_precision(self.0);
@@ -152,5 +164,30 @@ mod tests {
         assert_eq!(format!("{}", make_duration(3599)), "59:59");
         assert_eq!(format!("{}", make_duration(3600)), "1:00:00");
         assert_eq!(format!("{}", make_duration(9492)), "2:38:12");
+    }
+
+    #[test]
+    fn duration_width() {
+        fn make_duration(hours: u64, minutes: u64, seconds: u64) -> DurationFormatter {
+            DurationFormatter(Duration::from_secs(seconds + minutes * 60 + hours * 3600))
+        }
+
+        fn assert_width(duration: DurationFormatter) {
+            let formatted = format!("{}", duration);
+            let width = duration.width();
+            assert_eq!(formatted.len() as u16, width, "{}", formatted);
+        }
+
+        assert_width(make_duration(0, 0, 0));
+        assert_width(make_duration(0, 0, 5));
+        assert_width(make_duration(0, 0, 59));
+        assert_width(make_duration(0, 1, 00));
+        assert_width(make_duration(0, 9, 59));
+        assert_width(make_duration(0, 10, 00));
+        assert_width(make_duration(0, 10, 00));
+        assert_width(make_duration(1, 00, 00));
+        assert_width(make_duration(9, 59, 59));
+        assert_width(make_duration(10, 00, 00));
+        assert_width(make_duration(120, 00, 00));
     }
 }

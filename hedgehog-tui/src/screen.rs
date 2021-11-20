@@ -1,5 +1,3 @@
-use std::io::{stdout, Write};
-
 use crate::dataview::{
     DataProvider, ListDataRequest, PaginatedDataMessage, PaginatedDataRequest, Version, Versioned,
 };
@@ -8,7 +6,9 @@ use crate::history::CommandsHistory;
 use crate::theming;
 use crate::view_model::{ActionDelegate, Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
-use crate::widgets::library_rows::{EpisodesListRowRenderer, FeedsListRowRenderer};
+use crate::widgets::library_rows::{
+    EpisodesListRowRenderer, EpisodesListSizing, FeedsListRowRenderer,
+};
 use crate::widgets::list::List;
 use crate::widgets::player_state::PlayerState;
 use actix::prelude::*;
@@ -21,6 +21,7 @@ use hedgehog_library::{
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, Library,
 };
 use hedgehog_player::{Player, PlayerNotification};
+use std::io::{stdout, Write};
 use tui::backend::CrosstermBackend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::text::Span;
@@ -94,13 +95,18 @@ impl UI {
                     feeds_area,
                 );
             }
-            if let Some(iter) = episodes_list.iter() {
+            if let (Some(iter), Some(metadata)) = (
+                episodes_list.iter(),
+                view_model.episodes_list_metadata.as_ref(),
+            ) {
+                let sizing = EpisodesListSizing::compute(&view_model.options, metadata);
                 f.render_widget(
                     List::new(
                         EpisodesListRowRenderer::new(
                             &view_model.theme,
                             view_model.focus == FocusedPane::EpisodesList,
                             &view_model.options,
+                            sizing,
                         )
                         .with_playing_id(
                             view_model

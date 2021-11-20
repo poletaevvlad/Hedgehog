@@ -164,7 +164,7 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata> {
-        let mut sql = "SELECT COUNT(id), MAX(season_number), MAX(episode_number), MAX(duration), TOTAL(publication_date)  FROM episodes".to_string();
+        let mut sql = "SELECT COUNT(id), MAX(season_number), MAX(episode_number), MAX(duration), SUM(CASE WHEN publication_date IS NOT NULL THEN 1 ELSE 0 END)  FROM episodes".to_string();
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 

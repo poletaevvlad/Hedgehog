@@ -20,6 +20,7 @@ pub(super) fn number_width(number: i64) -> u16 {
         width_positive(-number) + 1
     }
 }
+
 fn format_duration(f: &mut fmt::Formatter<'_>, duration: Duration, precision: u32) -> fmt::Result {
     let total_seconds = duration.as_secs();
     let seconds = total_seconds % 60;

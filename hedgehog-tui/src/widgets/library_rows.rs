@@ -2,13 +2,14 @@ use super::list::ListItemRenderingDelegate;
 use super::utils::{date_width, number_width};
 use crate::options::Options;
 use crate::theming;
+use crate::widgets::layout::{split_left, split_right};
 use crate::widgets::utils::DurationFormatter;
 use hedgehog_library::model::{
     EpisodeId, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedStatus, FeedSummary,
 };
 use std::collections::HashSet;
 use tui::buffer::Buffer;
-use tui::layout::Rect;
+use tui::layout::{Alignment, Rect};
 use tui::style::Style;
 use tui::text::Span;
 use tui::widgets::{Paragraph, Widget};
@@ -19,6 +20,7 @@ pub(crate) struct EpisodesListRowRenderer<'t> {
     default_item_state: theming::ListState,
     playing_id: Option<EpisodeId>,
     options: &'t Options,
+    sizing: EpisodesListSizing,
 }
 
 #[derive(Debug, PartialEq)]
@@ -43,11 +45,15 @@ impl EpisodesListSizing {
 
         let duration_width = metadata
             .max_duration
-            .map(|duration| DurationFormatter(duration).width())
+            .map(|duration| DurationFormatter(duration).width() + 2)
             .unwrap_or(0);
 
         EpisodesListSizing {
-            date_width: date_width(&options.date_format),
+            date_width: if metadata.has_publication_date {
+                date_width(&options.date_format) + 2
+            } else {
+                0
+            },
             episode_number_width,
             duration_width,
         }
@@ -55,7 +61,12 @@ impl EpisodesListSizing {
 }
 
 impl<'t> EpisodesListRowRenderer<'t> {
-    pub(crate) fn new(theme: &'t theming::Theme, is_focused: bool, options: &'t Options) -> Self {
+    pub(crate) fn new(
+        theme: &'t theming::Theme,
+        is_focused: bool,
+        options: &'t Options,
+        sizing: EpisodesListSizing,
+    ) -> Self {
         EpisodesListRowRenderer {
             theme,
             default_item_state: if is_focused {
@@ -65,6 +76,7 @@ impl<'t> EpisodesListRowRenderer<'t> {
             },
             playing_id: None,
             options,
+            sizing,
         }
     }
 
@@ -91,111 +103,106 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
             item_state |= theming::ListState::NEW;
         }
 
-        match item {
-            Some(item) => {
-                let subitem = match item.title {
-                    None => Some(theming::ListSubitem::MissingTitle),
-                    _ => None,
-                };
-
-                let date_format = self.options.date_format.as_str();
-                if !date_format.is_empty() {
-                    if let Some(date) = item.publication_date {
-                        let formatted = format!(" {} ", date.format(date_format));
-                        let width = formatted.width() as u16;
-                        buf.set_span(
-                            area.right().saturating_sub(width),
-                            area.y,
-                            &Span::styled(
-                                formatted,
-                                self.theme.get(theming::List::Item(
-                                    item_state,
-                                    Some(theming::ListSubitem::Date),
-                                )),
-                            ),
-                            width,
-                        );
-                        area.width = area.width.saturating_sub(width);
-                    }
-                }
-
-                if let Some(duration) = item.duration {
-                    let formatted = format!(" {} ", DurationFormatter(duration));
-                    let width = formatted.width() as u16;
-                    buf.set_span(
-                        area.right().saturating_sub(width),
-                        area.y,
-                        &Span::styled(
-                            formatted,
-                            self.theme.get(theming::List::Item(
-                                item_state,
-                                Some(theming::ListSubitem::Duration),
-                            )),
-                        ),
-                        width,
-                    );
-                    area.width = area.width.saturating_sub(width);
-                }
-
-                let episode_number = match (item.season_number, item.episode_number) {
-                    (None, Some(episode_number)) => Some(format!(" {}.", episode_number)),
-                    (Some(season_number), Some(episode_number)) => {
-                        Some(format!(" {}x{}.", season_number, episode_number))
-                    }
-                    _ => None,
-                };
-                if let Some(episode_number) = episode_number {
-                    let width = episode_number.width() as u16;
-                    buf.set_span(
-                        area.x,
-                        area.y,
-                        &Span::styled(
-                            episode_number,
-                            self.theme.get(theming::List::Item(
-                                item_state,
-                                Some(theming::ListSubitem::EpisodeNumber),
-                            )),
-                        ),
-                        width,
-                    );
-                    area.x += width;
-                    area.width = area.width.saturating_sub(width);
-                }
-
-                let style = self.theme.get(theming::List::Item(item_state, subitem));
-                buf.set_style(area, style);
-                let paragraph = Paragraph::new(item.title.as_deref().unwrap_or("Untitled"));
-                paragraph.render(
-                    Rect::new(
-                        area.x + 1,
-                        area.y,
-                        area.width.saturating_sub(2),
-                        area.height,
-                    ),
-                    buf,
-                );
-
-                if matches!(item.status, EpisodeSummaryStatus::New) {
-                    buf.set_string(
-                        area.x,
-                        area.y,
-                        "*",
-                        self.theme.get(theming::List::Item(
-                            item_state,
-                            Some(theming::ListSubitem::NewIndicator),
-                        )),
-                    );
-                }
-            }
-            None => {
-                buf.set_string(
-                    area.x,
-                    area.y,
-                    " . . . ",
-                    self.theme.get(theming::List::Item(item_state, None)),
-                );
+        if self.sizing.date_width > 0 {
+            let date = item.and_then(|item| item.publication_date);
+            let style = self.theme.get(theming::List::Item(
+                item_state,
+                Some(theming::ListSubitem::Date),
+            ));
+            area = if let Some(date) = date {
+                let formatted = format!(" {} ", date.format(&self.options.date_format));
+                let width = (formatted.width() as u16).max(self.sizing.date_width);
+                let (rest, date_area) = split_right(area, width);
+                let paragraph = Paragraph::new(formatted).style(style);
+                paragraph.render(date_area, buf);
+                rest
+            } else {
+                let (rest, date_area) = split_right(area, self.sizing.date_width);
+                buf.set_style(date_area, style);
+                rest
             }
         }
+
+        if self.sizing.duration_width > 0 {
+            let style = self.theme.get(theming::List::Item(
+                item_state,
+                Some(theming::ListSubitem::Duration),
+            ));
+            let duration = item.and_then(|item| item.duration);
+            let (rest, duration_area) = split_right(area, self.sizing.duration_width);
+            if let Some(duration) = duration {
+                let formatted = format!(" {} ", DurationFormatter(duration));
+                let paragraph = Paragraph::new(formatted)
+                    .style(style)
+                    .alignment(Alignment::Right);
+                paragraph.render(duration_area, buf);
+            } else {
+                buf.set_style(duration_area, style);
+            }
+            area = rest;
+        }
+
+        if self.sizing.episode_number_width > 0 {
+            let style = self.theme.get(theming::List::Item(
+                item_state,
+                Some(theming::ListSubitem::EpisodeNumber),
+            ));
+            let number = item
+                .map(|item| (item.season_number, item.episode_number))
+                .unwrap_or((None, None));
+            let number = match number {
+                (None, Some(episode)) => Some(format!(" {}.", episode)),
+                (Some(season), Some(episode)) => Some(format!(" {}x{}.", season, episode)),
+                _ => None,
+            };
+            let (number_area, rest) = split_left(area, self.sizing.episode_number_width);
+            if let Some(number) = number {
+                let paragraph = Paragraph::new(number)
+                    .style(style)
+                    .alignment(Alignment::Right);
+                paragraph.render(number_area, buf);
+            } else {
+                buf.set_style(number_area, style);
+            }
+            area = rest;
+        }
+
+        if let Some(item) = item {
+            let subtitle = match item.title.is_none() {
+                true => Some(theming::ListSubitem::MissingTitle),
+                false => None,
+            };
+            let style = self.theme.get(theming::List::Item(item_state, subtitle));
+            let title = item.title.as_deref().unwrap_or("Untitled");
+            buf.set_style(area, style);
+            buf.set_span(
+                area.x + 1,
+                area.y,
+                &Span::raw(title),
+                area.width.saturating_sub(2),
+            );
+        } else {
+            let style = self.theme.get(theming::List::Item(
+                item_state,
+                Some(theming::ListSubitem::LoadingIndicator),
+            ));
+            let paragraph = Paragraph::new(".  .  .")
+                .style(style)
+                .alignment(Alignment::Center);
+            paragraph.render(area, buf);
+        }
+
+        /*if matches!(item.status, EpisodeSummaryStatus::New) {
+            buf.set_string(
+                area.x,
+                area.y,
+                "*",
+                self.theme.get(theming::List::Item(
+                    item_state,
+                    Some(theming::ListSubitem::NewIndicator),
+                )),
+            );
+        }*/
     }
 }
 

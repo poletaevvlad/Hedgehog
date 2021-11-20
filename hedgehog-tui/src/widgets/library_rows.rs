@@ -204,6 +204,34 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
             );
         }*/
     }
+
+    fn render_empty(&self, area: Rect, buf: &mut Buffer) {
+        let state = self.default_item_state;
+        let (number_rect, area) = split_left(area, self.sizing.episode_number_width);
+        let (area, date_rect) = split_right(area, self.sizing.date_width);
+        let (area, duration_rect) = split_right(area, self.sizing.duration_width);
+
+        buf.set_style(area, self.theme.get(theming::List::Item(state, None)));
+        buf.set_style(
+            number_rect,
+            self.theme.get(theming::List::Item(
+                state,
+                Some(theming::ListSubitem::EpisodeNumber),
+            )),
+        );
+        buf.set_style(
+            date_rect,
+            self.theme
+                .get(theming::List::Item(state, Some(theming::ListSubitem::Date))),
+        );
+        buf.set_style(
+            duration_rect,
+            self.theme.get(theming::List::Item(
+                state,
+                Some(theming::ListSubitem::Duration),
+            )),
+        );
+    }
 }
 
 pub(crate) struct FeedsListRowRenderer<'t> {
@@ -317,6 +345,12 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 self.theme.get(theming::List::Item(item_state, None)),
             ),
         }
+    }
+
+    fn render_empty(&self, area: Rect, buf: &mut Buffer) {
+        let item_state = self.default_item_state;
+        let style = self.theme.get(theming::List::Item(item_state, None));
+        buf.set_style(area, style);
     }
 }
 

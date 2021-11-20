@@ -6,6 +6,7 @@ pub(crate) trait ListItemRenderingDelegate<'a> {
     type Item: 'a;
 
     fn render_item(&self, area: Rect, item: Self::Item, buf: &mut Buffer);
+    fn render_empty(&self, area: Rect, buf: &mut Buffer);
 }
 
 pub(crate) struct List<F, I> {
@@ -28,7 +29,13 @@ impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widg
                     self.delegate
                         .render_item(Rect::new(area.x, y, area.width, 1), item, buf)
                 }
-                None => break,
+                None => {
+                    self.delegate.render_empty(
+                        Rect::new(area.x, y, area.width, area.height - (y - area.y)),
+                        buf,
+                    );
+                    break;
+                }
             }
         }
     }

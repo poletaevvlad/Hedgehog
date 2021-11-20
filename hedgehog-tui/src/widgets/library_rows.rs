@@ -242,14 +242,14 @@ pub(crate) struct FeedsListRowRenderer<'t> {
 
 enum FeedsListStatusIndicator {
     Error,
-    Loading,
+    Update,
 }
 
 impl FeedsListStatusIndicator {
     fn style(&self, theme: &theming::Theme, item_state: theming::ListState) -> Style {
         let subitem_selector = match self {
             FeedsListStatusIndicator::Error => theming::ListSubitem::ErrorIndicator,
-            FeedsListStatusIndicator::Loading => theming::ListSubitem::LoadingIndicator,
+            FeedsListStatusIndicator::Update => theming::ListSubitem::UpdateIndicator,
         };
         theme.get(theming::List::Item(item_state, Some(subitem_selector)))
     }
@@ -257,7 +257,7 @@ impl FeedsListStatusIndicator {
     fn label(&self) -> &'static str {
         match self {
             FeedsListStatusIndicator::Error => "E",
-            FeedsListStatusIndicator::Loading => "U",
+            FeedsListStatusIndicator::Update => "U",
         }
     }
 }
@@ -281,7 +281,7 @@ impl<'t> FeedsListRowRenderer<'t> {
 
     fn get_status_indicator(&self, item: &FeedSummary) -> Option<FeedsListStatusIndicator> {
         if self.updating_feeds.contains(&item.id) {
-            Some(FeedsListStatusIndicator::Loading)
+            Some(FeedsListStatusIndicator::Update)
         } else if matches!(item.status, FeedStatus::Error(_)) {
             Some(FeedsListStatusIndicator::Error)
         } else {

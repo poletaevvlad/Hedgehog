@@ -321,10 +321,12 @@ impl UI {
         metadata: LibraryQueryResult<EpisodesListMetadata>,
     ) {
         self.handle_library_response(metadata, move |actor, metadata| {
-            actor.view_model.set_episodes_list_data(
+            let should_render = actor.view_model.set_episodes_list_data(
                 Versioned::new(PaginatedDataMessage::size(metadata.items_count))
                     .with_version(version),
-            )
+            );
+            actor.view_model.episodes_list_metadata = Some(metadata);
+            should_render
         });
     }
 

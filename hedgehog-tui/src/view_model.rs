@@ -10,7 +10,7 @@ use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use cmd_parser::CmdParsable;
 use hedgehog_library::model::{
-    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, FeedId, FeedSummary,
+    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
 };
 use hedgehog_library::{
     EpisodesQuery, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
@@ -39,6 +39,7 @@ pub(crate) struct ViewModel<D> {
     pub(crate) options: Options,
     pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
     pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
+    pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
     pub(crate) status: Option<Status>,
     pub(crate) key_mapping: KeyMapping<Command, FocusedPane>,
     pub(crate) theme: Theme,
@@ -56,6 +57,7 @@ impl<D: ActionDelegate> ViewModel<D> {
             options: Options::default(),
             feeds_list: InteractiveList::new(size.1 as usize - 2),
             episodes_list: InteractiveList::new(size.1 as usize - 2),
+            episodes_list_metadata: None,
             status: None,
             key_mapping: KeyMapping::new(),
             theme: Theme::default(),

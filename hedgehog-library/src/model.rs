@@ -256,9 +256,11 @@ pub struct EpisodePlaybackData {
     pub duration: Option<Duration>,
 }
 
+#[derive(Debug, Default)]
 pub struct EpisodesListMetadata {
     pub items_count: usize,
     pub max_season_number: Option<i64>,
     pub max_episode_number: Option<i64>,
     pub max_duration: Option<Duration>,
+    pub has_publication_date: bool,
 }

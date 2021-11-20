@@ -36,7 +36,6 @@ pub(crate) struct UI {
     library: Addr<Library>,
     player: Addr<Player>,
     view_model: ViewModel<ActorActionDelegate>,
-    status_writer: Addr<StatusWriter>,
 }
 
 impl UI {
@@ -53,7 +52,6 @@ impl UI {
             commands_history: CommandsHistory::new(),
             library: library.clone(),
             player: player.clone(),
-            status_writer: status_writer.clone(),
             view_model: ViewModel::new(
                 size,
                 ActorActionDelegate {
@@ -438,9 +436,12 @@ impl Handler<StartPlaybackRequest> for UI {
             .send(EpisodePlaybackDataRequest(msg.0))
             .into_actor(self)
             .map(|result, actor, _ctx| match result {
-                Ok(Ok(playback_data)) => actor.player.do_send(
-                    hedgehog_player::PlaybackCommand::Play(playback_data.media_url),
-                ),
+                Ok(Ok(playback_data)) => {
+                    actor.player.do_send(hedgehog_player::PlaybackCommand::Play(
+                        playback_data.media_url,
+                        playback_data.position,
+                    ))
+                }
                 Ok(Err(error)) => actor.view_model.error(error),
                 Err(error) => actor.view_model.error(error),
             });

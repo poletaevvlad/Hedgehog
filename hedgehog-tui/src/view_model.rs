@@ -10,8 +10,7 @@ use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use cmd_parser::CmdParsable;
 use hedgehog_library::model::{
-    EpisodeId, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId,
-    FeedSummary,
+    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
 };
 use hedgehog_library::status_writer::StatusWriterCommand;
 use hedgehog_library::{
@@ -339,17 +338,21 @@ impl<D: ActionDelegate> ViewModel<D> {
             PlayerNotification::StateChanged(state) => {
                 self.playback_state.set_state(state);
                 if state.is_none() {
-                    self.playing_episode = None;
+                    if let Some(playing_episode) = &self.playing_episode {
+                        self.action_delegate.send_status_write_request(
+                            StatusWriterCommand::set_finished(playing_episode.id),
+                        );
+
+                        self.playing_episode = None;
+                    }
                 }
             }
             PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
             PlayerNotification::PositionSet(position) => {
                 if let Some(playing_episode) = &self.playing_episode {
-                    self.action_delegate
-                        .send_status_write_request(StatusWriterCommand::Set(
-                            playing_episode.id,
-                            EpisodeStatus::Started(position),
-                        ));
+                    self.action_delegate.send_status_write_request(
+                        StatusWriterCommand::set_position(playing_episode.id, position),
+                    );
                 }
                 self.playback_state.set_position(position)
             }

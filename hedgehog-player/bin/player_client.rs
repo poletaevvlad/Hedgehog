@@ -51,7 +51,7 @@ async fn main() {
             ("play", url) => print!(
                 "{:?}",
                 player_addr
-                    .send(PlaybackCommand::Play(url.to_string()))
+                    .send(PlaybackCommand::Play(url.to_string(), Duration::ZERO))
                     .await
             ),
             ("stop", _) => print!("{:?}", player_addr.send(PlaybackCommand::Stop).await),

@@ -1,6 +1,7 @@
 use crate::model::{EpisodeId, EpisodeStatus};
 use crate::{EpisodesQuery, FeedUpdateRequest, Library};
 use actix::prelude::*;
+use std::time::Duration;
 
 pub struct StatusWriter {
     library: Addr<Library>,
@@ -20,6 +21,16 @@ impl Actor for StatusWriter {
 #[rtype(result = "()")]
 pub enum StatusWriterCommand {
     Set(EpisodeId, EpisodeStatus),
+}
+
+impl StatusWriterCommand {
+    pub fn set_finished(episode_id: EpisodeId) -> Self {
+        StatusWriterCommand::Set(episode_id, EpisodeStatus::Finished)
+    }
+
+    pub fn set_position(episode_id: EpisodeId, position: Duration) -> Self {
+        StatusWriterCommand::Set(episode_id, EpisodeStatus::Started(position))
+    }
 }
 
 impl Handler<StatusWriterCommand> for StatusWriter {

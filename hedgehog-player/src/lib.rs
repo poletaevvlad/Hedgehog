@@ -28,6 +28,7 @@ pub struct Player {
     subscribers: Vec<Recipient<PlayerNotification>>,
     reported_volume: Option<Option<Volume>>,
     state: Option<State>,
+    required_seek: Option<Duration>,
 }
 
 impl Player {
@@ -46,6 +47,7 @@ impl Player {
             reported_volume: None,
             subscribers: Vec::new(),
             state: None,
+            required_seek: None,
         })
     }
 
@@ -145,7 +147,7 @@ pub enum SeekDirection {
 #[rtype(result = "()")]
 pub enum PlaybackCommand {
     #[cmd(ignore)]
-    Play(String),
+    Play(String, Duration),
     Stop,
     Pause,
     Resume,
@@ -160,11 +162,16 @@ impl Handler<PlaybackCommand> for Player {
     fn handle(&mut self, msg: PlaybackCommand, _ctx: &mut Self::Context) -> Self::Result {
         let result: Result<(), Box<dyn Error>> = (|| {
             match msg {
-                PlaybackCommand::Play(url) => {
+                PlaybackCommand::Play(url, position) => {
                     self.set_state(Some(State::default()));
                     self.element.set_state(gst::State::Null)?;
                     self.element.set_property("uri", url)?;
                     self.element.set_state(gst::State::Playing)?;
+                    self.required_seek = if position.is_zero() {
+                        None
+                    } else {
+                        Some(position)
+                    };
                 }
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {
@@ -313,7 +320,7 @@ pub enum PlayerNotification {
 }
 
 impl StreamHandler<gst::Message> for Player {
-    fn handle(&mut self, item: gst::Message, _ctx: &mut Self::Context) {
+    fn handle(&mut self, item: gst::Message, ctx: &mut Self::Context) {
         if let Some(state) = self.state {
             match item.view() {
                 gst::MessageView::Eos(_) => self.set_state(None),
@@ -337,6 +344,9 @@ impl StreamHandler<gst::Message> for Player {
                                 is_started: true,
                                 ..state
                             }));
+                            if let Some(seek) = self.required_seek.take() {
+                                ctx.address().do_send(PlaybackCommand::Seek(seek))
+                            }
                         }
                     }
                 }

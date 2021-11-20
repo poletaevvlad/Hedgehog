@@ -1,4 +1,5 @@
 use crate::theming;
+use crate::widgets::utils::PlaybackTimingFormatter;
 use hedgehog_player::state::{PlaybackState, PlaybackStatus};
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -46,7 +47,7 @@ impl<'a> Widget for PlayerState<'a> {
         area.x = x;
 
         if let Some(timing) = self.state.timing() {
-            let formatted = format!(" {} ", timing);
+            let formatted = format!(" {} ", PlaybackTimingFormatter(timing));
             let style = self.theme.get(theming::Player::Timing);
             let width = formatted.len() as u16; // PlaybackTiming's Display implementation produces ASCII characters only
             buf.set_span(

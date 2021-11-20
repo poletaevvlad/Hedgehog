@@ -1,10 +1,11 @@
 use super::list::ListItemRenderingDelegate;
+use super::utils::number_width;
 use crate::options::Options;
 use crate::theming;
+use crate::widgets::utils::DurationFormatter;
 use hedgehog_library::model::{
     EpisodeId, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedStatus, FeedSummary,
 };
-use hedgehog_player::state::DurationFormatter;
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -25,24 +26,6 @@ pub(crate) struct EpisodesListSizing {
     date_width: u16,
     episode_number_width: u16,
     position_date: u16,
-}
-
-fn number_width(number: i64) -> u16 {
-    fn width_positive(number: i64) -> u16 {
-        macro_rules! impl_width{
-            ($($i:literal)*; $remaining:literal) => {
-                $( if number < 10_i64.pow($i) { $i } else)*
-                { $remaining }
-            }
-        }
-        impl_width!(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; 19)
-    }
-
-    if number >= 0 {
-        width_positive(number)
-    } else {
-        width_positive(-number) + 1
-    }
 }
 
 impl EpisodesListSizing {

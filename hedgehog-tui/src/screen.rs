@@ -95,8 +95,10 @@ pub(crate) enum Command {
     SetOption(OptionsUpdate),
     AddFeed(String),
     DeleteFeed,
-    Update,
-    UpdateAll,
+    Update {
+        #[cmd(attr(this = "true"))]
+        current_only: bool,
+    },
     SetNew(bool),
 }
 
@@ -342,10 +344,14 @@ impl UI {
                         .do_send(FeedUpdateRequest::DeleteFeed(selected_feed.id));
                 }
             }
-            Command::Update => {
-                if let Some(selected_feed) = self.selected_feed {
-                    self.library_actor
-                        .do_send(FeedUpdateRequest::UpdateSingle(selected_feed));
+            Command::Update { current_only } => {
+                if current_only {
+                    if let Some(selected_feed) = self.selected_feed {
+                        self.library_actor
+                            .do_send(FeedUpdateRequest::UpdateSingle(selected_feed));
+                    }
+                } else {
+                    self.library_actor.do_send(FeedUpdateRequest::UpdateAll);
                 }
             }
             Command::SetOption(options_update) => {
@@ -375,7 +381,6 @@ impl UI {
                     }
                 }*/
             }
-            Command::UpdateAll => self.library_actor.do_send(FeedUpdateRequest::UpdateAll),
         }
     }
 

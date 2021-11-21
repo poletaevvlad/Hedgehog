@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .start();
         library.do_send(hedgehog_library::FeedUpdateRequest::Subscribe(
             ui.recipient(),
-        ))
+        ));
     });
     system.run()?;
 

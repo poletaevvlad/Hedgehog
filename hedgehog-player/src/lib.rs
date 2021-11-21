@@ -6,7 +6,6 @@ use actix::prelude::*;
 use cmd_parser::CmdParsable;
 use gst_utils::{build_flags, get_property, set_property, GstError};
 use gstreamer_base::{gst, gst::prelude::*, BaseParse};
-use std::error::Error;
 use std::time::Duration;
 use volume::{Volume, VolumeCommand};
 
@@ -26,6 +25,7 @@ impl State {
 pub struct Player {
     element: gst::Element,
     subscribers: Vec<Recipient<PlayerNotification>>,
+    error_listener: Option<Recipient<PlayerErrorNotification>>,
     reported_volume: Option<Option<Volume>>,
     state: Option<State>,
     required_seek: Option<Duration>,
@@ -46,14 +46,18 @@ impl Player {
             element,
             reported_volume: None,
             subscribers: Vec::new(),
+            error_listener: None,
             state: None,
             required_seek: None,
         })
     }
 
-    fn emit_error<E: Error + ?Sized>(&mut self, error: &E) {
-        // TODO
-        println!("{:?}", error);
+    fn emit_error(&mut self, error: GstError) {
+        if let Some(ref listener) = self.error_listener {
+            if let Err(SendError::Closed(_)) = listener.do_send(PlayerErrorNotification(error)) {
+                self.error_listener = None;
+            }
+        }
     }
 
     fn set_state(&mut self, state: Option<State>) {
@@ -64,7 +68,7 @@ impl Player {
     fn notify_subscribers(&mut self, notification: PlayerNotification) {
         for subscriber in &self.subscribers {
             if let Err(error) = subscriber.do_send(notification.clone()) {
-                self.emit_error(&error);
+                self.emit_error(GstError::from_err(error));
                 return;
             }
         }
@@ -125,6 +129,7 @@ impl Actor for Player {
 #[rtype(result = "()")]
 pub enum ActorCommand {
     Subscribe(Recipient<PlayerNotification>),
+    SubscribeErrors(Recipient<PlayerErrorNotification>),
 }
 
 impl Handler<ActorCommand> for Player {
@@ -133,6 +138,7 @@ impl Handler<ActorCommand> for Player {
     fn handle(&mut self, msg: ActorCommand, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
             ActorCommand::Subscribe(recipient) => self.subscribers.push(recipient),
+            ActorCommand::SubscribeErrors(recipient) => self.error_listener = Some(recipient),
         }
     }
 }
@@ -160,13 +166,19 @@ impl Handler<PlaybackCommand> for Player {
     type Result = ();
 
     fn handle(&mut self, msg: PlaybackCommand, _ctx: &mut Self::Context) -> Self::Result {
-        let result: Result<(), Box<dyn Error>> = (|| {
+        let result: Result<(), GstError> = (|| {
             match msg {
                 PlaybackCommand::Play(url, position) => {
                     self.set_state(Some(State::default()));
-                    self.element.set_state(gst::State::Null)?;
-                    self.element.set_property("uri", url)?;
-                    self.element.set_state(gst::State::Playing)?;
+                    self.element
+                        .set_state(gst::State::Null)
+                        .map_err(GstError::from_err)?;
+                    self.element
+                        .set_property("uri", url)
+                        .map_err(GstError::from_err)?;
+                    self.element
+                        .set_state(gst::State::Playing)
+                        .map_err(GstError::from_err)?;
                     self.required_seek = if position.is_zero() {
                         None
                     } else {
@@ -176,7 +188,9 @@ impl Handler<PlaybackCommand> for Player {
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {
                         self.set_state(None);
-                        self.element.set_state(gst::State::Null)?;
+                        self.element
+                            .set_state(gst::State::Null)
+                            .map_err(GstError::from_err)?;
                     }
                 }
                 PlaybackCommand::Pause => {
@@ -186,7 +200,9 @@ impl Handler<PlaybackCommand> for Player {
                                 is_paused: true,
                                 ..state
                             }));
-                            self.element.set_state(gst::State::Paused)?;
+                            self.element
+                                .set_state(gst::State::Paused)
+                                .map_err(GstError::from_err)?;
                         }
                     }
                 }
@@ -197,7 +213,9 @@ impl Handler<PlaybackCommand> for Player {
                                 is_paused: false,
                                 ..state
                             }));
-                            self.element.set_state(gst::State::Playing)?;
+                            self.element
+                                .set_state(gst::State::Playing)
+                                .map_err(GstError::from_err)?;
                         }
                     }
                 }
@@ -205,11 +223,13 @@ impl Handler<PlaybackCommand> for Player {
                     if let Some(state) = self.state {
                         let is_paused = !state.is_paused;
                         self.set_state(Some(State { is_paused, ..state }));
-                        self.element.set_state(if is_paused {
-                            gst::State::Paused
-                        } else {
-                            gst::State::Playing
-                        })?;
+                        self.element
+                            .set_state(if is_paused {
+                                gst::State::Paused
+                            } else {
+                                gst::State::Playing
+                            })
+                            .map_err(GstError::from_err)?;
                     }
                 }
                 PlaybackCommand::Seek(position) => {
@@ -251,7 +271,7 @@ impl Handler<PlaybackCommand> for Player {
         })();
 
         if let Err(error) = result {
-            self.emit_error(&*error)
+            self.emit_error(error)
         }
     }
 }
@@ -280,7 +300,7 @@ impl Handler<VolumeCommand> for Player {
         };
 
         if let Err(error) = result {
-            self.emit_error(&error)
+            self.emit_error(error)
         }
     }
 }
@@ -305,7 +325,7 @@ impl Handler<InternalEvent> for Player {
                 }
                 self.reported_volume = Some(volume);
             }
-            InternalEvent::Error(error) => self.emit_error(&error),
+            InternalEvent::Error(error) => self.emit_error(error),
         }
     }
 }
@@ -318,6 +338,10 @@ pub enum PlayerNotification {
     DurationSet(Duration),
     PositionSet(Duration),
 }
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct PlayerErrorNotification(pub GstError);
 
 impl StreamHandler<gst::Message> for Player {
     fn handle(&mut self, item: gst::Message, ctx: &mut Self::Context) {

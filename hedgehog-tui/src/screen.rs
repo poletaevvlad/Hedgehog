@@ -3,6 +3,7 @@ use crate::dataview::{
 };
 use crate::events::key;
 use crate::history::CommandsHistory;
+use crate::status::{Severity, Status};
 use crate::theming;
 use crate::view_model::{ActionDelegate, Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
@@ -21,7 +22,7 @@ use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, Library,
 };
-use hedgehog_player::{Player, PlayerNotification};
+use hedgehog_player::{Player, PlayerErrorNotification, PlayerNotification};
 use std::io::{stdout, Write};
 use tui::backend::CrosstermBackend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -197,6 +198,10 @@ impl Actor for UI {
         self.view_model.init_rc();
         self.player
             .do_send(hedgehog_player::ActorCommand::Subscribe(
+                ctx.address().recipient(),
+            ));
+        self.player
+            .do_send(hedgehog_player::ActorCommand::SubscribeErrors(
                 ctx.address().recipient(),
             ));
 
@@ -411,6 +416,14 @@ impl Handler<PlayerNotification> for UI {
     fn handle(&mut self, msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {
         self.view_model.handle_player_notification(msg);
         self.render();
+    }
+}
+
+impl Handler<PlayerErrorNotification> for UI {
+    type Result = ();
+
+    fn handle(&mut self, msg: PlayerErrorNotification, _ctx: &mut Self::Context) -> Self::Result {
+        self.view_model.status = Some(Status::new_custom(msg.0.to_string(), Severity::Error));
     }
 }
 

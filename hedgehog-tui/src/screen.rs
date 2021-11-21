@@ -116,19 +116,6 @@ impl UI {
         stdout.queue(terminal::SetTitle(title)).unwrap();
         stdout.flush().unwrap();
     }
-
-    fn handle_error<T, E>(&mut self, result: Result<T, E>) -> Option<T>
-    where
-        E: std::error::Error,
-    {
-        match result {
-            Ok(value) => Some(value),
-            Err(error) => {
-                self.view_model.error(error);
-                None
-            }
-        }
-    }
 }
 
 impl Actor for UI {
@@ -273,10 +260,16 @@ impl UI {
         data: LibraryQueryResult<T>,
         handler: impl FnOnce(&mut Self, T) -> bool,
     ) {
-        let data = self.handle_error(data).and_then(|r| self.handle_error(r));
         let should_render = match data {
-            Some(data) => handler(self, data),
-            None => true,
+            Err(err) => {
+                self.view_model.error(err);
+                true
+            }
+            Ok(Err(err)) => {
+                self.view_model.error(err);
+                true
+            }
+            Ok(Ok(data)) => handler(self, data),
         };
         if should_render {
             self.render();

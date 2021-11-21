@@ -1,11 +1,11 @@
+use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
+use super::feed_row::FeedsListRowRenderer;
+use super::list::List;
 use crate::options::Options;
 use crate::screen::{FocusedPane, LibraryViewModel};
 use crate::theming::{self, Theme};
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Widget};
-
-use super::library_rows::{EpisodesListRowRenderer, EpisodesListSizing, FeedsListRowRenderer};
-use super::list::List;
 
 pub(crate) struct LibraryWidget<'a> {
     theme: &'a Theme,

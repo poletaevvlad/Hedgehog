@@ -4,7 +4,9 @@ use crate::options::Options;
 use crate::theming;
 use crate::widgets::layout::{split_left, split_right};
 use crate::widgets::utils::DurationFormatter;
-use hedgehog_library::model::{EpisodeId, EpisodeSummaryStatus, EpisodesListMetadata};
+use hedgehog_library::model::{
+    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata,
+};
 use tui::buffer::Buffer;
 use tui::layout::{Alignment, Rect};
 use tui::text::Span;
@@ -24,6 +26,28 @@ pub(crate) struct EpisodesListSizing {
     date_width: u16,
     episode_number_width: u16,
     duration_width: u16,
+}
+
+enum EpisodeState {
+    NotStarted,
+    New,
+    Playing,
+    Started,
+    Finished,
+    Error,
+}
+
+impl EpisodeState {
+    fn label(&self) -> &'static str {
+        match self {
+            EpisodeState::NotStarted => "",
+            EpisodeState::New => " new ",
+            EpisodeState::Playing => " playing ",
+            EpisodeState::Started => " started ",
+            EpisodeState::Finished => " done ",
+            EpisodeState::Error => " error ",
+        }
+    }
 }
 
 impl EpisodesListSizing {
@@ -80,10 +104,23 @@ impl<'t> EpisodesListRowRenderer<'t> {
         self.playing_id = playing_id.into();
         self
     }
+
+    fn episode_status(&self, episode: &EpisodeSummary) -> EpisodeState {
+        if Some(episode.id) == self.playing_id {
+            EpisodeState::Playing
+        } else {
+            match episode.status {
+                EpisodeSummaryStatus::New => EpisodeState::New,
+                EpisodeSummaryStatus::NotStarted => EpisodeState::NotStarted,
+                EpisodeSummaryStatus::Finished => EpisodeState::Finished,
+                EpisodeSummaryStatus::Started => EpisodeState::Started,
+            }
+        }
+    }
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
-    type Item = (Option<&'a hedgehog_library::model::EpisodeSummary>, bool);
+    type Item = (Option<&'a EpisodeSummary>, bool);
 
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut Buffer) {
         let (item, selected) = item;
@@ -164,6 +201,21 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         }
 
         if let Some(item) = item {
+            let status = self.episode_status(item);
+            let status_label = status.label();
+            if !status_label.is_empty() {
+                let label_width = status_label.width();
+                let (rest, status_area) = split_right(area, label_width as u16);
+                buf.set_stringn(
+                    status_area.x,
+                    status_area.y,
+                    status_label,
+                    label_width,
+                    self.theme.get(theming::List::Item(item_state, None)),
+                );
+                area = rest;
+            }
+
             let subtitle = match item.title.is_none() {
                 true => Some(theming::ListSubitem::MissingTitle),
                 false => None,
@@ -187,18 +239,6 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
                 .alignment(Alignment::Center);
             paragraph.render(area, buf);
         }
-
-        /*if matches!(item.status, EpisodeSummaryStatus::New) {
-            buf.set_string(
-                area.x,
-                area.y,
-                "*",
-                self.theme.get(theming::List::Item(
-                    item_state,
-                    Some(theming::ListSubitem::NewIndicator),
-                )),
-            );
-        }*/
     }
 
     fn render_empty(&self, area: Rect, buf: &mut Buffer) {

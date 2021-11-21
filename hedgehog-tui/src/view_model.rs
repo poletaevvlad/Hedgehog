@@ -1,16 +1,14 @@
 use crate::cmdreader::{CommandReader, FileResolver};
-use crate::dataview::{
-    CursorCommand, InteractiveList, ListData, PaginatedData, PaginatedDataMessage, Versioned,
-};
+use crate::dataview::{CursorCommand, InteractiveList, PaginatedDataMessage, Versioned};
 use crate::keymap::{Key, KeyMapping};
 use crate::options::{Options, OptionsUpdate};
-use crate::screen::{EpisodesListProvider, FeedsListProvider};
+use crate::screen::LibraryViewModel;
 use crate::status::{Severity, Status};
 use crate::theming::{Theme, ThemeCommand};
 use actix::System;
 use cmd_parser::CmdParsable;
 use hedgehog_library::model::{
-    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
+    EpisodeId, EpisodeSummary, EpisodeSummaryStatus, FeedId, FeedSummary,
 };
 use hedgehog_library::status_writer::StatusWriterCommand;
 use hedgehog_library::{
@@ -38,43 +36,40 @@ pub(crate) enum FocusedPane {
 }
 
 pub(crate) struct ViewModel<D> {
+    pub(crate) library: LibraryViewModel,
     pub(crate) options: Options,
-    pub(crate) feeds_list: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
-    pub(crate) episodes_list: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
-    pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
     pub(crate) status: Option<Status>,
     pub(crate) key_mapping: KeyMapping<Command, FocusedPane>,
     pub(crate) theme: Theme,
-    pub(crate) focus: FocusedPane,
     selected_feed: Option<FeedId>,
-    pub(crate) playing_episode: Option<EpisodeSummary>,
     pub(crate) playback_state: PlaybackState,
     pub(crate) action_delegate: D,
-    pub(crate) updating_feeds: HashSet<FeedId>,
 }
 
 impl<D: ActionDelegate> ViewModel<D> {
     pub(crate) fn new(size: (u16, u16), action_delegate: D) -> Self {
         ViewModel {
+            library: LibraryViewModel {
+                feeds: InteractiveList::new(size.1 as usize - 2),
+                episodes: InteractiveList::new(size.1 as usize - 2),
+                episodes_list_metadata: None,
+                focus: FocusedPane::FeedsList,
+                playing_episode: None,
+                updating_feeds: HashSet::new(),
+            },
             options: Options::default(),
-            feeds_list: InteractiveList::new(size.1 as usize - 2),
-            episodes_list: InteractiveList::new(size.1 as usize - 2),
-            episodes_list_metadata: None,
             status: None,
             key_mapping: KeyMapping::new(),
             theme: Theme::default(),
-            focus: FocusedPane::FeedsList,
             selected_feed: None,
-            playing_episode: None,
             playback_state: PlaybackState::default(),
             action_delegate,
-            updating_feeds: HashSet::new(),
         }
     }
 
     pub(crate) fn set_size(&mut self, _width: u16, height: u16) {
-        self.episodes_list.set_window_size(height as usize - 2);
-        self.feeds_list.set_window_size(height as usize - 2);
+        self.library.episodes.set_window_size(height as usize - 2);
+        self.library.feeds.set_window_size(height as usize - 2);
     }
 
     pub(crate) fn clear_status(&mut self) {
@@ -97,18 +92,18 @@ impl<D: ActionDelegate> ViewModel<D> {
     fn handle_command(&mut self, command: Command) -> Result<bool, Status> {
         match command {
             Command::Cursor(command) => {
-                match self.focus {
+                match self.library.focus {
                     FocusedPane::FeedsList => {
-                        self.feeds_list.handle_command(command);
+                        self.library.feeds.handle_command(command);
                         self.update_current_feed();
                     }
-                    FocusedPane::EpisodesList => self.episodes_list.handle_command(command),
+                    FocusedPane::EpisodesList => self.library.episodes.handle_command(command),
                 }
                 Ok(true)
             }
             Command::SetFocus(focused_pane) => {
-                if self.focus != focused_pane {
-                    self.focus = focused_pane;
+                if self.library.focus != focused_pane {
+                    self.library.focus = focused_pane;
                     Ok(true)
                 } else {
                     Ok(false)
@@ -175,14 +170,18 @@ impl<D: ActionDelegate> ViewModel<D> {
                 Ok(false)
             }
             Command::PlayCurrent => {
-                if let Some(current_episode) = self.episodes_list.selection() {
+                if let Some(current_episode) = self.library.episodes.selection() {
                     if Some(current_episode.id)
-                        == self.playing_episode.as_ref().map(|episode| episode.id)
+                        == self
+                            .library
+                            .playing_episode
+                            .as_ref()
+                            .map(|episode| episode.id)
                     {
                         return Ok(false);
                     }
                     self.action_delegate.start_playback(current_episode.id);
-                    self.playing_episode = Some(current_episode.clone());
+                    self.library.playing_episode = Some(current_episode.clone());
                 }
                 Ok(false)
             }
@@ -196,14 +195,14 @@ impl<D: ActionDelegate> ViewModel<D> {
                 Ok(false)
             }
             Command::DeleteFeed => {
-                if let Some(selected_feed) = self.feeds_list.selection() {
+                if let Some(selected_feed) = self.library.feeds.selection() {
                     self.action_delegate
                         .send_feed_update_request(FeedUpdateRequest::DeleteFeed(selected_feed.id));
                 }
                 Ok(false)
             }
             Command::Update => {
-                if let Some(selected_feed) = self.feeds_list.selection() {
+                if let Some(selected_feed) = self.library.feeds.selection() {
                     self.action_delegate
                         .send_feed_update_request(FeedUpdateRequest::UpdateSingle(
                             selected_feed.id,
@@ -216,7 +215,7 @@ impl<D: ActionDelegate> ViewModel<D> {
                 Ok(true)
             }
             Command::SetFeedEnabled(enabled) => {
-                if let Some(selected_feed) = self.feeds_list.selection() {
+                if let Some(selected_feed) = self.library.feeds.selection() {
                     self.action_delegate.send_feed_update_request(
                         FeedUpdateRequest::SetFeedEnabled(selected_feed.id, enabled),
                     );
@@ -224,16 +223,16 @@ impl<D: ActionDelegate> ViewModel<D> {
                 Ok(false)
             }
             Command::SetNew(is_new) => {
-                if let Some(selected) = self.episodes_list.selection() {
+                if let Some(selected) = self.library.episodes.selection() {
                     match selected.status {
                         EpisodeSummaryStatus::New if !is_new => {
-                            self.episodes_list.update_selection(|summary| {
+                            self.library.episodes.update_selection(|summary| {
                                 summary.status = EpisodeSummaryStatus::NotStarted;
                             });
                             Ok(true)
                         }
                         EpisodeSummaryStatus::NotStarted if is_new => {
-                            self.episodes_list.update_selection(|summary| {
+                            self.library.episodes.update_selection(|summary| {
                                 summary.status = EpisodeSummaryStatus::New;
                             });
                             Ok(true)
@@ -283,16 +282,16 @@ impl<D: ActionDelegate> ViewModel<D> {
         &mut self,
         data: Versioned<PaginatedDataMessage<EpisodeSummary>>,
     ) -> bool {
-        self.episodes_list.handle_data(data)
+        self.library.episodes.handle_data(data)
     }
 
     fn update_current_feed(&mut self) {
-        let selected_id = self.feeds_list.selection().map(|item| item.id);
+        let selected_id = self.library.feeds.selection().map(|item| item.id);
         if selected_id == self.selected_feed {
             return;
         }
 
-        self.episodes_list.update_provider(|provider| {
+        self.library.episodes.update_provider(|provider| {
             provider.query = selected_id.map(|selected_id| EpisodesQuery::Multiple {
                 feed_id: Some(selected_id),
             });
@@ -301,7 +300,7 @@ impl<D: ActionDelegate> ViewModel<D> {
     }
 
     pub(crate) fn set_feeds_list_data(&mut self, data: Versioned<Vec<FeedSummary>>) -> bool {
-        if self.feeds_list.handle_data(data) {
+        if self.library.feeds.handle_data(data) {
             self.update_current_feed();
             true
         } else {
@@ -317,18 +316,18 @@ impl<D: ActionDelegate> ViewModel<D> {
             PlayerNotification::StateChanged(state) => {
                 self.playback_state.set_state(state);
                 if state.is_none() {
-                    if let Some(playing_episode) = &self.playing_episode {
+                    if let Some(playing_episode) = &self.library.playing_episode {
                         self.action_delegate.send_status_write_request(
                             StatusWriterCommand::set_finished(playing_episode.id),
                         );
 
-                        self.playing_episode = None;
+                        self.library.playing_episode = None;
                     }
                 }
             }
             PlayerNotification::DurationSet(duration) => self.playback_state.set_duration(duration),
             PlayerNotification::PositionSet(position) => {
-                if let Some(playing_episode) = &self.playing_episode {
+                if let Some(playing_episode) = &self.library.playing_episode {
                     self.action_delegate.send_status_write_request(
                         StatusWriterCommand::set_position(playing_episode.id, position),
                     );
@@ -340,28 +339,29 @@ impl<D: ActionDelegate> ViewModel<D> {
 
     pub(crate) fn handle_update_notification(&mut self, notification: FeedUpdateNotification) {
         match notification {
-            FeedUpdateNotification::UpdateStarted(ids) => self.updating_feeds.extend(ids),
+            FeedUpdateNotification::UpdateStarted(ids) => self.library.updating_feeds.extend(ids),
             FeedUpdateNotification::UpdateFinished(id, result) => {
-                self.updating_feeds.remove(&id);
+                self.library.updating_feeds.remove(&id);
                 match result {
-                    FeedUpdateResult::Updated(summary) => self.feeds_list.replace_item(summary),
+                    FeedUpdateResult::Updated(summary) => self.library.feeds.replace_item(summary),
                     FeedUpdateResult::StatusChanged(status) => self
-                        .feeds_list
+                        .library
+                        .feeds
                         .update_item(id, |summary| summary.status = status),
                 }
                 if self.selected_feed == Some(id) {
-                    self.episodes_list.invalidate();
+                    self.library.episodes.invalidate();
                 }
             }
             FeedUpdateNotification::Error(error) => {
                 self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
             }
             FeedUpdateNotification::FeedAdded(feed) => {
-                self.feeds_list.add_item(feed);
+                self.library.feeds.add_item(feed);
                 self.update_current_feed();
             }
             FeedUpdateNotification::FeedDeleted(feed_id) => {
-                self.feeds_list.remove_item(feed_id);
+                self.library.feeds.remove_item(feed_id);
                 self.update_current_feed();
             }
         }

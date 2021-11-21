@@ -1,5 +1,6 @@
 use crate::dataview::{
-    DataProvider, ListDataRequest, PaginatedDataMessage, PaginatedDataRequest, Version, Versioned,
+    DataProvider, InteractiveList, ListData, ListDataRequest, PaginatedData, PaginatedDataMessage,
+    PaginatedDataRequest, Version, Versioned,
 };
 use crate::events::key;
 use crate::history::CommandsHistory;
@@ -7,28 +8,37 @@ use crate::status::{Severity, Status};
 use crate::theming;
 use crate::view_model::{ActionDelegate, Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
-use crate::widgets::library_rows::{
-    EpisodesListRowRenderer, EpisodesListSizing, FeedsListRowRenderer,
-};
-use crate::widgets::list::List;
+use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
 use actix::prelude::*;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
-use hedgehog_library::model::{EpisodeId, EpisodeSummary, EpisodesListMetadata, FeedSummary};
+use hedgehog_library::model::{
+    EpisodeId, EpisodeSummary, EpisodesListMetadata, FeedId, FeedSummary,
+};
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, Library,
 };
 use hedgehog_player::{Player, PlayerErrorNotification, PlayerNotification};
+use std::collections::HashSet;
 use std::io::{stdout, Write};
 use tui::backend::CrosstermBackend;
-use tui::layout::{Constraint, Direction, Layout, Rect};
+use tui::layout::Rect;
 use tui::text::Span;
-use tui::widgets::{Block, Borders, Paragraph};
+use tui::widgets::{Block, Paragraph};
 use tui::Terminal;
+
+pub(crate) struct LibraryViewModel {
+    pub(crate) feeds: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
+    pub(crate) episodes: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
+    pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
+    pub(crate) focus: FocusedPane,
+    pub(crate) updating_feeds: HashSet<FeedId>,
+    pub(crate) playing_episode: Option<EpisodeSummary>,
+}
 
 pub(crate) struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
@@ -70,59 +80,18 @@ impl UI {
             let area = f.size();
             let library_rect = Rect::new(0, 0, area.width, area.height - 2);
 
-            let layout = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Min(24), Constraint::Percentage(75)].as_ref())
-                .split(library_rect);
-
-            let feeds_border = Block::default()
-                .borders(Borders::RIGHT)
-                .border_style(self.view_model.theme.get(theming::List::Divider));
-            let feeds_area = feeds_border.inner(layout[0]);
-            f.render_widget(feeds_border, layout[0]);
-
-            if let Some(iter) = self.view_model.feeds_list.iter() {
-                f.render_widget(
-                    List::new(
-                        FeedsListRowRenderer::new(
-                            &self.view_model.theme,
-                            self.view_model.focus == FocusedPane::FeedsList,
-                            &self.view_model.updating_feeds,
-                        ),
-                        iter,
-                    ),
-                    feeds_area,
-                );
-            }
-            if let (Some(iter), Some(metadata)) = (
-                self.view_model.episodes_list.iter(),
-                self.view_model.episodes_list_metadata.as_ref(),
-            ) {
-                let sizing = EpisodesListSizing::compute(&self.view_model.options, metadata);
-                f.render_widget(
-                    List::new(
-                        EpisodesListRowRenderer::new(
-                            &self.view_model.theme,
-                            self.view_model.focus == FocusedPane::EpisodesList,
-                            &self.view_model.options,
-                            sizing,
-                        )
-                        .with_playing_id(
-                            self.view_model
-                                .playing_episode
-                                .as_ref()
-                                .map(|episode| episode.id),
-                        ),
-                        iter,
-                    ),
-                    layout[1],
-                );
-            }
+            let library_widget = LibraryWidget::new(
+                &self.view_model.library,
+                &self.view_model.options,
+                &self.view_model.theme,
+            );
+            f.render_widget(library_widget, library_rect);
 
             let player_widget = PlayerState::new(
                 &self.view_model.playback_state,
                 &self.view_model.theme,
                 self.view_model
+                    .library
                     .playing_episode
                     .as_ref()
                     .and_then(|episode| episode.title.as_deref()),
@@ -153,6 +122,7 @@ impl UI {
 
         let title = self
             .view_model
+            .library
             .playing_episode
             .as_ref()
             .and_then(|episode| episode.title.as_deref())
@@ -182,14 +152,18 @@ impl Actor for UI {
     fn started(&mut self, ctx: &mut Self::Context) {
         self.view_model.action_delegate.ui = Some(ctx.address());
         self.view_model
-            .episodes_list
+            .library
+            .episodes
             .set_provider(EpisodesListProvider {
                 query: None,
                 actor: ctx.address(),
             });
-        self.view_model.feeds_list.set_provider(FeedsListProvider {
-            actor: ctx.address(),
-        });
+        self.view_model
+            .library
+            .feeds
+            .set_provider(FeedsListProvider {
+                actor: ctx.address(),
+            });
         self.view_model.init_rc();
         self.player
             .do_send(hedgehog_player::ActorCommand::Subscribe(
@@ -236,7 +210,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     match self
                         .view_model
                         .key_mapping
-                        .get(key_event.into(), Some(self.view_model.focus))
+                        .get(key_event.into(), Some(self.view_model.library.focus))
                     {
                         Some(command) => {
                             let command = command.clone();
@@ -334,7 +308,7 @@ impl UI {
                 Versioned::new(PaginatedDataMessage::size(metadata.items_count))
                     .with_version(version),
             );
-            actor.view_model.episodes_list_metadata = Some(metadata);
+            actor.view_model.library.episodes_list_metadata = Some(metadata);
             should_render
         });
     }

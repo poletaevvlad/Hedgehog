@@ -5,12 +5,12 @@ use crate::dataview::{
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::status::{Severity, Status};
-use crate::theming;
 use crate::view_model::{ActionDelegate, Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
 use crate::widgets::split_bottom;
+use crate::widgets::status::StatusView;
 use actix::prelude::*;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
@@ -27,8 +27,6 @@ use hedgehog_player::{Player, PlayerErrorNotification, PlayerNotification};
 use std::collections::HashSet;
 use std::io::{stdout, Write};
 use tui::backend::CrosstermBackend;
-use tui::text::Span;
-use tui::widgets::{Block, Paragraph};
 use tui::Terminal;
 
 pub(crate) struct LibraryViewModel {
@@ -96,21 +94,14 @@ impl UI {
             f.render_widget(player_widget, player_area);
 
             if let Some(ref mut command_state) = self.command {
-                let style = self.view_model.theme.get(theming::StatusBar::Command);
-                let prompt_style = self.view_model.theme.get(theming::StatusBar::CommandPrompt);
                 CommandEditor::new(command_state)
-                    .prefix(Span::styled(":", prompt_style))
-                    .style(style)
+                    .prefix(":")
+                    .theme(&self.view_model.theme)
                     .render(f, status_area, &self.commands_history);
-            } else if let Some(status) = &self.view_model.status {
-                let theme_selector = theming::StatusBar::Status(Some(status.severity()));
-                let style = self.view_model.theme.get(theme_selector);
-                f.render_widget(Paragraph::new(status.to_string()).style(style), status_area);
             } else {
-                f.render_widget(
-                    Block::default().style(self.view_model.theme.get(theming::StatusBar::Empty)),
-                    status_area,
-                );
+                let status =
+                    StatusView::new(self.view_model.status.as_ref(), &self.view_model.theme);
+                f.render_widget(status, status_area);
             }
         };
         self.terminal.draw(draw).unwrap();

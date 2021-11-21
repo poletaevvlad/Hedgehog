@@ -1,6 +1,7 @@
 use super::textentry::{Buffer, Entry, ReadonlyEntry};
 use crate::events::key;
 use crate::history::CommandsHistory;
+use crate::theming::{self, Theme};
 use crossterm::event::Event;
 use tui::backend::Backend;
 use tui::layout::Rect;
@@ -114,8 +115,16 @@ impl<'a> CommandEditor<'a> {
         self
     }
 
-    pub(crate) fn prefix(mut self, prefix: Span<'a>) -> Self {
-        self.prefix = Some(prefix);
+    pub(crate) fn prefix(mut self, prefix: impl Into<Span<'a>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    pub(crate) fn theme(mut self, theme: &Theme) -> Self {
+        self = self.style(theme.get(theming::StatusBar::Command));
+        if let Some(ref mut prefix) = self.prefix {
+            prefix.style = theme.get(theming::StatusBar::CommandPrompt);
+        }
         self
     }
 

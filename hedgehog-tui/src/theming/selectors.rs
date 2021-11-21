@@ -19,6 +19,7 @@ pub(crate) enum StatusBar {
     Empty,
     Command,
     CommandPrompt,
+    Confirmation,
     Status(Option<Severity>),
 }
 
@@ -41,6 +42,7 @@ impl StatusBar {
             [".empty"] => Ok(StatusBar::Empty),
             [".command"] => Ok(StatusBar::Command),
             [".command", ".prompt"] => Ok(StatusBar::CommandPrompt),
+            [".confirmation"] => Ok(StatusBar::Confirmation),
             [".status"] => Ok(StatusBar::Status(None)),
             [".status", ".error"] => Ok(StatusBar::Status(Some(Severity::Error))),
             [".status", ".warning"] => Ok(StatusBar::Status(Some(Severity::Warning))),

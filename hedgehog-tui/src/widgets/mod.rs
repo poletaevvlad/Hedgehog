@@ -1,4 +1,5 @@
 pub(crate) mod command;
+pub(crate) mod confirmation;
 mod layout;
 pub(crate) mod library;
 pub(crate) mod library_rows;

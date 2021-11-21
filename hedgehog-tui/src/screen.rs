@@ -10,6 +10,7 @@ use crate::options::{Options, OptionsUpdate};
 use crate::status::{Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
+use crate::widgets::confirmation::ConfirmationView;
 use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
 use crate::widgets::split_bottom;
@@ -81,6 +82,7 @@ pub(crate) enum Command {
     Unmap(Key, #[cmd(attr(state))] Option<FocusedPane>),
     Theme(ThemeCommand),
     Exec(PathBuf),
+    Confirm(Box<CommandConfirmation>),
     Volume(VolumeCommand),
     PlayCurrent,
     Playback(PlaybackCommand),
@@ -94,6 +96,14 @@ pub(crate) enum Command {
     Update,
     UpdateAll,
     SetNew(bool),
+}
+
+#[derive(Debug, Clone, PartialEq, CmdParsable)]
+pub(crate) struct CommandConfirmation {
+    pub(crate) prompt: String,
+    pub(crate) action: Command,
+    #[cmd(attr(default))]
+    pub(crate) default: bool,
 }
 
 pub(crate) struct UI {
@@ -115,6 +125,7 @@ pub(crate) struct UI {
     status: StatusLog,
     command: Option<CommandState>,
     commands_history: CommandsHistory,
+    confirmation: Option<CommandConfirmation>,
 }
 
 impl UI {
@@ -143,6 +154,7 @@ impl UI {
             status: StatusLog::default(),
             command: None,
             commands_history: CommandsHistory::new(),
+            confirmation: None,
         }
     }
 
@@ -167,6 +179,9 @@ impl UI {
                     .prefix(":")
                     .theme(&self.theme)
                     .render(f, status_area, &self.commands_history);
+            } else if let Some(ref confirmation) = self.confirmation {
+                let confirmation = ConfirmationView::new(confirmation, &self.theme);
+                f.render_widget(confirmation, status_area);
             } else {
                 let status = StatusView::new(self.status.display_status(), &self.theme);
                 f.render_widget(status, status_area);
@@ -262,6 +277,10 @@ impl UI {
                         }
                     }
                 }
+            }
+            Command::Confirm(confirmation) => {
+                self.confirmation = Some(*confirmation);
+                self.invalidate(ctx);
             }
             Command::PlayCurrent => {
                 let episode_id = if let Some(current_episode) = self.library.episodes.selection() {

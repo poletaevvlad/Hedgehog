@@ -31,6 +31,10 @@ impl StatusWriterCommand {
     pub fn set_position(episode_id: EpisodeId, position: Duration) -> Self {
         StatusWriterCommand::Set(episode_id, EpisodeStatus::Started(position))
     }
+
+    pub fn set_error(episode_id: EpisodeId, position: Duration) -> Self {
+        StatusWriterCommand::Set(episode_id, EpisodeStatus::Error(position))
+    }
 }
 
 impl Handler<StatusWriterCommand> for StatusWriter {

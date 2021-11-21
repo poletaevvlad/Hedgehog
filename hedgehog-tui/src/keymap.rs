@@ -102,10 +102,6 @@ pub(crate) struct KeyMapping<T, S> {
 }
 
 impl<T, S: Eq + std::hash::Hash> KeyMapping<T, S> {
-    pub(crate) fn new() -> Self {
-        KeyMapping::default()
-    }
-
     pub(crate) fn map(&mut self, key: Key, state: Option<S>, value: T) {
         self.mapping.insert((key, state), value);
     }

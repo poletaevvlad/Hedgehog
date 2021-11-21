@@ -4,7 +4,7 @@ use crate::datasource::{
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, PlaybackError,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary,
 };
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
@@ -104,7 +104,7 @@ impl DataProvider for SqliteDataProvider {
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
-            self.connection.prepare("SELECT feed_id, episode_number, season_number, title, description, link, status, position, duration, error_code, publication_date, media_url FROM episodes WHERE id = :id")?;
+            self.connection.prepare("SELECT feed_id, episode_number, season_number, title, description, link, status, position, duration, publication_date, media_url FROM episodes WHERE id = :id")?;
         let result = statement.query_row(named_params! {":id": episode_id}, |row| {
             Ok(Episode {
                 id: episode_id,
@@ -116,9 +116,8 @@ impl DataProvider for SqliteDataProvider {
                 link: row.get(5)?,
                 status: EpisodeStatus::from_db(row.get(6)?, Duration::from_nanos(row.get(7)?)),
                 duration: row.get::<_, Option<u64>>(8)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(9)?.map(PlaybackError::from_u32),
-                publication_date: row.get(10)?,
-                media_url: row.get(11)?,
+                publication_date: row.get(9)?,
+                media_url: row.get(10)?,
             })
         });
         match result {
@@ -188,7 +187,7 @@ impl DataProvider for SqliteDataProvider {
         request: EpisodesQuery,
         page: Page,
     ) -> DbResult<Vec<EpisodeSummary>> {
-        let mut sql = "SELECT id, feed_id, episode_number, season_number, title, status, duration, error_code, publication_date, media_url FROM episodes".to_string();
+        let mut sql = "SELECT id, feed_id, episode_number, season_number, title, status, duration, publication_date FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         sql.push_str(" ORDER BY publication_date DESC LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
@@ -208,8 +207,7 @@ impl DataProvider for SqliteDataProvider {
                 title: row.get(4)?,
                 status: EpisodeSummaryStatus::from_db(row.get(5)?),
                 duration: row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
-                playback_error: row.get::<_, Option<u32>>(7)?.map(PlaybackError::from_u32),
-                publication_date: row.get(8)?,
+                publication_date: row.get(7)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -484,7 +482,6 @@ mod tests {
         assert_eq!(retrieved.link.as_deref(), Some("link"));
         assert_eq!(retrieved.status, EpisodeStatus::New);
         assert_eq!(retrieved.duration, None);
-        assert_eq!(retrieved.playback_error, None);
         assert_eq!(retrieved.publication_date, None);
         assert_eq!(&retrieved.media_url, "http://example.com/feed.xml");
 
@@ -515,7 +512,6 @@ mod tests {
         assert_eq!(retrieved.link.as_deref(), Some("link-upd"));
         assert_eq!(retrieved.status, EpisodeStatus::New);
         assert_eq!(retrieved.duration, Some(Duration::from_secs(300)));
-        assert_eq!(retrieved.playback_error, None);
         assert_eq!(retrieved.publication_date, None);
         assert_eq!(&retrieved.media_url, "http://example.com/feed2.xml");
 
@@ -554,7 +550,6 @@ mod tests {
                 title: Some("title-upd".to_string()),
                 status: EpisodeSummaryStatus::New,
                 duration: Some(Duration::from_secs(300)),
-                playback_error: None,
                 publication_date: None,
             }
         );
@@ -568,7 +563,6 @@ mod tests {
                 title: Some("second-title".to_string()),
                 status: EpisodeSummaryStatus::New,
                 duration: None,
-                playback_error: None,
                 publication_date: None,
             }
         );

@@ -22,7 +22,9 @@ use cmd_parser::CmdParsable;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
-use hedgehog_library::model::{EpisodeSummary, EpisodesListMetadata, FeedId, FeedSummary};
+use hedgehog_library::model::{
+    EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
+};
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
@@ -662,6 +664,11 @@ impl Handler<PlayerNotification> for UI {
                     if let Some(playing_episode) = &self.library.playing_episode {
                         self.status_writer_actor
                             .do_send(StatusWriterCommand::set_finished(playing_episode.id));
+                        self.library
+                            .episodes
+                            .update_item(playing_episode.id, |episode| {
+                                episode.status = EpisodeSummaryStatus::Finished;
+                            });
                         self.library.playing_episode = None;
                     }
                 }
@@ -691,6 +698,22 @@ impl Handler<PlayerErrorNotification> for UI {
 
     fn handle(&mut self, msg: PlayerErrorNotification, ctx: &mut Self::Context) -> Self::Result {
         self.handle_error(msg.0, ctx);
+        if let Some(playing_episode) = self.library.playing_episode.take() {
+            self.status_writer_actor
+                .do_send(StatusWriterCommand::set_error(
+                    playing_episode.id,
+                    self.playback_state
+                        .timing()
+                        .map(|timing| timing.position)
+                        .unwrap_or_default(),
+                ));
+            self.library
+                .episodes
+                .update_item(playing_episode.id, |episode| {
+                    episode.status = EpisodeSummaryStatus::Error;
+                });
+            self.invalidate(ctx);
+        }
     }
 }
 

@@ -114,6 +114,7 @@ impl<'t> EpisodesListRowRenderer<'t> {
                 EpisodeSummaryStatus::NotStarted => EpisodeState::NotStarted,
                 EpisodeSummaryStatus::Finished => EpisodeState::Finished,
                 EpisodeSummaryStatus::Started => EpisodeState::Started,
+                EpisodeSummaryStatus::Error => EpisodeState::Error,
             }
         }
     }

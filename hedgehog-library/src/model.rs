@@ -147,6 +147,7 @@ pub enum EpisodeStatus {
     NotStarted,
     Finished,
     Started(Duration),
+    Error(Duration),
 }
 
 impl EpisodeStatus {
@@ -155,6 +156,7 @@ impl EpisodeStatus {
             1 => EpisodeStatus::NotStarted,
             2 => EpisodeStatus::Finished,
             3 => EpisodeStatus::Started(position),
+            4 => EpisodeStatus::Error(position),
             _ => EpisodeStatus::New,
         }
     }
@@ -165,6 +167,7 @@ impl EpisodeStatus {
             EpisodeStatus::NotStarted => (1, Duration::ZERO),
             EpisodeStatus::Finished => (2, Duration::ZERO),
             EpisodeStatus::Started(position) => (3, *position),
+            EpisodeStatus::Error(position) => (4, *position),
         }
     }
 }
@@ -175,6 +178,7 @@ pub enum EpisodeSummaryStatus {
     NotStarted,
     Finished,
     Started,
+    Error,
 }
 
 impl EpisodeSummaryStatus {
@@ -183,32 +187,8 @@ impl EpisodeSummaryStatus {
             1 => EpisodeSummaryStatus::NotStarted,
             2 => EpisodeSummaryStatus::Finished,
             3 => EpisodeSummaryStatus::Started,
+            4 => EpisodeSummaryStatus::Error,
             _ => EpisodeSummaryStatus::New,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PlaybackError {
-    NotFound,
-    FormatError,
-    Unknown,
-}
-
-impl PlaybackError {
-    pub(crate) fn from_u32(value: u32) -> Self {
-        match value {
-            1 => PlaybackError::NotFound,
-            2 => PlaybackError::FormatError,
-            _ => PlaybackError::Unknown,
-        }
-    }
-
-    fn as_u32(&self) -> u32 {
-        match self {
-            PlaybackError::NotFound => 1,
-            PlaybackError::FormatError => 2,
-            PlaybackError::Unknown => 0,
         }
     }
 }
@@ -222,7 +202,6 @@ pub struct EpisodeSummary {
     pub title: Option<String>,
     pub status: EpisodeSummaryStatus,
     pub duration: Option<Duration>,
-    pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
 }
 
@@ -244,7 +223,6 @@ pub struct Episode {
     pub link: Option<String>,
     pub status: EpisodeStatus,
     pub duration: Option<Duration>,
-    pub playback_error: Option<PlaybackError>,
     pub publication_date: Option<DateTime<Utc>>,
     pub media_url: String,
 }

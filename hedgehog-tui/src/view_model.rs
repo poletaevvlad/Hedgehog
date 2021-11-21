@@ -205,7 +205,9 @@ impl<D: ActionDelegate> ViewModel<D> {
             Command::Update => {
                 if let Some(selected_feed) = self.feeds_list.selection() {
                     self.action_delegate
-                        .send_feed_update_request(FeedUpdateRequest::UpdateSingle(selected_feed.id))
+                        .send_feed_update_request(FeedUpdateRequest::UpdateSingle(
+                            selected_feed.id,
+                        ));
                 }
                 Ok(false)
             }
@@ -226,13 +228,13 @@ impl<D: ActionDelegate> ViewModel<D> {
                     match selected.status {
                         EpisodeSummaryStatus::New if !is_new => {
                             self.episodes_list.update_selection(|summary| {
-                                summary.status = EpisodeSummaryStatus::NotStarted
+                                summary.status = EpisodeSummaryStatus::NotStarted;
                             });
                             Ok(true)
                         }
                         EpisodeSummaryStatus::NotStarted if is_new => {
                             self.episodes_list.update_selection(|summary| {
-                                summary.status = EpisodeSummaryStatus::New
+                                summary.status = EpisodeSummaryStatus::New;
                             });
                             Ok(true)
                         }
@@ -293,7 +295,7 @@ impl<D: ActionDelegate> ViewModel<D> {
         self.episodes_list.update_provider(|provider| {
             provider.query = selected_id.map(|selected_id| EpisodesQuery::Multiple {
                 feed_id: Some(selected_id),
-            })
+            });
         });
         self.selected_feed = selected_id;
     }
@@ -310,7 +312,7 @@ impl<D: ActionDelegate> ViewModel<D> {
     pub(crate) fn handle_player_notification(&mut self, notification: PlayerNotification) {
         match notification {
             PlayerNotification::VolumeChanged(volume) => {
-                self.status = Some(Status::VolumeChanged(volume))
+                self.status = Some(Status::VolumeChanged(volume));
             }
             PlayerNotification::StateChanged(state) => {
                 self.playback_state.set_state(state);
@@ -331,7 +333,7 @@ impl<D: ActionDelegate> ViewModel<D> {
                         StatusWriterCommand::set_position(playing_episode.id, position),
                     );
                 }
-                self.playback_state.set_position(position)
+                self.playback_state.set_position(position);
             }
         }
     }

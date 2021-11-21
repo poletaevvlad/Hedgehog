@@ -98,7 +98,7 @@ pub trait CmdParsable: Sized {
         if let Some(input) = input.strip_prefix('(') {
             let (value, mut remaining) = Self::parse_cmd_raw(input)?;
             if remaining.starts_with(')') {
-                remaining = skip_ws(&remaining[1..])
+                remaining = skip_ws(&remaining[1..]);
             } else {
                 let (token, _) = take_token(remaining);
                 if let Some(token) = token {
@@ -408,7 +408,7 @@ pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
             let mut chars = input.chars();
             match chars.next() {
                 Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' => {
-                    input = chars.as_str()
+                    input = chars.as_str();
                 }
                 _ => break,
             }
@@ -504,7 +504,7 @@ mod tests {
             assert_eq!(
                 String::parse_cmd("abc def").unwrap(),
                 ("abc".to_string(), "def")
-            )
+            );
         }
 
         #[test]
@@ -512,7 +512,7 @@ mod tests {
             assert_eq!(
                 &String::parse_cmd("").unwrap_err().to_string(),
                 "expected string"
-            )
+            );
         }
 
         #[test]
@@ -520,7 +520,7 @@ mod tests {
             assert_eq!(
                 &String::parse_cmd("(first second)").unwrap_err().to_string(),
                 "unexpected token: \"second\""
-            )
+            );
         }
     }
 
@@ -541,7 +541,7 @@ mod tests {
             assert_eq!(
                 &PathBuf::parse_cmd("").unwrap_err().to_string(),
                 "expected path"
-            )
+            );
         }
     }
 
@@ -556,12 +556,12 @@ mod tests {
 
         #[test]
         fn empty_string() {
-            assert_eq!(take_token(""), (None, ""))
+            assert_eq!(take_token(""), (None, ""));
         }
 
         #[test]
         fn whitespace_only() {
-            assert_eq!(take_token("   "), (None, ""))
+            assert_eq!(take_token("   "), (None, ""));
         }
 
         #[test]
@@ -717,19 +717,19 @@ mod tests {
         #[test]
         fn parse_seconds() {
             let (result, _) = Duration::parse_cmd("10").unwrap();
-            assert_eq!(result, Duration::from_secs(10))
+            assert_eq!(result, Duration::from_secs(10));
         }
 
         #[test]
         fn parse_seconds_decimal() {
             let (result, _) = Duration::parse_cmd("10.4").unwrap();
-            assert_eq!(result, Duration::from_secs_f64(10.4))
+            assert_eq!(result, Duration::from_secs_f64(10.4));
         }
 
         #[test]
         fn parse_munites_seconds() {
             let (result, _) = Duration::parse_cmd("14:10").unwrap();
-            assert_eq!(result, Duration::from_secs(14 * 60 + 10))
+            assert_eq!(result, Duration::from_secs(14 * 60 + 10));
         }
 
         #[test]
@@ -738,7 +738,7 @@ mod tests {
             assert_eq!(
                 result,
                 Duration::from_secs_f64(2.0 * 3600.0 + 14.0 * 60.0 + 10.4)
-            )
+            );
         }
 
         #[test]

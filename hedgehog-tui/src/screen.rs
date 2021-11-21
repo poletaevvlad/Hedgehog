@@ -379,7 +379,7 @@ impl Handler<DataFetchingRequest> for UI {
                             .send(EpisodesListMetadataRequest(query))
                             .into_actor(self)
                             .map(move |metadata, actor, _ctx| {
-                                actor.handle_episode_size_response(version, metadata)
+                                actor.handle_episode_size_response(version, metadata);
                             }),
                     ),
                     PaginatedDataRequest::Page(page) => {
@@ -387,7 +387,7 @@ impl Handler<DataFetchingRequest> for UI {
                         let request = EpisodeSummariesRequest::new(query, page);
                         Box::pin(self.library.send(request).into_actor(self).map(
                             move |data, actor, _ctx| {
-                                actor.handle_episode_data_response(version, data, page_index)
+                                actor.handle_episode_data_response(version, data, page_index);
                             },
                         ))
                     }
@@ -398,7 +398,7 @@ impl Handler<DataFetchingRequest> for UI {
                     .send(FeedSummariesRequest)
                     .into_actor(self)
                     .map(move |data, actor, _ctx| {
-                        actor.handle_feeds_data_response(request.version(), data)
+                        actor.handle_feeds_data_response(request.version(), data);
                     }),
             ),
         }
@@ -448,7 +448,7 @@ impl Handler<StartPlaybackRequest> for UI {
                     actor.player.do_send(hedgehog_player::PlaybackCommand::Play(
                         playback_data.media_url,
                         playback_data.position,
-                    ))
+                    ));
                 }
                 Ok(Err(error)) => actor.view_model.error(error),
                 Err(error) => actor.view_model.error(error),
@@ -469,25 +469,25 @@ impl ActionDelegate for ActorActionDelegate {
         self.ui
             .as_ref()
             .expect("ui is not initialized")
-            .do_send(StartPlaybackRequest(episode_id))
+            .do_send(StartPlaybackRequest(episode_id));
     }
 
     fn send_volume_command(&self, command: hedgehog_player::volume::VolumeCommand) {
-        self.player.do_send(command)
+        self.player.do_send(command);
     }
 
     fn send_playback_command(&self, command: hedgehog_player::PlaybackCommand) {
-        self.player.do_send(command)
+        self.player.do_send(command);
     }
 
     fn send_feed_update_request(&self, command: hedgehog_library::FeedUpdateRequest) {
-        self.library.do_send(command)
+        self.library.do_send(command);
     }
 
     fn send_status_write_request(
         &self,
         command: hedgehog_library::status_writer::StatusWriterCommand,
     ) {
-        self.status_writer.do_send(command)
+        self.status_writer.do_send(command);
     }
 }

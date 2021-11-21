@@ -162,7 +162,7 @@ mod tests {
                 add_modifier: Modifier::empty(),
                 sub_modifier: Modifier::BOLD,
             }
-        )
+        );
     }
 
     #[test]
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(
             &parse_cmd("+nonexistant").unwrap_err().to_string(),
             "invalid modifier \"nonexistant\""
-        )
+        );
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(
             &parse_cmd("fg: #0011").unwrap_err().to_string(),
             "invalid color \"#0011\""
-        )
+        );
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(
             &parse_cmd("fg: $12345 +bold").unwrap_err().to_string(),
             "invalid color \"$12345\""
-        )
+        );
     }
 
     #[test]
@@ -207,6 +207,6 @@ mod tests {
         assert_eq!(
             &parse_cmd("bg:abcdef-bold").unwrap_err().to_string(),
             "invalid color \"abcdef-bold\""
-        )
+        );
     }
 }

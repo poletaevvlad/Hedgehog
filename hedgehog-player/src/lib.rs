@@ -62,7 +62,7 @@ impl Player {
 
     fn set_state(&mut self, state: Option<State>) {
         self.state = state;
-        self.notify_subscribers(PlayerNotification::StateChanged(self.state))
+        self.notify_subscribers(PlayerNotification::StateChanged(self.state));
     }
 
     fn notify_subscribers(&mut self, notification: PlayerNotification) {
@@ -93,13 +93,13 @@ impl Actor for Player {
         let addr = ctx.address();
         self.element
             .connect_notify(Some("volume"), move |element, _| {
-                handle_volume_changed(element, &addr)
+                handle_volume_changed(element, &addr);
             });
 
         let addr = ctx.address();
         self.element
             .connect_notify(Some("mute"), move |element, _| {
-                handle_volume_changed(element, &addr)
+                handle_volume_changed(element, &addr);
             });
 
         if let Some(bus) = self.element.bus() {
@@ -117,7 +117,7 @@ impl Actor for Player {
                 )));
         }
 
-        ctx.address().do_send(TimerTick)
+        ctx.address().do_send(TimerTick);
     }
 
     fn stopped(&mut self, _ctx: &mut Self::Context) {
@@ -271,7 +271,7 @@ impl Handler<PlaybackCommand> for Player {
         })();
 
         if let Err(error) = result {
-            self.emit_error(error)
+            self.emit_error(error);
         }
     }
 }
@@ -300,7 +300,7 @@ impl Handler<VolumeCommand> for Player {
         };
 
         if let Err(error) = result {
-            self.emit_error(error)
+            self.emit_error(error);
         }
     }
 }
@@ -372,7 +372,7 @@ impl StreamHandler<gst::Message> for Player {
                                 ..state
                             }));
                             if let Some(seek) = self.required_seek.take() {
-                                ctx.address().do_send(PlaybackCommand::Seek(seek))
+                                ctx.address().do_send(PlaybackCommand::Seek(seek));
                             }
                         }
                     }

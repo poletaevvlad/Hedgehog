@@ -20,7 +20,7 @@ mod simple_struct {
         assert_eq!(
             Struct::parse_cmd("10 abc def").unwrap(),
             (Struct(10, "abc".to_string()), "def")
-        )
+        );
     }
 
     #[test]
@@ -40,7 +40,7 @@ mod simple_struct {
                 },
                 "def"
             )
-        )
+        );
     }
 
     #[test]
@@ -87,7 +87,7 @@ mod simple_enum {
 
     #[test]
     fn union() {
-        assert_eq!(Enum::parse_cmd("unit def").unwrap(), (Enum::Unit, "def"))
+        assert_eq!(Enum::parse_cmd("unit def").unwrap(), (Enum::Unit, "def"));
     }
 
     #[test]
@@ -95,7 +95,7 @@ mod simple_enum {
         assert_eq!(
             Enum::parse_cmd("tuple 10 20 def").unwrap(),
             (Enum::Tuple(10, 20), "def")
-        )
+        );
     }
 
     #[test]
@@ -103,7 +103,7 @@ mod simple_enum {
         assert_eq!(
             Enum::parse_cmd("struct 10 20 def").unwrap(),
             (Enum::Struct { a: 10, b: 20 }, "def")
-        )
+        );
     }
 }
 

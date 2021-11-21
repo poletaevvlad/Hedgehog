@@ -58,13 +58,13 @@ impl PlaybackState {
 
     pub fn set_duration(&mut self, duration: Duration) {
         if let Some((_, ref mut timing)) = self.0 {
-            timing.duration = Some(duration)
+            timing.duration = Some(duration);
         }
     }
 
     pub fn set_position(&mut self, position: Duration) {
         if let Some((_, ref mut timing)) = self.0 {
-            timing.position = position
+            timing.position = position;
         }
     }
 }

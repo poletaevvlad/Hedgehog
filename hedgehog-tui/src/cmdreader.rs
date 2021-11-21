@@ -196,7 +196,7 @@ mod tests {
         assert_eq!(
             resolver.resolve("/usr/share/hedgehog/default.theme"),
             Some("/usr/share/hedgehog/default.theme".to_string().into())
-        )
+        );
     }
 
     #[test]

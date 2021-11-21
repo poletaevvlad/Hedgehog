@@ -236,11 +236,11 @@ mod tests {
 
     #[test]
     fn time_from_invalid() {
-        assert_eq!(super::parse_itunes_duration("abc"), None)
+        assert_eq!(super::parse_itunes_duration("abc"), None);
     }
 
     #[test]
     fn time_from_invalid_many_components() {
-        assert_eq!(super::parse_itunes_duration("10:20:30:40"), None)
+        assert_eq!(super::parse_itunes_duration("10:20:30:40"), None);
     }
 }

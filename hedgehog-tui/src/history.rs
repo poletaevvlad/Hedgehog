@@ -34,7 +34,7 @@ impl CommandsHistory {
             }
             command.to_string()
         };
-        self.items.push_front(command)
+        self.items.push_front(command);
     }
 
     pub(crate) fn get(&self, index: usize) -> Option<&str> {

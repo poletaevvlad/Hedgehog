@@ -180,7 +180,7 @@ impl<D: DataProvider + 'static> Library<D> {
                 };
 
                 if let Err(error) = result {
-                    library.notify_update_listener(FeedUpdateNotification::Error(error))
+                    library.notify_update_listener(FeedUpdateNotification::Error(error));
                 };
             });
             ctx.spawn(future);
@@ -251,12 +251,12 @@ where
                         return;
                     }
                 };
-                self.schedule_update(vec![(feed_id, source)], ctx)
+                self.schedule_update(vec![(feed_id, source)], ctx);
             }
             FeedUpdateRequest::UpdateAll => match self.data_provider.get_update_sources() {
                 Ok(sources) => self.schedule_update(sources, ctx),
                 Err(error) => {
-                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()))
+                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             },
             FeedUpdateRequest::AddFeed(source) => {
@@ -276,10 +276,10 @@ where
             FeedUpdateRequest::DeleteFeed(feed_id) => {
                 match self.data_provider.delete_feed(feed_id) {
                     Ok(_) => {
-                        self.notify_update_listener(FeedUpdateNotification::FeedDeleted(feed_id))
+                        self.notify_update_listener(FeedUpdateNotification::FeedDeleted(feed_id));
                     }
                     Err(error) => {
-                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()))
+                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                     }
                 }
             }

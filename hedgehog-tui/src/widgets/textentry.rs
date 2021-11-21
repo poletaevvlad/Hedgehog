@@ -91,7 +91,7 @@ impl Buffer {
                     if self.char_at(next).unwrap().is_whitespace() {
                         break;
                     }
-                    index = next
+                    index = next;
                 }
                 (index, index == 0)
             }
@@ -565,7 +565,7 @@ mod tests {
                 .draw(|f| {
                     Entry::new()
                         .prefix(Span::raw("::"))
-                        .render(f, f.size(), buffer)
+                        .render(f, f.size(), buffer);
                 })
                 .unwrap();
         }
@@ -640,7 +640,7 @@ mod tests {
                 .draw(|f| {
                     ReadonlyEntry::new(text)
                         .prefix(Span::raw("::"))
-                        .render(f, Rect::new(0, 0, width, 1))
+                        .render(f, Rect::new(0, 0, width, 1));
                 })
                 .unwrap();
 

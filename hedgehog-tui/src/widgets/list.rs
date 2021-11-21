@@ -27,7 +27,7 @@ impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widg
             match iterator.next() {
                 Some(item) => {
                     self.delegate
-                        .render_item(Rect::new(area.x, y, area.width, 1), item, buf)
+                        .render_item(Rect::new(area.x, y, area.width, 1), item, buf);
                 }
                 None => {
                     self.delegate.render_empty(

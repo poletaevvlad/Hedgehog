@@ -114,7 +114,7 @@ impl<T: Identifiable> EditableDataView for ListData<T> {
 
     fn add(&mut self, item: Self::Item) {
         if let Some(ref mut items) = self.items {
-            items.push(item)
+            items.push(item);
         }
     }
 }
@@ -436,7 +436,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         let provider = &self.provider;
         self.data
             .update(self.offset..(self.offset + self.window_size), |request| {
-                request_data(provider, request)
+                request_data(provider, request);
             });
     }
 
@@ -480,7 +480,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
             self.offset = offset.min(size.saturating_sub(self.window_size));
             self.data
                 .update(offset..(offset + self.window_size), |request| {
-                    request_data(provider, request)
+                    request_data(provider, request);
                 });
         }
     }
@@ -502,7 +502,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     }
 
     pub(crate) fn move_cursor_first(&mut self) {
-        self.set_cursor(0)
+        self.set_cursor(0);
     }
 
     pub(crate) fn move_cursor_last(&mut self) {
@@ -534,7 +534,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     where
         T: EditableDataView<Item = <T as DataView>::Item>,
     {
-        self.data.add(item)
+        self.data.add(item);
     }
 
     pub(crate) fn remove_item(&mut self, id: <T as EditableDataView>::Id)
@@ -558,7 +558,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     ) where
         T: UpdatableDataView<Item = <T as DataView>::Item>,
     {
-        UpdatableDataView::update(&mut self.data, id, callback)
+        UpdatableDataView::update(&mut self.data, id, callback);
     }
 
     pub(crate) fn update_selection(
@@ -567,7 +567,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     ) where
         T: UpdatableDataView<Item = <T as DataView>::Item>,
     {
-        UpdatableDataView::update_at(&mut self.data, self.selection, callback)
+        UpdatableDataView::update_at(&mut self.data, self.selection, callback);
     }
 
     pub(crate) fn replace_item(&mut self, item: <T as UpdatableDataView>::Item)
@@ -575,7 +575,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         T: UpdatableDataView<Item = <T as DataView>::Item>,
         <T as UpdatableDataView>::Item: Identifiable<Id = <T as UpdatableDataView>::Id>,
     {
-        self.update_item(Identifiable::id(&item), |current| *current = item)
+        self.update_item(Identifiable::id(&item), |current| *current = item);
     }
 }
 
@@ -591,7 +591,7 @@ fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Re
     let message = provider.with_data(message);
     provider.as_ref().map(|provider| {
         if let Some(provider) = provider {
-            provider.request(message)
+            provider.request(message);
         }
     });
 }

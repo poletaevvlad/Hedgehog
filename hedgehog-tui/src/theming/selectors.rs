@@ -233,13 +233,13 @@ impl StyleSelector for Selector {
     fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
         match self {
             Selector::StatusBar(selector) => {
-                selector.for_each_overrides(|sel| callback(Selector::StatusBar(sel)))
+                selector.for_each_overrides(|sel| callback(Selector::StatusBar(sel)));
             }
             Selector::List(selector) => {
-                selector.for_each_overrides(|sel| callback(Selector::List(sel)))
+                selector.for_each_overrides(|sel| callback(Selector::List(sel)));
             }
             Selector::Player(selector) => {
-                selector.for_each_overrides(|sel| callback(Selector::Player(sel)))
+                selector.for_each_overrides(|sel| callback(Selector::Player(sel)));
             }
         }
     }

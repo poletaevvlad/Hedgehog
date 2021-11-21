@@ -270,7 +270,7 @@ impl EpisodesQuery {
         match self {
             EpisodesQuery::Single(_) => query.push_str(" WHERE id = :id"),
             EpisodesQuery::Multiple { feed_id: Some(_) } => {
-                query.push_str(" WHERE feed_id = :feed_id")
+                query.push_str(" WHERE feed_id = :feed_id");
             }
             _ => {}
         }

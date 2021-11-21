@@ -1,5 +1,6 @@
 use crate::theming;
 use crate::widgets::utils::PlaybackTimingFormatter;
+use hedgehog_library::model::EpisodeSummary;
 use hedgehog_player::state::{PlaybackState, PlaybackStatus};
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -9,19 +10,19 @@ use tui::widgets::Widget;
 pub(crate) struct PlayerState<'a> {
     state: &'a PlaybackState,
     theme: &'a theming::Theme,
-    playing_episode_title: Option<&'a str>,
+    episode: Option<&'a EpisodeSummary>,
 }
 
 impl<'a> PlayerState<'a> {
     pub(crate) fn new(
         state: &'a PlaybackState,
         theme: &'a theming::Theme,
-        playing_episode_title: Option<&'a str>,
+        episode: Option<&'a EpisodeSummary>,
     ) -> Self {
         PlayerState {
             state,
             theme,
-            playing_episode_title,
+            episode,
         }
     }
 }
@@ -60,7 +61,7 @@ impl<'a> Widget for PlayerState<'a> {
         }
 
         buf.set_style(area, self.theme.get(theming::Player::Title));
-        if let Some(title) = self.playing_episode_title {
+        if let Some(title) = self.episode.and_then(|ep| ep.title.as_deref()) {
             buf.set_span(
                 area.x + 1,
                 area.y,

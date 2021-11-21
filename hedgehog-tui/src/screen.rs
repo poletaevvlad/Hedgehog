@@ -91,11 +91,7 @@ impl UI {
             let player_widget = PlayerState::new(
                 &self.view_model.playback_state,
                 &self.view_model.theme,
-                self.view_model
-                    .library
-                    .playing_episode
-                    .as_ref()
-                    .and_then(|episode| episode.title.as_deref()),
+                self.view_model.library.playing_episode.as_ref(),
             );
             f.render_widget(player_widget, player_area);
 

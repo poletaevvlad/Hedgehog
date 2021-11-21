@@ -475,8 +475,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
         };
 
         match self.command {
-            None => match event {
-                key!('c', CONTROL) => self.handle_command(Command::Quit, ctx),
+            None if self.confirmation.is_none() => match event {
                 key!(':') => {
                     self.clear_status(ctx);
                     self.command = Some(CommandState::default());
@@ -489,6 +488,25 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     if let Some(command) = command.cloned() {
                         self.handle_command(command, ctx);
                     }
+                }
+                _ => (),
+            },
+            None => match event {
+                key!('y') | key!('Y', SHIFT) => {
+                    let confirmation = self.confirmation.take().unwrap();
+                    self.handle_command(confirmation.action, ctx);
+                    self.invalidate(ctx);
+                }
+                key!('n') | key!('N', SHIFT) => {
+                    self.confirmation = None;
+                    self.invalidate(ctx);
+                }
+                key!(Enter) => {
+                    let confirmation = self.confirmation.take().unwrap();
+                    if confirmation.default {
+                        self.handle_command(confirmation.action, ctx);
+                    }
+                    self.invalidate(ctx);
                 }
                 _ => (),
             },

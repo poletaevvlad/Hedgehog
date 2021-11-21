@@ -10,6 +10,8 @@ map --state feeds Tab set-focus episodes
 map --state feeds Enter set-focus episodes
 map --state episodes Tab set-focus feeds
 map --state episodes Enter play-current 
+map C-c confirm "Are you sure you want to quit?" --default true quit
+map q confirm "Are you sure you want to quit?" --default true quit
 
 map Right playback seek-relative 5 forward
 map Left playback seek-relative 5 backward

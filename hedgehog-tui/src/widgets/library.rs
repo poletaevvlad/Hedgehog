@@ -1,7 +1,6 @@
 use crate::options::Options;
-use crate::screen::LibraryViewModel;
+use crate::screen::{FocusedPane, LibraryViewModel};
 use crate::theming::{self, Theme};
-use crate::view_model::FocusedPane;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Widget};
 

@@ -7,7 +7,6 @@ mod options;
 mod screen;
 mod status;
 mod theming;
-mod view_model;
 mod widgets;
 
 use actix::prelude::*;
@@ -48,17 +47,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &player_arbiter.handle(),
             |_| /* TODO */ Player::init().unwrap(),
         );
-        let ui = UI::new(
+        UI::new(
             (size.width, size.height),
             terminal,
-            library.clone(),
+            library,
             player,
             status_writer,
         )
         .start();
-        library.do_send(hedgehog_library::FeedUpdateRequest::Subscribe(
-            ui.recipient(),
-        ));
     });
     system.run()?;
 

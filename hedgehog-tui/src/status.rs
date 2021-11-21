@@ -56,3 +56,29 @@ impl Severity {
         [Severity::Error, Severity::Warning, Severity::Information]
     }
 }
+
+#[derive(Debug, Default)]
+pub(crate) struct StatusLog {
+    display_status: Option<Status>,
+}
+
+impl StatusLog {
+    pub(crate) fn push(&mut self, status: Status) {
+        self.display_status = Some(status);
+    }
+
+    pub(crate) fn display_status(&self) -> Option<&Status> {
+        self.display_status.as_ref()
+    }
+
+    pub(crate) fn crear_display(&mut self) {
+        self.display_status = None;
+    }
+
+    pub(crate) fn has_errors(&self) -> bool {
+        self.display_status
+            .as_ref()
+            .map(|status| status.severity() == Severity::Error)
+            .unwrap_or(false)
+    }
+}

@@ -66,11 +66,6 @@ impl UI {
     }
 
     fn render(&mut self) {
-        let command = &mut self.command;
-        let history = &self.commands_history;
-        let episodes_list = &self.view_model.episodes_list;
-        let view_model = &self.view_model;
-
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
             let library_rect = Rect::new(0, 0, area.width, area.height - 2);
@@ -82,17 +77,17 @@ impl UI {
 
             let feeds_border = Block::default()
                 .borders(Borders::RIGHT)
-                .border_style(view_model.theme.get(theming::List::Divider));
+                .border_style(self.view_model.theme.get(theming::List::Divider));
             let feeds_area = feeds_border.inner(layout[0]);
             f.render_widget(feeds_border, layout[0]);
 
-            if let Some(iter) = view_model.feeds_list.iter() {
+            if let Some(iter) = self.view_model.feeds_list.iter() {
                 f.render_widget(
                     List::new(
                         FeedsListRowRenderer::new(
-                            &view_model.theme,
-                            view_model.focus == FocusedPane::FeedsList,
-                            &view_model.updating_feeds,
+                            &self.view_model.theme,
+                            self.view_model.focus == FocusedPane::FeedsList,
+                            &self.view_model.updating_feeds,
                         ),
                         iter,
                     ),
@@ -100,20 +95,20 @@ impl UI {
                 );
             }
             if let (Some(iter), Some(metadata)) = (
-                episodes_list.iter(),
-                view_model.episodes_list_metadata.as_ref(),
+                self.view_model.episodes_list.iter(),
+                self.view_model.episodes_list_metadata.as_ref(),
             ) {
-                let sizing = EpisodesListSizing::compute(&view_model.options, metadata);
+                let sizing = EpisodesListSizing::compute(&self.view_model.options, metadata);
                 f.render_widget(
                     List::new(
                         EpisodesListRowRenderer::new(
-                            &view_model.theme,
-                            view_model.focus == FocusedPane::EpisodesList,
-                            &view_model.options,
+                            &self.view_model.theme,
+                            self.view_model.focus == FocusedPane::EpisodesList,
+                            &self.view_model.options,
                             sizing,
                         )
                         .with_playing_id(
-                            view_model
+                            self.view_model
                                 .playing_episode
                                 .as_ref()
                                 .map(|episode| episode.id),
@@ -125,9 +120,9 @@ impl UI {
             }
 
             let player_widget = PlayerState::new(
-                &view_model.playback_state,
-                &view_model.theme,
-                view_model
+                &self.view_model.playback_state,
+                &self.view_model.theme,
+                self.view_model
                     .playing_episode
                     .as_ref()
                     .and_then(|episode| episode.title.as_deref()),
@@ -136,20 +131,20 @@ impl UI {
             f.render_widget(player_widget, player_rect);
 
             let status_rect = Rect::new(0, area.height - 1, area.width, 1);
-            if let Some(ref mut command_state) = command {
-                let style = view_model.theme.get(theming::StatusBar::Command);
-                let prompt_style = view_model.theme.get(theming::StatusBar::CommandPrompt);
+            if let Some(ref mut command_state) = self.command {
+                let style = self.view_model.theme.get(theming::StatusBar::Command);
+                let prompt_style = self.view_model.theme.get(theming::StatusBar::CommandPrompt);
                 CommandEditor::new(command_state)
                     .prefix(Span::styled(":", prompt_style))
                     .style(style)
-                    .render(f, status_rect, history);
-            } else if let Some(status) = &view_model.status {
+                    .render(f, status_rect, &self.commands_history);
+            } else if let Some(status) = &self.view_model.status {
                 let theme_selector = theming::StatusBar::Status(Some(status.severity()));
-                let style = view_model.theme.get(theme_selector);
+                let style = self.view_model.theme.get(theme_selector);
                 f.render_widget(Paragraph::new(status.to_string()).style(style), status_rect);
             } else {
                 f.render_widget(
-                    Block::default().style(view_model.theme.get(theming::StatusBar::Empty)),
+                    Block::default().style(self.view_model.theme.get(theming::StatusBar::Empty)),
                     status_rect,
                 );
             }

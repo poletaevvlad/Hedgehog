@@ -1,5 +1,6 @@
 use crate::metadata::FeedMetadata;
 use chrono::{DateTime, Utc};
+use cmd_parser::CmdParsable;
 use rusqlite::types::{FromSql, ToSql};
 use std::time::Duration;
 
@@ -141,12 +142,16 @@ pub struct Feed {
     pub status: FeedStatus,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CmdParsable)]
 pub enum EpisodeStatus {
     New,
+    #[cmd(rename = "seen")]
     NotStarted,
+    #[cmd(rename = "done")]
     Finished,
+    #[cmd(ignore)]
     Started(Duration),
+    #[cmd(ignore)]
     Error(Duration),
 }
 
@@ -179,6 +184,18 @@ pub enum EpisodeSummaryStatus {
     Finished,
     Started,
     Error,
+}
+
+impl From<EpisodeStatus> for EpisodeSummaryStatus {
+    fn from(status: EpisodeStatus) -> Self {
+        match status {
+            EpisodeStatus::New => EpisodeSummaryStatus::New,
+            EpisodeStatus::NotStarted => EpisodeSummaryStatus::NotStarted,
+            EpisodeStatus::Finished => EpisodeSummaryStatus::Finished,
+            EpisodeStatus::Started(_) => EpisodeSummaryStatus::Started,
+            EpisodeStatus::Error(_) => EpisodeSummaryStatus::Error,
+        }
+    }
 }
 
 impl EpisodeSummaryStatus {

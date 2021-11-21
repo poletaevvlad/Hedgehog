@@ -1059,6 +1059,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "chrono",
+ "cmd-parser",
  "directories",
  "httpmock",
  "pretty_assertions",

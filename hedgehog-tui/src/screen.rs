@@ -23,7 +23,7 @@ use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
-    EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
+    EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
 };
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
 use hedgehog_library::{
@@ -99,7 +99,11 @@ pub(crate) enum Command {
         #[cmd(attr(this = "true"))]
         current_only: bool,
     },
-    SetNew(bool),
+    Mark {
+        status: EpisodeStatus,
+        #[cmd(attr(all = "true"))]
+        update_all: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, CmdParsable)]
@@ -364,22 +368,25 @@ impl UI {
                         .do_send(FeedUpdateRequest::SetFeedEnabled(selected_feed, enabled));
                 }
             }
-            Command::SetNew(_is_new) => {
-                /*if let Some(selected) = self.library.episodes.selection() {
-                    match selected.status {
-                        EpisodeSummaryStatus::New if !is_new => {
-                            self.library.episodes.update_selection(|summary| {
-                                summary.status = EpisodeSummaryStatus::NotStarted;
-                            });
-                        }
-                        EpisodeSummaryStatus::NotStarted if is_new => {
-                            self.library.episodes.update_selection(|summary| {
-                                summary.status = EpisodeSummaryStatus::New;
-                            });
-                        }
-                        _ => (),
+            Command::Mark {
+                status,
+                update_all: _,
+            } => {
+                if let Some(selected_id) =
+                    self.library.episodes.selection().map(|episode| episode.id)
+                {
+                    self.library.episodes.update_selection(|selected| {
+                        selected.status = status.clone().into();
+                    });
+
+                    let playing = self.library.playing_episode.as_ref();
+                    if playing.map(|episode| episode.id) == Some(selected_id) {
+                        self.player_actor.do_send(PlaybackCommand::Stop);
                     }
-                }*/
+
+                    self.status_writer_actor
+                        .do_send(StatusWriterCommand::Set(selected_id, status));
+                }
             }
         }
     }

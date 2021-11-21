@@ -14,6 +14,7 @@ use crate::widgets::status::StatusView;
 use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
+use cmd_parser::CmdParsable;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
@@ -220,7 +221,15 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         let command_str = command_state.as_str(&self.commands_history).to_string();
                         self.commands_history.push(&command_str);
                         self.command = None;
-                        self.view_model.handle_command_str(command_str.as_str());
+
+                        match Command::parse_cmd_full(&command_str) {
+                            Ok(command) => {
+                                self.view_model.handle_command_interactive(command);
+                            }
+                            Err(error) => {
+                                self.view_model.error(error.into_static());
+                            }
+                        }
                         true
                     }
                 }

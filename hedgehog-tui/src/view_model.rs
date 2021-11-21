@@ -80,15 +80,6 @@ impl<D: ActionDelegate> ViewModel<D> {
         self.status = Some(Status::new_custom(error.to_string(), Severity::Error));
     }
 
-    pub(crate) fn handle_command_str(&mut self, command: &str) {
-        match Command::parse_cmd_full(command) {
-            Ok(command) => {
-                self.handle_command_interactive(command);
-            }
-            Err(error) => self.status = Some(Status::CommandParsingError(error.into_static())),
-        }
-    }
-
     fn handle_command(&mut self, command: Command) -> Result<bool, Status> {
         match command {
             Command::Cursor(command) => {

@@ -106,13 +106,12 @@ impl UI {
         };
         self.terminal.draw(draw).unwrap();
 
-        let title = self
-            .view_model
-            .library
-            .playing_episode
-            .as_ref()
-            .and_then(|episode| episode.title.as_deref())
-            .unwrap_or("hedgehog");
+        let playing_episode = self.view_model.library.playing_episode.as_ref();
+        let episode_title = playing_episode.and_then(|episode| episode.title.as_deref());
+        let title = match episode_title {
+            Some(title) => format!("{} | hedgehog", title),
+            None => "hedgehog".to_string(),
+        };
         let mut stdout = stdout();
         stdout.queue(terminal::SetTitle(title)).unwrap();
         stdout.flush().unwrap();

@@ -323,6 +323,9 @@ impl UI {
                                     playback_data.media_url,
                                     playback_data.position,
                                 ));
+                            actor.library.episodes.update_item(episode_id, |episode| {
+                                episode.status = EpisodeSummaryStatus::Started;
+                            });
                             actor.invalidate(ctx);
                         }
                     });
@@ -666,16 +669,7 @@ impl Handler<PlayerNotification> for UI {
             PlayerNotification::StateChanged(state) => {
                 self.playback_state.set_state(state);
                 if state.is_none() {
-                    if let Some(playing_episode) = &self.library.playing_episode {
-                        self.status_writer_actor
-                            .do_send(StatusWriterCommand::set_finished(playing_episode.id));
-                        self.library
-                            .episodes
-                            .update_item(playing_episode.id, |episode| {
-                                episode.status = EpisodeSummaryStatus::Finished;
-                            });
-                        self.library.playing_episode = None;
-                    }
+                    self.library.playing_episode.take();
                 }
                 self.invalidate(ctx);
             }
@@ -693,6 +687,17 @@ impl Handler<PlayerNotification> for UI {
                 }
                 self.playback_state.set_position(position);
                 self.invalidate(ctx);
+            }
+            PlayerNotification::Eos => {
+                if let Some(playing_episode) = &self.library.playing_episode {
+                    self.status_writer_actor
+                        .do_send(StatusWriterCommand::set_finished(playing_episode.id));
+                    self.library
+                        .episodes
+                        .update_item(playing_episode.id, |episode| {
+                            episode.status = EpisodeSummaryStatus::Finished;
+                        });
+                }
             }
         }
     }

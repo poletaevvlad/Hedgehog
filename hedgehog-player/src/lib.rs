@@ -337,6 +337,7 @@ pub enum PlayerNotification {
     StateChanged(Option<State>),
     DurationSet(Duration),
     PositionSet(Duration),
+    Eos,
 }
 
 #[derive(Debug, Message)]
@@ -347,7 +348,10 @@ impl StreamHandler<gst::Message> for Player {
     fn handle(&mut self, item: gst::Message, ctx: &mut Self::Context) {
         if let Some(state) = self.state {
             match item.view() {
-                gst::MessageView::Eos(_) => self.set_state(None),
+                gst::MessageView::Eos(_) => {
+                    self.notify_subscribers(PlayerNotification::Eos);
+                    self.set_state(None);
+                }
                 gst::MessageView::Error(error) => {
                     self.emit_error(GstError::from_err(error.error()));
                     self.set_state(None);

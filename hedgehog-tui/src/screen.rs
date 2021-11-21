@@ -99,6 +99,8 @@ pub(crate) enum Command {
 pub(crate) struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
     invalidation_request: Option<SpawnHandle>,
+    status_clear_request: Option<SpawnHandle>,
+
     library_actor: Addr<Library>,
     player_actor: Addr<Player>,
     status_writer_actor: Addr<StatusWriter>,
@@ -126,6 +128,7 @@ impl UI {
         UI {
             terminal,
             invalidation_request: None,
+            status_clear_request: None,
             library_actor,
             player_actor,
             status_writer_actor,
@@ -377,8 +380,27 @@ impl UI {
     }
 
     fn set_status(&mut self, status: Status, ctx: &mut <UI as Actor>::Context) {
+        if let Some(handle) = self.status_clear_request.take() {
+            ctx.cancel_future(handle);
+        }
+        if let Some(duration) = status.ttl() {
+            self.status_clear_request = Some(ctx.spawn(wrap_future(sleep(duration)).map(
+                |_, actor: &mut UI, ctx| {
+                    actor.status_clear_request = None;
+                    actor.status.clear_display();
+                    actor.invalidate(ctx);
+                },
+            )));
+        }
         self.status.push(status);
         self.invalidate(ctx);
+    }
+
+    fn clear_status(&mut self, ctx: &mut <UI as Actor>::Context) {
+        self.status.clear_display();
+        if let Some(handle) = self.status_clear_request.take() {
+            ctx.cancel_future(handle);
+        }
     }
 }
 
@@ -437,7 +459,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
             None => match event {
                 key!('c', CONTROL) => self.handle_command(Command::Quit, ctx),
                 key!(':') => {
-                    self.status.crear_display();
+                    self.clear_status(ctx);
                     self.command = Some(CommandState::default());
                     self.invalidate(ctx);
                 }

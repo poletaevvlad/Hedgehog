@@ -1,6 +1,7 @@
 use hedgehog_player::volume::Volume;
 use std::borrow::Cow;
 use std::fmt;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub(crate) enum Status {
@@ -20,6 +21,14 @@ impl Status {
 
     pub(crate) fn new_custom(text: impl Into<Cow<'static, str>>, severity: Severity) -> Self {
         Status::Custom(text.into(), severity)
+    }
+
+    pub(crate) fn ttl(&self) -> Option<Duration> {
+        match self {
+            Status::CommandParsingError(_) => None,
+            Status::Custom(_, _) => None,
+            Status::VolumeChanged(_) => Some(Duration::from_secs(2)),
+        }
     }
 }
 
@@ -71,7 +80,7 @@ impl StatusLog {
         self.display_status.as_ref()
     }
 
-    pub(crate) fn crear_display(&mut self) {
+    pub(crate) fn clear_display(&mut self) {
         self.display_status = None;
     }
 

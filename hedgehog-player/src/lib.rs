@@ -348,7 +348,10 @@ impl StreamHandler<gst::Message> for Player {
         if let Some(state) = self.state {
             match item.view() {
                 gst::MessageView::Eos(_) => self.set_state(None),
-                gst::MessageView::Error(_) => self.set_state(None),
+                gst::MessageView::Error(error) => {
+                    self.emit_error(GstError::from_err(error.error()));
+                    self.set_state(None);
+                }
                 gst::MessageView::Buffering(buffering) => {
                     let is_buffering = buffering.percent() != 100;
                     if state.is_buffering != is_buffering {

@@ -1,6 +1,9 @@
 use actix::prelude::*;
 use hedgehog_player::volume::{Volume, VolumeCommand};
-use hedgehog_player::{ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection};
+use hedgehog_player::{
+    ActorCommand, PlaybackCommand, Player, PlayerErrorNotification, PlayerNotification,
+    SeekDirection,
+};
 use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
@@ -18,6 +21,14 @@ impl Handler<PlayerNotification> for NotificationListener {
     }
 }
 
+impl Handler<PlayerErrorNotification> for NotificationListener {
+    type Result = ();
+
+    fn handle(&mut self, msg: PlayerErrorNotification, _ctx: &mut Self::Context) -> Self::Result {
+        println!("ERR {:?}", msg.0);
+    }
+}
+
 #[actix::main]
 async fn main() {
     Player::initialize().unwrap();
@@ -30,7 +41,15 @@ async fn main() {
     let notification_listener =
         NotificationListener::start_in_arbiter(&handle, |_| NotificationListener);
     player_addr
-        .send(ActorCommand::Subscribe(notification_listener.recipient()))
+        .send(ActorCommand::Subscribe(
+            notification_listener.clone().recipient(),
+        ))
+        .await
+        .unwrap();
+    player_addr
+        .send(ActorCommand::SubscribeErrors(
+            notification_listener.recipient(),
+        ))
         .await
         .unwrap();
 

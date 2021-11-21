@@ -10,6 +10,7 @@ use crate::view_model::{ActionDelegate, Command, FocusedPane, ViewModel};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
+use crate::widgets::split_bottom;
 use actix::prelude::*;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
@@ -26,7 +27,6 @@ use hedgehog_player::{Player, PlayerErrorNotification, PlayerNotification};
 use std::collections::HashSet;
 use std::io::{stdout, Write};
 use tui::backend::CrosstermBackend;
-use tui::layout::Rect;
 use tui::text::Span;
 use tui::widgets::{Block, Paragraph};
 use tui::Terminal;
@@ -78,14 +78,15 @@ impl UI {
     fn render(&mut self) {
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
-            let library_rect = Rect::new(0, 0, area.width, area.height - 2);
+            let (area, status_area) = split_bottom(area, 1);
+            let (area, player_area) = split_bottom(area, 1);
 
             let library_widget = LibraryWidget::new(
                 &self.view_model.library,
                 &self.view_model.options,
                 &self.view_model.theme,
             );
-            f.render_widget(library_widget, library_rect);
+            f.render_widget(library_widget, area);
 
             let player_widget = PlayerState::new(
                 &self.view_model.playback_state,
@@ -96,25 +97,23 @@ impl UI {
                     .as_ref()
                     .and_then(|episode| episode.title.as_deref()),
             );
-            let player_rect = Rect::new(0, area.height - 2, area.width, 1);
-            f.render_widget(player_widget, player_rect);
+            f.render_widget(player_widget, player_area);
 
-            let status_rect = Rect::new(0, area.height - 1, area.width, 1);
             if let Some(ref mut command_state) = self.command {
                 let style = self.view_model.theme.get(theming::StatusBar::Command);
                 let prompt_style = self.view_model.theme.get(theming::StatusBar::CommandPrompt);
                 CommandEditor::new(command_state)
                     .prefix(Span::styled(":", prompt_style))
                     .style(style)
-                    .render(f, status_rect, &self.commands_history);
+                    .render(f, status_area, &self.commands_history);
             } else if let Some(status) = &self.view_model.status {
                 let theme_selector = theming::StatusBar::Status(Some(status.severity()));
                 let style = self.view_model.theme.get(theme_selector);
-                f.render_widget(Paragraph::new(status.to_string()).style(style), status_rect);
+                f.render_widget(Paragraph::new(status.to_string()).style(style), status_area);
             } else {
                 f.render_widget(
                     Block::default().style(self.view_model.theme.get(theming::StatusBar::Empty)),
-                    status_rect,
+                    status_area,
                 );
             }
         };

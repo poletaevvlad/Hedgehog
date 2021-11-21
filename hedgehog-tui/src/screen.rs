@@ -11,6 +11,8 @@ use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
 use crate::widgets::split_bottom;
 use crate::widgets::status::StatusView;
+use actix::clock::sleep;
+use actix::fut::wrap_future;
 use actix::prelude::*;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
@@ -26,6 +28,7 @@ use hedgehog_library::{
 use hedgehog_player::{Player, PlayerErrorNotification, PlayerNotification};
 use std::collections::HashSet;
 use std::io::{stdout, Write};
+use std::time::Duration;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
@@ -45,6 +48,8 @@ pub(crate) struct UI {
     library: Addr<Library>,
     player: Addr<Player>,
     view_model: ViewModel<ActorActionDelegate>,
+
+    invalidation_request: Option<SpawnHandle>,
 }
 
 impl UI {
@@ -70,6 +75,7 @@ impl UI {
                     status_writer,
                 },
             ),
+            invalidation_request: None,
         }
     }
 
@@ -116,6 +122,15 @@ impl UI {
         stdout.queue(terminal::SetTitle(title)).unwrap();
         stdout.flush().unwrap();
     }
+
+    fn invalidate(&mut self, ctx: &mut <Self as Actor>::Context) {
+        if let Some(handle) = self.invalidation_request.take() {
+            ctx.cancel_future(handle);
+        }
+        let future = wrap_future(sleep(Duration::from_millis(1)))
+            .map(|_result, actor: &mut UI, _ctx| actor.render());
+        self.invalidation_request = Some(ctx.spawn(future));
+    }
 }
 
 impl Actor for UI {
@@ -147,7 +162,7 @@ impl Actor for UI {
             ));
 
         ctx.add_stream(crossterm::event::EventStream::new());
-        self.render();
+        self.invalidate(ctx);
     }
 }
 
@@ -155,12 +170,12 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
     fn handle(
         &mut self,
         item: crossterm::Result<crossterm::event::Event>,
-        _ctx: &mut Self::Context,
+        ctx: &mut Self::Context,
     ) {
         let event = match item {
             Ok(Event::Resize(width, height)) => {
                 self.view_model.set_size(width, height);
-                self.render();
+                self.invalidate(ctx);
                 return;
             }
             Ok(event) => event,
@@ -212,7 +227,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
             }
         };
         if should_render {
-            self.render();
+            self.invalidate(ctx);
         }
     }
 }
@@ -259,6 +274,7 @@ impl UI {
         &mut self,
         data: LibraryQueryResult<T>,
         handler: impl FnOnce(&mut Self, T) -> bool,
+        ctx: &mut <UI as Actor>::Context,
     ) {
         let should_render = match data {
             Err(err) => {
@@ -272,7 +288,7 @@ impl UI {
             Ok(Ok(data)) => handler(self, data),
         };
         if should_render {
-            self.render();
+            self.invalidate(ctx);
         }
     }
 
@@ -280,15 +296,20 @@ impl UI {
         &mut self,
         version: Version,
         metadata: LibraryQueryResult<EpisodesListMetadata>,
+        ctx: &mut <UI as Actor>::Context,
     ) {
-        self.handle_library_response(metadata, move |actor, metadata| {
-            let should_render = actor.view_model.set_episodes_list_data(
-                Versioned::new(PaginatedDataMessage::size(metadata.items_count))
-                    .with_version(version),
-            );
-            actor.view_model.library.episodes_list_metadata = Some(metadata);
-            should_render
-        });
+        self.handle_library_response(
+            metadata,
+            move |actor, metadata| {
+                let should_render = actor.view_model.set_episodes_list_data(
+                    Versioned::new(PaginatedDataMessage::size(metadata.items_count))
+                        .with_version(version),
+                );
+                actor.view_model.library.episodes_list_metadata = Some(metadata);
+                should_render
+            },
+            ctx,
+        );
     }
 
     fn handle_episode_data_response(
@@ -296,25 +317,35 @@ impl UI {
         version: Version,
         data: LibraryQueryResult<Vec<EpisodeSummary>>,
         page_index: usize,
+        ctx: &mut <UI as Actor>::Context,
     ) {
-        self.handle_library_response(data, move |actor, data| {
-            let message = PaginatedDataMessage::page(page_index, data);
-            actor
-                .view_model
-                .set_episodes_list_data(Versioned::new(message).with_version(version))
-        });
+        self.handle_library_response(
+            data,
+            move |actor, data| {
+                let message = PaginatedDataMessage::page(page_index, data);
+                actor
+                    .view_model
+                    .set_episodes_list_data(Versioned::new(message).with_version(version))
+            },
+            ctx,
+        );
     }
 
     fn handle_feeds_data_response(
         &mut self,
         version: Version,
         data: LibraryQueryResult<Vec<FeedSummary>>,
+        ctx: &mut <UI as Actor>::Context,
     ) {
-        self.handle_library_response(data, move |actor, data| {
-            actor
-                .view_model
-                .set_feeds_list_data(Versioned::new(data).with_version(version))
-        });
+        self.handle_library_response(
+            data,
+            move |actor, data| {
+                actor
+                    .view_model
+                    .set_feeds_list_data(Versioned::new(data).with_version(version))
+            },
+            ctx,
+        );
     }
 }
 
@@ -330,16 +361,16 @@ impl Handler<DataFetchingRequest> for UI {
                         self.library
                             .send(EpisodesListMetadataRequest(query))
                             .into_actor(self)
-                            .map(move |metadata, actor, _ctx| {
-                                actor.handle_episode_size_response(version, metadata);
+                            .map(move |metadata, actor, ctx| {
+                                actor.handle_episode_size_response(version, metadata, ctx);
                             }),
                     ),
                     PaginatedDataRequest::Page(page) => {
                         let page_index = page.index;
                         let request = EpisodeSummariesRequest::new(query, page);
                         Box::pin(self.library.send(request).into_actor(self).map(
-                            move |data, actor, _ctx| {
-                                actor.handle_episode_data_response(version, data, page_index);
+                            move |data, actor, ctx| {
+                                actor.handle_episode_data_response(version, data, page_index, ctx);
                             },
                         ))
                     }
@@ -349,8 +380,8 @@ impl Handler<DataFetchingRequest> for UI {
                 self.library
                     .send(FeedSummariesRequest)
                     .into_actor(self)
-                    .map(move |data, actor, _ctx| {
-                        actor.handle_feeds_data_response(request.version(), data);
+                    .map(move |data, actor, ctx| {
+                        actor.handle_feeds_data_response(request.version(), data, ctx);
                     }),
             ),
         }
@@ -360,9 +391,9 @@ impl Handler<DataFetchingRequest> for UI {
 impl Handler<PlayerNotification> for UI {
     type Result = ();
 
-    fn handle(&mut self, msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: PlayerNotification, ctx: &mut Self::Context) -> Self::Result {
         self.view_model.handle_player_notification(msg);
-        self.render();
+        self.invalidate(ctx);
     }
 }
 
@@ -377,9 +408,9 @@ impl Handler<PlayerErrorNotification> for UI {
 impl Handler<FeedUpdateNotification> for UI {
     type Result = ();
 
-    fn handle(&mut self, msg: FeedUpdateNotification, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: FeedUpdateNotification, ctx: &mut Self::Context) -> Self::Result {
         self.view_model.handle_update_notification(msg);
-        self.render();
+        self.invalidate(ctx);
     }
 }
 

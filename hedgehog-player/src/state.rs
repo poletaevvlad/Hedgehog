@@ -30,6 +30,17 @@ pub struct PlaybackTiming {
 pub struct PlaybackState(Option<(State, PlaybackTiming)>);
 
 impl PlaybackState {
+    pub fn new_started(position: Duration, duration: Option<Duration>) -> Self {
+        PlaybackState(Some((
+            State {
+                is_started: false,
+                is_paused: false,
+                is_buffering: true,
+            },
+            PlaybackTiming { duration, position },
+        )))
+    }
+
     pub fn status(&self) -> PlaybackStatus {
         match self.0 {
             Some((state, _)) if !state.is_started || state.is_buffering => {

@@ -313,12 +313,17 @@ impl UI {
                             return;
                         }
                         if let Some(playback_data) = actor.handle_response_error(result, ctx) {
+                            actor.playback_state = PlaybackState::new_started(
+                                playback_data.position,
+                                playback_data.duration,
+                            );
                             actor
                                 .player_actor
                                 .do_send(hedgehog_player::PlaybackCommand::Play(
                                     playback_data.media_url,
                                     playback_data.position,
                                 ));
+                            actor.invalidate(ctx);
                         }
                     });
                 ctx.spawn(future);

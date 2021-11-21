@@ -46,6 +46,7 @@ pub(crate) trait UpdatableDataView {
     type Item: Identifiable<Id = Self::Id>;
 
     fn update(&mut self, id: Self::Id, callback: impl FnOnce(&mut Self::Item));
+    fn update_all(&mut self, callback: impl Fn(&mut Self::Item));
     fn update_at(&mut self, index: usize, callback: impl FnOnce(&mut Self::Item));
 }
 
@@ -127,6 +128,14 @@ impl<T: Identifiable> UpdatableDataView for ListData<T> {
         if let Some(ref mut items) = self.items {
             if let Some(index) = index_with_id(items.iter(), id) {
                 callback(&mut items[index]);
+            }
+        }
+    }
+
+    fn update_all(&mut self, callback: impl Fn(&mut Self::Item)) {
+        if let Some(items) = self.items.as_mut() {
+            for item in items {
+                callback(item);
             }
         }
     }
@@ -292,6 +301,16 @@ impl<T: Identifiable> UpdatableDataView for PaginatedData<T> {
         }
     }
 
+    fn update_all(&mut self, callback: impl Fn(&mut Self::Item)) {
+        for page in self.pages.iter_mut() {
+            if let Some(ref mut page) = page.as_mut() {
+                for item in page.iter_mut() {
+                    callback(item);
+                }
+            }
+        }
+    }
+
     fn update_at(&mut self, index: usize, callback: impl FnOnce(&mut Self::Item)) {
         let page_index = self.page_index(index);
         let index_in_page = self.page_item_index(index);
@@ -353,7 +372,6 @@ impl<T> Versioned<T> {
         Versioned(self.0, f(self.1))
     }
 
-    #[cfg(test)]
     pub(crate) fn as_inner(&self) -> &T {
         &self.1
     }
@@ -426,6 +444,10 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
 
     pub(crate) fn invalidate(&mut self) -> bool {
         self.update_provider(|_| {})
+    }
+
+    pub(crate) fn provider(&self) -> Option<&P> {
+        self.provider.as_inner().as_ref()
     }
 
     pub(crate) fn selection(&self) -> Option<&T::Item> {
@@ -559,6 +581,13 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         T: UpdatableDataView<Item = <T as DataView>::Item>,
     {
         UpdatableDataView::update(&mut self.data, id, callback);
+    }
+
+    pub(crate) fn update_all(&mut self, callback: impl Fn(&mut <T as UpdatableDataView>::Item))
+    where
+        T: UpdatableDataView<Item = <T as DataView>::Item>,
+    {
+        UpdatableDataView::update_all(&mut self.data, callback);
     }
 
     pub(crate) fn update_selection(

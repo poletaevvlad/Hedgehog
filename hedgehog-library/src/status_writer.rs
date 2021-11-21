@@ -20,20 +20,30 @@ impl Actor for StatusWriter {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub enum StatusWriterCommand {
-    Set(EpisodeId, EpisodeStatus),
+    Set(EpisodesQuery, EpisodeStatus),
 }
 
 impl StatusWriterCommand {
+    pub fn set(episode_id: EpisodeId, status: EpisodeStatus) -> Self {
+        StatusWriterCommand::Set(EpisodesQuery::Single(episode_id), status)
+    }
+
     pub fn set_finished(episode_id: EpisodeId) -> Self {
-        StatusWriterCommand::Set(episode_id, EpisodeStatus::Finished)
+        StatusWriterCommand::Set(EpisodesQuery::Single(episode_id), EpisodeStatus::Finished)
     }
 
     pub fn set_position(episode_id: EpisodeId, position: Duration) -> Self {
-        StatusWriterCommand::Set(episode_id, EpisodeStatus::Started(position))
+        StatusWriterCommand::Set(
+            EpisodesQuery::Single(episode_id),
+            EpisodeStatus::Started(position),
+        )
     }
 
     pub fn set_error(episode_id: EpisodeId, position: Duration) -> Self {
-        StatusWriterCommand::Set(episode_id, EpisodeStatus::Error(position))
+        StatusWriterCommand::Set(
+            EpisodesQuery::Single(episode_id),
+            EpisodeStatus::Error(position),
+        )
     }
 }
 
@@ -42,9 +52,9 @@ impl Handler<StatusWriterCommand> for StatusWriter {
 
     fn handle(&mut self, msg: StatusWriterCommand, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            StatusWriterCommand::Set(episode_id, status) => self.library.do_send(
-                FeedUpdateRequest::SetStatus(EpisodesQuery::Single(episode_id), status),
-            ),
+            StatusWriterCommand::Set(query, status) => self
+                .library
+                .do_send(FeedUpdateRequest::SetStatus(query, status)),
         }
     }
 }

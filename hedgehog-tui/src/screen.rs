@@ -368,25 +368,26 @@ impl UI {
                         .do_send(FeedUpdateRequest::SetFeedEnabled(selected_feed, enabled));
                 }
             }
-            Command::Mark {
-                status,
-                update_all: _,
-            } => {
-                if let Some(selected_id) =
+            Command::Mark { status, update_all } => {
+                if update_all {
+                    let episodes = &mut self.library.episodes;
+                    episodes.update_all(|episode| episode.status = status.clone().into());
+                    let query = episodes.provider().and_then(|p| p.query.as_ref());
+                    if let Some(query) = query {
+                        self.status_writer_actor
+                            .do_send(StatusWriterCommand::Set(query.clone(), status));
+                    }
+                } else if let Some(selected_id) =
                     self.library.episodes.selection().map(|episode| episode.id)
                 {
                     self.library.episodes.update_selection(|selected| {
                         selected.status = status.clone().into();
                     });
 
-                    let playing = self.library.playing_episode.as_ref();
-                    if playing.map(|episode| episode.id) == Some(selected_id) {
-                        self.player_actor.do_send(PlaybackCommand::Stop);
-                    }
-
                     self.status_writer_actor
-                        .do_send(StatusWriterCommand::Set(selected_id, status));
+                        .do_send(StatusWriterCommand::set(selected_id, status));
                 }
+                self.invalidate(ctx);
             }
         }
     }

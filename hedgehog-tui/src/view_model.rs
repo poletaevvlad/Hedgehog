@@ -118,9 +118,9 @@ impl<D: ActionDelegate> ViewModel<D> {
                 System::current().stop();
                 Ok(false)
             }
-            Command::Map(key, command) => {
-                let redefined = self.key_mapping.contains(key, None);
-                self.key_mapping.map(key, None, *command);
+            Command::Map(key, state, command) => {
+                let redefined = self.key_mapping.contains(key, state);
+                self.key_mapping.map(key, state, *command);
 
                 if redefined {
                     Err(Status::new_custom(
@@ -131,31 +131,8 @@ impl<D: ActionDelegate> ViewModel<D> {
                     Ok(false)
                 }
             }
-            Command::MapState(key, state, command) => {
-                let redefined = self.key_mapping.contains(key, None);
-                self.key_mapping.map(key, Some(state), *command);
-
-                if redefined {
-                    Err(Status::new_custom(
-                        "Key mapping redefined",
-                        Severity::Information,
-                    ))
-                } else {
-                    Ok(false)
-                }
-            }
-            Command::Unmap(key) => {
-                if !self.key_mapping.unmap(key, None) {
-                    Err(Status::new_custom(
-                        "Key mapping is not defined",
-                        Severity::Warning,
-                    ))
-                } else {
-                    Ok(false)
-                }
-            }
-            Command::UnmapState(key, state) => {
-                if !self.key_mapping.unmap(key, Some(state)) {
+            Command::Unmap(key, state) => {
+                if !self.key_mapping.unmap(key, state) {
                     Err(Status::new_custom(
                         "Key mapping is not defined",
                         Severity::Warning,
@@ -393,10 +370,8 @@ impl<D: ActionDelegate> ViewModel<D> {
 pub(crate) enum Command {
     #[cmd(rename = "line")]
     Cursor(CursorCommand),
-    Map(Key, Box<Command>),
-    MapState(Key, FocusedPane, Box<Command>),
-    Unmap(Key),
-    UnmapState(Key, FocusedPane),
+    Map(Key, #[cmd(attr(state))] Option<FocusedPane>, Box<Command>),
+    Unmap(Key, #[cmd(attr(state))] Option<FocusedPane>),
     Theme(ThemeCommand),
     Exec(PathBuf),
     Volume(VolumeCommand),

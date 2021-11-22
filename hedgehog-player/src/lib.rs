@@ -29,6 +29,7 @@ pub struct Player {
     reported_volume: Option<Option<Volume>>,
     state: Option<State>,
     required_seek: Option<Duration>,
+    seek_position: Option<Duration>,
 }
 
 impl Player {
@@ -49,6 +50,7 @@ impl Player {
             error_listener: None,
             state: None,
             required_seek: None,
+            seek_position: None,
         })
     }
 
@@ -233,21 +235,27 @@ impl Handler<PlaybackCommand> for Player {
                     }
                 }
                 PlaybackCommand::Seek(position) => {
-                    if self.state.is_some() {
+                    if self.state.map(|state| state.is_started) == Some(true) {
                         self.element
                             .seek_simple(
                                 gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
                                 gst::ClockTime::from_nseconds(position.as_nanos() as u64),
                             )
                             .map_err(GstError::from_err)?;
+
+                        self.seek_position = Some(position);
                         self.notify_subscribers(PlayerNotification::PositionSet(position));
                     }
                 }
                 PlaybackCommand::SeekRelative(duration, direction) => {
-                    if self.state.is_some() {
-                        if let Some(current_position) =
-                            self.element.query_position::<gst::ClockTime>()
-                        {
+                    if self.state.map(|state| state.is_started) == Some(true) {
+                        let current_position =
+                            self.element.query_position::<gst::ClockTime>().or_else(|| {
+                                self.seek_position
+                                    .map(|pos| gst::ClockTime::from_nseconds(pos.as_nanos() as u64))
+                            });
+
+                        if let Some(current_position) = current_position {
                             let delta = gst::ClockTime::from_nseconds(duration.as_nanos() as u64);
                             let new_position = match direction {
                                 SeekDirection::Forward => current_position.saturating_add(delta),
@@ -258,11 +266,11 @@ impl Handler<PlaybackCommand> for Player {
                                     gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
                                     new_position,
                                 )
-                                .unwrap();
+                                .map_err(GstError::from_err)?;
 
-                            self.notify_subscribers(PlayerNotification::PositionSet(
-                                Duration::from_nanos(new_position.nseconds()),
-                            ));
+                            let pos_duration = Duration::from_nanos(new_position.nseconds());
+                            self.notify_subscribers(PlayerNotification::PositionSet(pos_duration));
+                            self.seek_position = Some(pos_duration);
                         }
                     }
                 }

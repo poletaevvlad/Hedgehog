@@ -40,7 +40,7 @@ impl Player {
     pub fn init() -> Result<Self, GstError> {
         let mut element = gst::ElementFactory::make("playbin", None).map_err(GstError::from_err)?;
 
-        let flags = build_flags("GstPlayFlags", ["audio"])?;
+        let flags = build_flags("GstPlayFlags", ["audio", "download"])?;
         set_property(&mut element, "flags", flags)?;
 
         Ok(Player {
@@ -186,6 +186,7 @@ impl Handler<PlaybackCommand> for Player {
                     } else {
                         Some(position)
                     };
+                    self.seek_position = None;
                 }
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {

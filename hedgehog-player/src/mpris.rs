@@ -9,17 +9,17 @@ use std::collections::HashMap;
 use std::process;
 use std::time::Duration;
 
-pub struct MpirsPlayer {
+pub struct MprisPlayer {
     player: Addr<Player>,
 }
 
-impl MpirsPlayer {
+impl MprisPlayer {
     pub fn new(player: Addr<Player>) -> Self {
-        MpirsPlayer { player }
+        MprisPlayer { player }
     }
 }
 
-impl Actor for MpirsPlayer {
+impl Actor for MprisPlayer {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
@@ -86,7 +86,7 @@ impl Actor for MpirsPlayer {
     }
 }
 
-impl Handler<PlayerNotification> for MpirsPlayer {
+impl Handler<PlayerNotification> for MprisPlayer {
     type Result = ();
 
     fn handle(&mut self, _msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {}

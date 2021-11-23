@@ -16,7 +16,7 @@ use crossterm::terminal::{
 };
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{Library, SqliteDataProvider};
-use hedgehog_player::mpirs::MpirsPlayer;
+use hedgehog_player::mpris::MprisPlayer;
 use hedgehog_player::Player;
 use screen::UI;
 use std::io;
@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let mpirs_player = player.clone();
-        MpirsPlayer::start_in_arbiter(&player_arbiter.handle(), |_| MpirsPlayer::new(mpirs_player));
+        MprisPlayer::start_in_arbiter(&player_arbiter.handle(), |_| MprisPlayer::new(mpirs_player));
 
         UI::new(
             (size.width, size.height),

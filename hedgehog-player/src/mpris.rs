@@ -1,4 +1,7 @@
-use crate::{ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection};
+use crate::volume::Volume;
+use crate::{
+    ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection, VolumeCommand,
+};
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use dbus::channel::MatchingReceiver;
@@ -148,7 +151,13 @@ fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
     b.property("Rate").get(|_, _| Ok(1.0));
     b.property("Metadata")
         .get(|_, _| Ok(HashMap::<String, dbus::arg::Variant<String>>::new()));
-    b.property("Volume").get(|_, _| Ok(1.0));
+    b.property("Volume")
+        .get(|_, _| Ok(1.0))
+        .set(|_, mpirs_ctx, value| {
+            let volume = Volume::from_cubic_clip(value);
+            mpirs_ctx.player.do_send(VolumeCommand::SetVolume(volume));
+            Ok(Some(volume.cubic()))
+        });
     b.property("Position").get(|_, _| Ok(1));
     b.property("MinimumRate").get(|_, _| Ok(1.0));
     b.property("MaximumRate").get(|_, _| Ok(1.0));

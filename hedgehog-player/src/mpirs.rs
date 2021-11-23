@@ -1,12 +1,13 @@
-use crate::{ActorCommand, Player, PlayerNotification};
+use crate::{ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection};
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
-use dbus_crossroads::Crossroads;
+use dbus_crossroads::{Crossroads, IfaceBuilder};
 use dbus_tokio::connection;
 use std::collections::HashMap;
 use std::process;
+use std::time::Duration;
 
 pub struct MpirsPlayer {
     player: Addr<Player>,
@@ -22,6 +23,7 @@ impl Actor for MpirsPlayer {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
+        let player_address = self.player.clone();
         ctx.spawn(wrap_future(async {
             let (resource, connection) = connection::new_session_sync().unwrap();
             let arbiter = Arbiter::current();
@@ -64,43 +66,12 @@ impl Actor for MpirsPlayer {
                     .get(|_, _| Ok(Vec::<String>::new()));
             });
 
-            let player_iface = cr.register("org.mpris.MediaPlayer2.Player", |b| {
-                b.method("Next", (), (), |_, _, ()| Ok(()));
-                b.method("Previous", (), (), |_, _, ()| Ok(()));
-                b.method("Pause", (), (), |_, _, ()| Ok(()));
-                b.method("PlayPause", (), (), |_, _, ()| Ok(()));
-                b.method("Stop", (), (), |_, _, ()| Ok(()));
-                b.method("Play", (), (), |_, _, ()| Ok(()));
-                b.method("Seek", ("x",), (), |_, _, (_offset,): (i64,)| Ok(()));
-                b.method(
-                    "SetPosition",
-                    ("o", "x"),
-                    (),
-                    |_, _, (_track_id, _position): (i64, i64)| Ok(()),
-                );
-                b.method("OpenUri", ("s",), (), |_, _, (_offset,): (dbus::Path,)| {
-                    Ok(())
-                });
+            let context = MpirsContext {
+                player: player_address,
+            };
 
-                b.signal::<(i64,), _>("Seeked", ("x",));
-
-                b.property("PlaybackStatus")
-                    .get(|_, _| Ok("Stopped".to_string()));
-                b.property("Rate").get(|_, _| Ok(1.0));
-                b.property("Metadata")
-                    .get(|_, _| Ok(HashMap::<String, dbus::arg::Variant<String>>::new()));
-                b.property("Volume").get(|_, _| Ok(1.0));
-                b.property("Position").get(|_, _| Ok(1));
-                b.property("MinimumRate").get(|_, _| Ok(1.0));
-                b.property("MaximumRate").get(|_, _| Ok(1.0));
-                b.property("CanGoNext").get(|_, _| Ok(false));
-                b.property("CanGoPrevious").get(|_, _| Ok(false));
-                b.property("CanPlay").get(|_, _| Ok(false));
-                b.property("CanPause").get(|_, _| Ok(false));
-                b.property("CanControl").get(|_, _| Ok(true));
-            });
-
-            cr.insert("/org/mpris/MediaPlayer2", &[iface, player_iface], ());
+            let player_iface = cr.register("org.mpris.MediaPlayer2.Player", build_player_interface);
+            cr.insert("/org/mpris/MediaPlayer2", &[iface, player_iface], context);
             connection.start_receive(
                 MatchRule::new_method_call(),
                 Box::new(move |msg, conn| {
@@ -119,4 +90,71 @@ impl Handler<PlayerNotification> for MpirsPlayer {
     type Result = ();
 
     fn handle(&mut self, _msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {}
+}
+
+struct MpirsContext {
+    player: Addr<Player>,
+}
+
+fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
+    b.method("Next", (), (), |_, _, ()| Ok(()));
+    b.method("Previous", (), (), |_, _, ()| Ok(()));
+    b.method("Pause", (), (), |_, mpirs_ctx, ()| {
+        mpirs_ctx.player.do_send(PlaybackCommand::Pause);
+        Ok(())
+    });
+    b.method("PlayPause", (), (), |_, mpirs_ctx, ()| {
+        mpirs_ctx.player.do_send(PlaybackCommand::TogglePause);
+        Ok(())
+    });
+    b.method("Stop", (), (), |_, mpirs_ctx, ()| {
+        mpirs_ctx.player.do_send(PlaybackCommand::Stop);
+        Ok(())
+    });
+    b.method("Play", (), (), |_, mpirs_ctx, ()| {
+        mpirs_ctx.player.do_send(PlaybackCommand::Resume);
+        Ok(())
+    });
+    b.method("Seek", ("x",), (), |_, mpirs_ctx, (offset,): (i64,)| {
+        let duration = Duration::from_micros(offset.abs() as u64);
+        let seek_direction = if offset > 0 {
+            SeekDirection::Forward
+        } else {
+            SeekDirection::Backward
+        };
+        mpirs_ctx
+            .player
+            .do_send(PlaybackCommand::SeekRelative(duration, seek_direction));
+        Ok(())
+    });
+    b.method(
+        "SetPosition",
+        ("o", "x"),
+        (),
+        |_, mpirs_ctx, (_track_id, position): (dbus::Path, i64)| {
+            let duration = Duration::from_micros(position.abs() as u64);
+            mpirs_ctx.player.do_send(PlaybackCommand::Seek(duration));
+            Ok(())
+        },
+    );
+    b.method("OpenUri", ("s",), (), |_, _, (_offset,): (dbus::Path,)| {
+        Ok(())
+    });
+
+    b.signal::<(i64,), _>("Seeked", ("x",));
+
+    b.property("PlaybackStatus")
+        .get(|_, _| Ok("Stopped".to_string()));
+    b.property("Rate").get(|_, _| Ok(1.0));
+    b.property("Metadata")
+        .get(|_, _| Ok(HashMap::<String, dbus::arg::Variant<String>>::new()));
+    b.property("Volume").get(|_, _| Ok(1.0));
+    b.property("Position").get(|_, _| Ok(1));
+    b.property("MinimumRate").get(|_, _| Ok(1.0));
+    b.property("MaximumRate").get(|_, _| Ok(1.0));
+    b.property("CanGoNext").get(|_, _| Ok(false));
+    b.property("CanGoPrevious").get(|_, _| Ok(false));
+    b.property("CanPlay").get(|_, _| Ok(false));
+    b.property("CanPause").get(|_, _| Ok(false));
+    b.property("CanControl").get(|_, _| Ok(true));
 }

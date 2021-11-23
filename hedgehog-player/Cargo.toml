@@ -8,6 +8,11 @@ gstreamer-base = "0.17"
 actix = "0.12"
 cmd-parser = { path = "../cmd-parser" }
 
+# MPIRS
+dbus = "0.9"
+dbus-crossroads = "0.5"
+dbus-tokio = "0.7"
+
 [[bin]]
 name = "player-client"
 path = "bin/player_client.rs"

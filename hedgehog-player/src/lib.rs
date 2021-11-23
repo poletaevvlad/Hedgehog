@@ -1,4 +1,5 @@
 mod gst_utils;
+pub mod mpirs;
 pub mod state;
 pub mod volume;
 

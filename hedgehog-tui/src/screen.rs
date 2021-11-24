@@ -33,7 +33,9 @@ use hedgehog_library::{
 };
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
-use hedgehog_player::{PlaybackCommand, Player, PlayerErrorNotification, PlayerNotification};
+use hedgehog_player::{
+    PlaybackCommand, PlaybackMetadata, Player, PlayerErrorNotification, PlayerNotification,
+};
 use std::collections::HashSet;
 use std::io::{stdout, Write};
 use std::path::PathBuf;
@@ -328,6 +330,11 @@ impl UI {
                                 .do_send(hedgehog_player::PlaybackCommand::Play(
                                     playback_data.media_url,
                                     playback_data.position,
+                                    Some(PlaybackMetadata {
+                                        episode_id: playback_data.id.as_i64(),
+                                        episode_title: playback_data.episode_title,
+                                        feed_title: playback_data.feed_title,
+                                    }),
                                 ));
                             actor.library.episodes.update_item(episode_id, |episode| {
                                 episode.status = EpisodeSummaryStatus::Started;
@@ -712,6 +719,7 @@ impl Handler<PlayerNotification> for UI {
                         });
                 }
             }
+            PlayerNotification::MetadataChanged(_) => {}
         }
     }
 }

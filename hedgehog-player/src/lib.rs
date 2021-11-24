@@ -152,11 +152,18 @@ pub enum SeekDirection {
     Backward,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlaybackMetadata {
+    pub episode_id: i64,
+    pub episode_title: Option<String>,
+    pub feed_title: Option<String>,
+}
+
 #[derive(Debug, Message, PartialEq, Clone, CmdParsable)]
 #[rtype(result = "()")]
 pub enum PlaybackCommand {
     #[cmd(ignore)]
-    Play(String, Duration),
+    Play(String, Duration, Option<PlaybackMetadata>),
     Stop,
     Pause,
     Resume,
@@ -171,7 +178,7 @@ impl Handler<PlaybackCommand> for Player {
     fn handle(&mut self, msg: PlaybackCommand, _ctx: &mut Self::Context) -> Self::Result {
         let result: Result<(), GstError> = (|| {
             match msg {
-                PlaybackCommand::Play(url, position) => {
+                PlaybackCommand::Play(url, position, metadata) => {
                     self.set_state(Some(State::default()));
                     self.element
                         .set_state(gst::State::Null)
@@ -188,6 +195,9 @@ impl Handler<PlaybackCommand> for Player {
                         Some(position)
                     };
                     self.seek_position = None;
+                    if let Some(metadata) = metadata {
+                        self.notify_subscribers(PlayerNotification::MetadataChanged(metadata));
+                    }
                 }
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {
@@ -368,6 +378,7 @@ impl Handler<InternalEvent> for Player {
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub enum PlayerNotification {
+    MetadataChanged(PlaybackMetadata),
     VolumeChanged(Option<Volume>),
     StateChanged(Option<State>),
     DurationSet(Duration),

@@ -9,6 +9,12 @@ macro_rules! entity_id {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub struct $name(pub i64);
 
+        impl $name {
+            pub fn as_i64(self) -> i64 {
+                self.0
+            }
+        }
+
         impl FromSql for $name {
             fn column_result(
                 value: rusqlite::types::ValueRef<'_>,

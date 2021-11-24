@@ -1,8 +1,8 @@
 use crate::state::PlaybackState;
 use crate::volume::Volume;
 use crate::{
-    ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection, State, VolumeCommand,
-    VolumeQueryRequest,
+    ActorCommand, PlaybackCommand, PlaybackMetadata, Player, PlayerNotification, SeekDirection,
+    State, VolumeCommand, VolumeQueryRequest,
 };
 use actix::fut::wrap_future;
 use actix::prelude::*;
@@ -22,6 +22,12 @@ use std::time::Duration;
 type PropChangeCallback =
     Box<dyn Fn(&dbus::Path, &dyn RefArg) -> Option<dbus::Message> + Send + Sync>;
 
+#[derive(Default)]
+struct PlayerState {
+    state: PlaybackState,
+    metadata: Option<PlaybackMetadata>,
+}
+
 struct DBusCallbacks {
     volume_changed: PropChangeCallback,
     status_changed: PropChangeCallback,
@@ -30,7 +36,7 @@ struct DBusCallbacks {
 
 pub struct MprisPlayer {
     player: Addr<Player>,
-    playback_state: Arc<RwLock<PlaybackState>>,
+    playback_state: Arc<RwLock<PlayerState>>,
     connection: Option<Arc<SyncConnection>>,
     dbus_callbacks: Option<DBusCallbacks>,
 }
@@ -39,7 +45,7 @@ impl MprisPlayer {
     pub fn new(player: Addr<Player>) -> Self {
         MprisPlayer {
             player,
-            playback_state: Arc::new(RwLock::new(PlaybackState::default())),
+            playback_state: Arc::new(RwLock::new(PlayerState::default())),
             connection: None,
             dbus_callbacks: None,
         }
@@ -50,7 +56,7 @@ impl Actor for MprisPlayer {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let context = MpirsContext {
+        let context = MprisContext {
             player: self.player.clone(),
             state: self.playback_state.clone(),
         };
@@ -72,7 +78,6 @@ impl Actor for MprisPlayer {
                 }
 
                 let mut cr = Crossroads::new();
-
                 cr.set_async_support(Some((
                     connection.clone(),
                     Box::new(move |x| {
@@ -90,6 +95,8 @@ impl Actor for MprisPlayer {
                     b.property("CanQuit").get(|_, _| Ok(true));
                     b.property("CanRaise").get(|_, _| Ok(false));
                     b.property("HasTrackList").get(|_, _| Ok(false));
+                    b.property("DesktopEntry")
+                        .get(|_, _| Ok("hedgehog".to_string()));
                     b.property("Identity")
                         .get(|_, _| Ok("Hedgehog podcast player".to_string()));
                     b.property("SupportedUriSchemes")
@@ -123,66 +130,74 @@ impl Actor for MprisPlayer {
     }
 }
 
-struct MpirsContext {
+struct MprisContext {
     player: Addr<Player>,
-    state: Arc<RwLock<PlaybackState>>,
+    state: Arc<RwLock<PlayerState>>,
 }
 
 fn build_player_interface(
-    b: &mut IfaceBuilder<MpirsContext>,
+    b: &mut IfaceBuilder<MprisContext>,
     callbacks: &mut Option<DBusCallbacks>,
 ) {
     b.method("Next", (), (), |_, _, ()| Ok(()));
     b.method("Previous", (), (), |_, _, ()| Ok(()));
-    b.method("Pause", (), (), |_, mpirs_ctx, ()| {
-        mpirs_ctx.player.do_send(PlaybackCommand::Pause);
+    b.method("Pause", (), (), |_, mpris_ctx, ()| {
+        mpris_ctx.player.do_send(PlaybackCommand::Pause);
         Ok(())
     });
-    b.method("PlayPause", (), (), |_, mpirs_ctx, ()| {
-        mpirs_ctx.player.do_send(PlaybackCommand::TogglePause);
+    b.method("PlayPause", (), (), |_, mpris_ctx, ()| {
+        mpris_ctx.player.do_send(PlaybackCommand::TogglePause);
         Ok(())
     });
-    b.method("Stop", (), (), |_, mpirs_ctx, ()| {
-        mpirs_ctx.player.do_send(PlaybackCommand::Stop);
+    b.method("Stop", (), (), |_, mpris_ctx, ()| {
+        mpris_ctx.player.do_send(PlaybackCommand::Stop);
         Ok(())
     });
-    b.method("Play", (), (), |_, mpirs_ctx, ()| {
-        mpirs_ctx.player.do_send(PlaybackCommand::Resume);
-        Ok(())
-    });
-    b.method("Seek", ("x",), (), |_, mpirs_ctx, (offset,): (i64,)| {
-        let duration = Duration::from_micros(offset.abs() as u64);
-        let seek_direction = if offset > 0 {
-            SeekDirection::Forward
-        } else {
-            SeekDirection::Backward
-        };
-        mpirs_ctx
-            .player
-            .do_send(PlaybackCommand::SeekRelative(duration, seek_direction));
+    b.method("Play", (), (), |_, mpris_ctx, ()| {
+        mpris_ctx.player.do_send(PlaybackCommand::Resume);
         Ok(())
     });
     b.method(
-        "SetPosition",
-        ("o", "x"),
+        "Seek",
+        ("Offset",),
         (),
-        |_, mpirs_ctx, (_track_id, position): (dbus::Path, i64)| {
-            let duration = Duration::from_micros(position.abs() as u64);
-            mpirs_ctx.player.do_send(PlaybackCommand::Seek(duration));
+        |_, mpris_ctx, (offset,): (i64,)| {
+            let duration = Duration::from_micros(offset.abs() as u64);
+            let seek_direction = if offset > 0 {
+                SeekDirection::Forward
+            } else {
+                SeekDirection::Backward
+            };
+            mpris_ctx
+                .player
+                .do_send(PlaybackCommand::SeekRelative(duration, seek_direction));
             Ok(())
         },
     );
-    b.method("OpenUri", ("s",), (), |_, _, (_offset,): (dbus::Path,)| {
-        Ok(())
-    });
+    b.method(
+        "SetPosition",
+        ("TrackId", "Position"),
+        (),
+        |_, mpris_ctx, (_track_id, position): (dbus::Path, i64)| {
+            let duration = Duration::from_micros(position.abs() as u64);
+            mpris_ctx.player.do_send(PlaybackCommand::Seek(duration));
+            Ok(())
+        },
+    );
+    b.method(
+        "OpenUri",
+        ("Uri",),
+        (),
+        |_, _, (_offset,): (String,)| Ok(()),
+    );
 
-    let seeked_signal = b.signal::<(i64,), _>("Seeked", ("x",)).msg_fn();
+    let seeked_signal = b.signal::<(i64,), _>("Seeked", ("Position",)).msg_fn();
 
     let status_changed = b
         .property("PlaybackStatus")
-        .get(|_, mpirs_ctx| match mpirs_ctx.state.read() {
+        .get(|_, mpris_ctx| match mpris_ctx.state.read() {
             Ok(state) => {
-                let status = PlaybackStatus::from_state(&state);
+                let status = PlaybackStatus::from_state(&state.state);
                 Ok(status.to_string())
             }
             Err(err) => Err(MethodErr::failed(&err)),
@@ -196,11 +211,41 @@ fn build_player_interface(
         .get(|_, mpris_ctx| match mpris_ctx.state.read() {
             Ok(state) => {
                 let mut metadata = HashMap::<String, Variant<Box<dyn RefArg>>>::new();
-                let duration = state.timing().and_then(|timing| timing.duration);
+                let duration = state.state.timing().and_then(|timing| timing.duration);
                 if let Some(duration) = duration {
                     metadata.insert(
                         "mpris:length".to_string(),
                         Variant(Box::new(duration.as_micros() as i64)),
+                    );
+                }
+                if let Some(player_medatata) = &state.metadata {
+                    let track_id = format!(
+                        "/org/mpris/MediaPlayer2/Episodes/{}",
+                        player_medatata.episode_id
+                    );
+                    metadata.insert(
+                        "mpris:trackid".to_string(),
+                        Variant(Box::new(dbus::Path::from(track_id))),
+                    );
+                    metadata.insert(
+                        "xesam:title".to_string(),
+                        Variant(Box::new(
+                            player_medatata
+                                .episode_title
+                                .as_ref()
+                                .cloned()
+                                .unwrap_or_else(String::new),
+                        )),
+                    );
+                    metadata.insert(
+                        "xesam:album".to_string(),
+                        Variant(Box::new(
+                            player_medatata
+                                .feed_title
+                                .as_ref()
+                                .cloned()
+                                .unwrap_or_else(String::new),
+                        )),
                     );
                 }
                 Ok(metadata)
@@ -210,8 +255,8 @@ fn build_player_interface(
 
     let volume_changed = b
         .property("Volume")
-        .get_async(|mut ctx, mpirs_ctx| {
-            let player = mpirs_ctx.player.clone();
+        .get_async(|mut ctx, mpris_ctx| {
+            let player = mpris_ctx.player.clone();
             async move {
                 let result = match player.send(VolumeQueryRequest).await {
                     Ok(Ok(Some(volume))) => Ok(volume.cubic()),
@@ -222,9 +267,9 @@ fn build_player_interface(
                 ctx.reply(result)
             }
         })
-        .set(|_, mpirs_ctx, value| {
+        .set(|_, mpris_ctx, value| {
             let volume = Volume::from_cubic_clip(value);
-            mpirs_ctx.player.do_send(VolumeCommand::SetVolume(volume));
+            mpris_ctx.player.do_send(VolumeCommand::SetVolume(volume));
             Ok(Some(volume.cubic()))
         })
         .emits_changed_true()
@@ -234,10 +279,11 @@ fn build_player_interface(
         .get(|_, mpris_ctx| match mpris_ctx.state.read() {
             Ok(state) => {
                 let position = state
+                    .state
                     .timing()
                     .map(|timing| timing.position)
                     .unwrap_or(Duration::ZERO);
-                Ok(position.as_micros() as u64)
+                Ok(position.as_micros() as i64)
             }
             Err(err) => Err(MethodErr::failed(&err)),
         })
@@ -305,9 +351,9 @@ impl Handler<PlayerNotification> for MprisPlayer {
                 }
                 PlayerNotification::StateChanged(update) => {
                     if let Ok(mut guard) = self.playback_state.write() {
-                        let status_before = PlaybackStatus::from_state(&guard);
-                        guard.set_state(update);
-                        let status_after = PlaybackStatus::from_state(&guard);
+                        let status_before = PlaybackStatus::from_state(&guard.state);
+                        guard.state.set_state(update);
+                        let status_after = PlaybackStatus::from_state(&guard.state);
                         if status_before != status_after {
                             let message = (callbacks.status_changed)(
                                 &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
@@ -321,12 +367,12 @@ impl Handler<PlayerNotification> for MprisPlayer {
                 }
                 PlayerNotification::DurationSet(duration) => {
                     if let Ok(mut guard) = self.playback_state.write() {
-                        guard.set_duration(duration);
+                        guard.state.set_duration(duration);
                     }
                 }
                 PlayerNotification::PositionSet { position, seeked } => {
                     if let Ok(mut guard) = self.playback_state.write() {
-                        guard.set_position(position);
+                        guard.state.set_position(position);
                     }
                     if seeked {
                         let message = (callbacks.seeked_signal)(
@@ -334,6 +380,11 @@ impl Handler<PlayerNotification> for MprisPlayer {
                             &(position.as_micros() as i64,),
                         );
                         let _ = connection.send(message);
+                    }
+                }
+                PlayerNotification::MetadataChanged(metadata) => {
+                    if let Ok(mut guard) = self.playback_state.write() {
+                        guard.metadata = Some(metadata);
                     }
                 }
                 PlayerNotification::Eos => {}

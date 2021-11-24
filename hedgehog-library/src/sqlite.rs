@@ -249,7 +249,10 @@ impl DataProvider for SqliteDataProvider {
     fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData> {
         let mut statement = self
             .connection
-            .prepare("SELECT media_url, position, duration FROM episodes WHERE id = :id LIMIT 1")?;
+            .prepare(
+                "SELECT episodes.media_url, episodes.position, episodes.duration, episodes.title, feeds.title
+                FROM episodes JOIN feeds ON feeds.id = episodes.feed_id
+                WHERE episodes.id = :id LIMIT 1")?;
         statement
             .query_row(named_params! {":id": episode_id}, |row| {
                 Ok(EpisodePlaybackData {
@@ -257,6 +260,8 @@ impl DataProvider for SqliteDataProvider {
                     media_url: row.get(0)?,
                     position: Duration::from_nanos(row.get(1)?),
                     duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
+                    episode_title: row.get(3)?,
+                    feed_title: row.get(4)?,
                 })
             })
             .map_err(QueryError::from)

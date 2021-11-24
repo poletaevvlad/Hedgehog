@@ -249,6 +249,8 @@ pub struct EpisodePlaybackData {
     pub media_url: String,
     pub position: Duration,
     pub duration: Option<Duration>,
+    pub episode_title: Option<String>,
+    pub feed_title: Option<String>,
 }
 
 #[derive(Debug, Default)]

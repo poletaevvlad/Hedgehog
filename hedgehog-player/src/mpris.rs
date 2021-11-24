@@ -1,11 +1,13 @@
 use crate::volume::Volume;
 use crate::{
     ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection, VolumeCommand,
+    VolumeQueryRequest,
 };
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
+use dbus::MethodErr;
 use dbus_crossroads::{Crossroads, IfaceBuilder};
 use dbus_tokio::connection;
 use std::collections::HashMap;
@@ -152,7 +154,18 @@ fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
     b.property("Metadata")
         .get(|_, _| Ok(HashMap::<String, dbus::arg::Variant<String>>::new()));
     b.property("Volume")
-        .get(|_, _| Ok(1.0))
+        .get_async(|mut ctx, mpirs_ctx| {
+            let player = mpirs_ctx.player.clone();
+            async move {
+                let result = match player.send(VolumeQueryRequest).await {
+                    Ok(Ok(Some(volume))) => Ok(volume.cubic()),
+                    Ok(Ok(None)) => Ok(0.0),
+                    Ok(Err(err)) => Err(MethodErr::failed(&err)),
+                    Err(err) => Err(MethodErr::failed(&err)),
+                };
+                ctx.reply(result)
+            }
+        })
         .set(|_, mpirs_ctx, value| {
             let volume = Volume::from_cubic_clip(value);
             mpirs_ctx.player.do_send(VolumeCommand::SetVolume(volume));

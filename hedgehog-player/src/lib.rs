@@ -316,6 +316,25 @@ impl Handler<VolumeCommand> for Player {
 }
 
 #[derive(Debug, Message)]
+#[rtype(result = "Result<Option<Volume>, GstError>")]
+pub struct VolumeQueryRequest;
+
+impl Handler<VolumeQueryRequest> for Player {
+    type Result = Result<Option<Volume>, GstError>;
+
+    fn handle(&mut self, _msg: VolumeQueryRequest, _ctx: &mut Self::Context) -> Self::Result {
+        let volume = get_property(&self.element, "volume");
+        let muted = get_property(&self.element, "mute");
+        match (volume, muted) {
+            (Ok(volume), Ok(false)) => Ok(Some(Volume::from_linear(volume))),
+            (Ok(_), Ok(true)) => Ok(None),
+            (Ok(_), Err(err)) => Err(err),
+            (Err(err), _) => Err(err),
+        }
+    }
+}
+
+#[derive(Debug, Message)]
 #[rtype(result = "()")]
 enum InternalEvent {
     VolumeChanged(Option<Volume>),

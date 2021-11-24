@@ -215,7 +215,19 @@ fn build_player_interface(
         .emits_changed_true()
         .changed_msg_fn();
 
-    b.property("Position").get(|_, _| Ok(1));
+    b.property("Position")
+        .get(|_, mpris_ctx| match mpris_ctx.state.read() {
+            Ok(state) => {
+                let position = state
+                    .timing()
+                    .map(|timing| timing.position)
+                    .unwrap_or(Duration::ZERO);
+                Ok(position.as_micros() as u64)
+            }
+            Err(err) => Err(MethodErr::failed(&err)),
+        })
+        .emits_changed_false();
+
     b.property("MinimumRate").get(|_, _| Ok(1.0));
     b.property("MaximumRate").get(|_, _| Ok(1.0));
     b.property("CanGoNext").get(|_, _| Ok(false));
@@ -291,8 +303,16 @@ impl Handler<PlayerNotification> for MprisPlayer {
                         }
                     }
                 }
-                PlayerNotification::DurationSet(_) => {}
-                PlayerNotification::PositionSet(_) => {}
+                PlayerNotification::DurationSet(duration) => {
+                    if let Ok(mut guard) = self.playback_state.write() {
+                        guard.set_duration(duration);
+                    }
+                }
+                PlayerNotification::PositionSet(position) => {
+                    if let Ok(mut guard) = self.playback_state.write() {
+                        guard.set_position(position);
+                    }
+                }
                 PlayerNotification::Eos => {}
             }
         }

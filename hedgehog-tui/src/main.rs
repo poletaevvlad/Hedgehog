@@ -24,6 +24,12 @@ use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        System::current().stop_with_code(1);
+        default_hook(info);
+    }));
+
     let system = System::new();
     let data_provider = SqliteDataProvider::connect_default_path()?;
 

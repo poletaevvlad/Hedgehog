@@ -1,26 +1,47 @@
+use crate::state::PlaybackState;
 use crate::volume::Volume;
 use crate::{
-    ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection, VolumeCommand,
+    ActorCommand, PlaybackCommand, Player, PlayerNotification, SeekDirection, State, VolumeCommand,
     VolumeQueryRequest,
 };
 use actix::fut::wrap_future;
 use actix::prelude::*;
-use dbus::channel::MatchingReceiver;
+use dbus::arg::RefArg;
+use dbus::channel::{MatchingReceiver, Sender};
 use dbus::message::MatchRule;
+use dbus::nonblock::SyncConnection;
 use dbus::MethodErr;
 use dbus_crossroads::{Crossroads, IfaceBuilder};
 use dbus_tokio::connection;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::process;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
+
+type PropChangeCallback =
+    Box<dyn Fn(&dbus::Path, &dyn RefArg) -> Option<dbus::Message> + Send + Sync>;
+
+struct DBusCallbacks {
+    volume_changed: PropChangeCallback,
+    status_changed: PropChangeCallback,
+}
 
 pub struct MprisPlayer {
     player: Addr<Player>,
+    playback_state: Arc<RwLock<PlaybackState>>,
+    connection: Option<Arc<SyncConnection>>,
+    dbus_callbacks: Option<DBusCallbacks>,
 }
 
 impl MprisPlayer {
     pub fn new(player: Addr<Player>) -> Self {
-        MprisPlayer { player }
+        MprisPlayer {
+            player,
+            playback_state: Arc::new(RwLock::new(PlaybackState::default())),
+            connection: None,
+            dbus_callbacks: None,
+        }
     }
 }
 
@@ -28,80 +49,88 @@ impl Actor for MprisPlayer {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let player_address = self.player.clone();
-        ctx.spawn(wrap_future(async {
-            let (resource, connection) = connection::new_session_sync().unwrap();
-            let arbiter = Arbiter::current();
+        let context = MpirsContext {
+            player: self.player.clone(),
+            state: self.playback_state.clone(),
+        };
 
-            arbiter.spawn(async {
-                resource.await;
-            });
+        ctx.spawn(
+            wrap_future(async {
+                let (resource, connection) = connection::new_session_sync().unwrap();
+                let arbiter = Arbiter::current();
 
-            let pid = process::id();
-            let name = format!("org.mpris.MediaPlayer2.hedgehog.instance{}", pid);
-            let name_request = connection.request_name(name, false, true, false);
-            if name_request.await.is_err() {
-                return;
-            }
-
-            let mut cr = Crossroads::new();
-
-            cr.set_async_support(Some((
-                connection.clone(),
-                Box::new(move |x| {
-                    arbiter.spawn(x);
-                }),
-            )));
-
-            let iface = cr.register("org.mpris.MediaPlayer2", |b| {
-                b.method("Raise", (), (), |_, _, ()| Ok(()));
-                b.method("Quit", (), (), |_, _, ()| {
-                    System::current().stop();
-                    Ok(())
+                arbiter.spawn(async {
+                    resource.await;
                 });
 
-                b.property("CanQuit").get(|_, _| Ok(true));
-                b.property("CanRaise").get(|_, _| Ok(false));
-                b.property("HasTrackList").get(|_, _| Ok(false));
-                b.property("Identity")
-                    .get(|_, _| Ok("Hedgehog podcast player".to_string()));
-                b.property("SupportedUriSchemes")
-                    .get(|_, _| Ok(Vec::<String>::new()));
-                b.property("SupportedMimeTypes")
-                    .get(|_, _| Ok(Vec::<String>::new()));
-            });
+                let pid = process::id();
+                let name = format!("org.mpris.MediaPlayer2.hedgehog.instance{}", pid);
+                let name_request = connection.request_name(name, false, true, false);
+                if name_request.await.is_err() {
+                    return (None, None);
+                }
 
-            let context = MpirsContext {
-                player: player_address,
-            };
+                let mut cr = Crossroads::new();
 
-            let player_iface = cr.register("org.mpris.MediaPlayer2.Player", build_player_interface);
-            cr.insert("/org/mpris/MediaPlayer2", &[iface, player_iface], context);
-            connection.start_receive(
-                MatchRule::new_method_call(),
-                Box::new(move |msg, conn| {
-                    let _ = cr.handle_message(msg, conn);
-                    true
-                }),
-            );
-        }));
+                cr.set_async_support(Some((
+                    connection.clone(),
+                    Box::new(move |x| {
+                        arbiter.spawn(x);
+                    }),
+                )));
+
+                let iface = cr.register("org.mpris.MediaPlayer2", |b| {
+                    b.method("Raise", (), (), |_, _, ()| Ok(()));
+                    b.method("Quit", (), (), |_, _, ()| {
+                        System::current().stop();
+                        Ok(())
+                    });
+
+                    b.property("CanQuit").get(|_, _| Ok(true));
+                    b.property("CanRaise").get(|_, _| Ok(false));
+                    b.property("HasTrackList").get(|_, _| Ok(false));
+                    b.property("Identity")
+                        .get(|_, _| Ok("Hedgehog podcast player".to_string()));
+                    b.property("SupportedUriSchemes")
+                        .get(|_, _| Ok(Vec::<String>::new()));
+                    b.property("SupportedMimeTypes")
+                        .get(|_, _| Ok(Vec::<String>::new()));
+                });
+
+                let mut callbacks = None;
+                let player_iface = cr.register("org.mpris.MediaPlayer2.Player", |builder| {
+                    build_player_interface(builder, &mut callbacks);
+                });
+                cr.insert("/org/mpris/MediaPlayer2", &[iface, player_iface], context);
+                connection.start_receive(
+                    MatchRule::new_method_call(),
+                    Box::new(move |msg, conn| {
+                        let _ = cr.handle_message(msg, conn);
+                        true
+                    }),
+                );
+                (callbacks, Some(connection))
+            })
+            .map(|(callbacks, connection), actor: &mut MprisPlayer, _ctx| {
+                actor.connection = connection;
+                actor.dbus_callbacks = callbacks;
+            }),
+        );
 
         self.player
             .do_send(ActorCommand::Subscribe(ctx.address().recipient()));
     }
 }
 
-impl Handler<PlayerNotification> for MprisPlayer {
-    type Result = ();
-
-    fn handle(&mut self, _msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {}
-}
-
 struct MpirsContext {
     player: Addr<Player>,
+    state: Arc<RwLock<PlaybackState>>,
 }
 
-fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
+fn build_player_interface(
+    b: &mut IfaceBuilder<MpirsContext>,
+    callbacks: &mut Option<DBusCallbacks>,
+) {
     b.method("Next", (), (), |_, _, ()| Ok(()));
     b.method("Previous", (), (), |_, _, ()| Ok(()));
     b.method("Pause", (), (), |_, mpirs_ctx, ()| {
@@ -148,12 +177,24 @@ fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
 
     b.signal::<(i64,), _>("Seeked", ("x",));
 
-    b.property("PlaybackStatus")
-        .get(|_, _| Ok("Stopped".to_string()));
+    let status_changed = b
+        .property("PlaybackStatus")
+        .get(|_, mpirs_ctx| match mpirs_ctx.state.read() {
+            Ok(state) => {
+                let status = PlaybackStatus::from_state(&state);
+                Ok(status.to_string())
+            }
+            Err(err) => Err(MethodErr::failed(&err)),
+        })
+        .emits_changed_true()
+        .changed_msg_fn();
+
     b.property("Rate").get(|_, _| Ok(1.0));
     b.property("Metadata")
         .get(|_, _| Ok(HashMap::<String, dbus::arg::Variant<String>>::new()));
-    b.property("Volume")
+
+    let volume_changed = b
+        .property("Volume")
         .get_async(|mut ctx, mpirs_ctx| {
             let player = mpirs_ctx.player.clone();
             async move {
@@ -170,7 +211,10 @@ fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
             let volume = Volume::from_cubic_clip(value);
             mpirs_ctx.player.do_send(VolumeCommand::SetVolume(volume));
             Ok(Some(volume.cubic()))
-        });
+        })
+        .emits_changed_true()
+        .changed_msg_fn();
+
     b.property("Position").get(|_, _| Ok(1));
     b.property("MinimumRate").get(|_, _| Ok(1.0));
     b.property("MaximumRate").get(|_, _| Ok(1.0));
@@ -179,4 +223,78 @@ fn build_player_interface(b: &mut IfaceBuilder<MpirsContext>) {
     b.property("CanPlay").get(|_, _| Ok(false));
     b.property("CanPause").get(|_, _| Ok(false));
     b.property("CanControl").get(|_, _| Ok(true));
+
+    *callbacks = Some(DBusCallbacks {
+        volume_changed,
+        status_changed,
+    });
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum PlaybackStatus {
+    Playing,
+    Paused,
+    Stopped,
+}
+
+impl Display for PlaybackStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlaybackStatus::Playing => f.write_str("Playing"),
+            PlaybackStatus::Paused => f.write_str("Paused"),
+            PlaybackStatus::Stopped => f.write_str("Stopped"),
+        }
+    }
+}
+
+impl PlaybackStatus {
+    fn from_state(playback_state: &PlaybackState) -> Self {
+        let state = playback_state.state();
+        match state {
+            Some(State {
+                is_paused: true, ..
+            }) => PlaybackStatus::Paused,
+            Some(_) => PlaybackStatus::Playing,
+            None => PlaybackStatus::Stopped,
+        }
+    }
+}
+
+impl Handler<PlayerNotification> for MprisPlayer {
+    type Result = ();
+
+    fn handle(&mut self, msg: PlayerNotification, _ctx: &mut Self::Context) -> Self::Result {
+        if let (Some(callbacks), Some(connection)) = (&self.dbus_callbacks, &self.connection) {
+            match msg {
+                PlayerNotification::VolumeChanged(volume) => {
+                    let message = (callbacks.volume_changed)(
+                        &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
+                        &volume.map(Volume::cubic).unwrap_or(0.0),
+                    );
+                    if let Some(message) = message {
+                        let _ = connection.send(message);
+                    }
+                }
+                PlayerNotification::StateChanged(update) => {
+                    if let Ok(mut guard) = self.playback_state.write() {
+                        let status_before = PlaybackStatus::from_state(&guard);
+                        guard.set_state(update);
+                        let status_after = PlaybackStatus::from_state(&guard);
+                        if status_before != status_after {
+                            let message = (callbacks.status_changed)(
+                                &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
+                                &status_after.to_string(),
+                            );
+                            if let Some(message) = message {
+                                let _ = connection.send(message);
+                            }
+                        }
+                    }
+                }
+                PlayerNotification::DurationSet(_) => {}
+                PlayerNotification::PositionSet(_) => {}
+                PlayerNotification::Eos => {}
+            }
+        }
+    }
 }

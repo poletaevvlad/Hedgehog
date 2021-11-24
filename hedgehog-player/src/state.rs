@@ -78,4 +78,8 @@ impl PlaybackState {
             timing.position = position;
         }
     }
+
+    pub(crate) fn state(&self) -> Option<&State> {
+        self.0.as_ref().map(|state| &state.0)
+    }
 }

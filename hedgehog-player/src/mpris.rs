@@ -25,6 +25,7 @@ type PropChangeCallback =
 struct DBusCallbacks {
     volume_changed: PropChangeCallback,
     status_changed: PropChangeCallback,
+    seeked_signal: Box<dyn Fn(&dbus::Path, &(i64,)) -> dbus::Message + Send + Sync>,
 }
 
 pub struct MprisPlayer {
@@ -175,7 +176,7 @@ fn build_player_interface(
         Ok(())
     });
 
-    b.signal::<(i64,), _>("Seeked", ("x",));
+    let seeked_signal = b.signal::<(i64,), _>("Seeked", ("x",)).msg_fn();
 
     let status_changed = b
         .property("PlaybackStatus")
@@ -253,6 +254,7 @@ fn build_player_interface(
     *callbacks = Some(DBusCallbacks {
         volume_changed,
         status_changed,
+        seeked_signal,
     });
 }
 
@@ -322,9 +324,16 @@ impl Handler<PlayerNotification> for MprisPlayer {
                         guard.set_duration(duration);
                     }
                 }
-                PlayerNotification::PositionSet(position) => {
+                PlayerNotification::PositionSet { position, seeked } => {
                     if let Ok(mut guard) = self.playback_state.write() {
                         guard.set_position(position);
+                    }
+                    if seeked {
+                        let message = (callbacks.seeked_signal)(
+                            &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
+                            &(position.as_micros() as i64,),
+                        );
+                        let _ = connection.send(message);
                     }
                 }
                 PlayerNotification::Eos => {}

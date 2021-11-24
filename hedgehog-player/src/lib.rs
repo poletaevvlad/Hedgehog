@@ -246,7 +246,10 @@ impl Handler<PlaybackCommand> for Player {
                             .map_err(GstError::from_err)?;
 
                         self.seek_position = Some(position);
-                        self.notify_subscribers(PlayerNotification::PositionSet(position));
+                        self.notify_subscribers(PlayerNotification::PositionSet {
+                            position,
+                            seeked: true,
+                        });
                     }
                 }
                 PlaybackCommand::SeekRelative(duration, direction) => {
@@ -271,7 +274,10 @@ impl Handler<PlaybackCommand> for Player {
                                 .map_err(GstError::from_err)?;
 
                             let pos_duration = Duration::from_nanos(new_position.nseconds());
-                            self.notify_subscribers(PlayerNotification::PositionSet(pos_duration));
+                            self.notify_subscribers(PlayerNotification::PositionSet {
+                                position: pos_duration,
+                                seeked: true,
+                            });
                             self.seek_position = Some(pos_duration);
                         }
                     }
@@ -365,7 +371,7 @@ pub enum PlayerNotification {
     VolumeChanged(Option<Volume>),
     StateChanged(Option<State>),
     DurationSet(Duration),
-    PositionSet(Duration),
+    PositionSet { position: Duration, seeked: bool },
     Eos,
 }
 
@@ -437,7 +443,10 @@ impl Handler<TimerTick> for Player {
         if let Some(true) = self.state.as_ref().map(State::is_playing) {
             if let Some(position) = self.element.query_position::<gst::ClockTime>() {
                 let position = Duration::from_nanos(position.nseconds());
-                self.notify_subscribers(PlayerNotification::PositionSet(position));
+                self.notify_subscribers(PlayerNotification::PositionSet {
+                    position,
+                    seeked: false,
+                });
             }
         }
         ctx.spawn(

@@ -690,7 +690,7 @@ impl Handler<PlayerNotification> for UI {
                 self.playback_state.set_duration(duration);
                 self.invalidate(ctx);
             }
-            PlayerNotification::PositionSet(position) => {
+            PlayerNotification::PositionSet { position, .. } => {
                 if let Some(playing_episode) = &self.library.playing_episode {
                     self.status_writer_actor
                         .do_send(StatusWriterCommand::set_position(

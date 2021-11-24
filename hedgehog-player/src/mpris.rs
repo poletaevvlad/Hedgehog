@@ -6,7 +6,7 @@ use crate::{
 };
 use actix::fut::wrap_future;
 use actix::prelude::*;
-use dbus::arg::RefArg;
+use dbus::arg::{RefArg, Variant};
 use dbus::channel::{MatchingReceiver, Sender};
 use dbus::message::MatchRule;
 use dbus::nonblock::SyncConnection;
@@ -190,8 +190,22 @@ fn build_player_interface(
         .changed_msg_fn();
 
     b.property("Rate").get(|_, _| Ok(1.0));
+
     b.property("Metadata")
-        .get(|_, _| Ok(HashMap::<String, dbus::arg::Variant<String>>::new()));
+        .get(|_, mpris_ctx| match mpris_ctx.state.read() {
+            Ok(state) => {
+                let mut metadata = HashMap::<String, Variant<Box<dyn RefArg>>>::new();
+                let duration = state.timing().and_then(|timing| timing.duration);
+                if let Some(duration) = duration {
+                    metadata.insert(
+                        "mpris:length".to_string(),
+                        Variant(Box::new(duration.as_micros() as i64)),
+                    );
+                }
+                Ok(metadata)
+            }
+            Err(err) => Err(MethodErr::failed(&err)),
+        });
 
     let volume_changed = b
         .property("Volume")

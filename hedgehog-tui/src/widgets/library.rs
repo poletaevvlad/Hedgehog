@@ -5,6 +5,7 @@ use super::list::List;
 use crate::options::Options;
 use crate::screen::{FocusedPane, LibraryViewModel};
 use crate::theming::{self, Theme};
+use hedgehog_library::model::FeedStatus;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Widget};
 
@@ -55,10 +56,31 @@ impl<'a> Widget for LibraryWidget<'a> {
             self.data.episodes_list_metadata.as_ref(),
         ) {
             if self.data.episodes.is_empty() {
-                EmptyView::new(self.theme)
-                    .title("This feed is empty")
-                    .subtitle("There are no episodes in this feed. Perhaps, it is not a podcast?")
-                    .render(layout[1], buf);
+                let state = self.data.feeds.selection().map(|feed| &feed.status);
+                match state {
+                    Some(FeedStatus::Pending) => {
+                        EmptyView::new(self.theme)
+                            .title("This feed's episodes aren't loaded yet")
+                            .render(layout[1], buf);
+                    }
+                    Some(FeedStatus::Loaded) => {
+                        EmptyView::new(self.theme)
+                            .title("This feed is empty")
+                            .subtitle(
+                                "There are no episodes in this feed. Perhaps, it is not a podcast?",
+                            )
+                            .render(layout[1], buf);
+                    }
+                    Some(FeedStatus::Error(error)) => {
+                        let subtitle =
+                            format!("\n{}\n\nType :update<Enter> to reload this feed.", error);
+                        EmptyView::new(self.theme)
+                            .title("Could not load a feed")
+                            .subtitle(&subtitle)
+                            .render(layout[1], buf);
+                    }
+                    None => {}
+                }
             } else {
                 let sizing = EpisodesListSizing::compute(self.options, metadata);
                 List::new(

@@ -1,6 +1,7 @@
 use crate::metadata::FeedMetadata;
 use chrono::{DateTime, Utc};
 use cmd_parser::CmdParsable;
+use core::fmt;
 use rusqlite::types::{FromSql, ToSql};
 use std::time::Duration;
 
@@ -67,6 +68,17 @@ impl FeedError {
                 status_code.as_u16() as u32 | Self::HTTP_ERROR_MASK
             }
             FeedError::Unknown => 0,
+        }
+    }
+}
+
+impl fmt::Display for FeedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FeedError::MalformedFeed => f.write_str("The feed is not a valid RSS. Please check the source URL."),
+            FeedError::NetworkingError => f.write_str("Could not load the source URL. The problem may be with the remote server or with your internet connection."),
+            FeedError::HttpError(code) => f.write_fmt(format_args!("The request to the server has failed (status code {}).", code)),
+            FeedError::Unknown => f.write_str("An unknown error has occured."),
         }
     }
 }

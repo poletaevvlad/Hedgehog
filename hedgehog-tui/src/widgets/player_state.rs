@@ -1,3 +1,4 @@
+use crate::options::Options;
 use crate::theming;
 use crate::widgets::utils::PlaybackTimingFormatter;
 use hedgehog_library::model::EpisodeSummary;
@@ -10,6 +11,7 @@ use tui::widgets::Widget;
 pub(crate) struct PlayerState<'a> {
     state: &'a PlaybackState,
     theme: &'a theming::Theme,
+    options: &'a Options,
     episode: Option<&'a EpisodeSummary>,
 }
 
@@ -17,11 +19,13 @@ impl<'a> PlayerState<'a> {
     pub(crate) fn new(
         state: &'a PlaybackState,
         theme: &'a theming::Theme,
+        options: &'a Options,
         episode: Option<&'a EpisodeSummary>,
     ) -> Self {
         PlayerState {
             state,
             theme,
+            options,
             episode,
         }
     }
@@ -32,10 +36,10 @@ impl<'a> Widget for PlayerState<'a> {
         let status = self.state.status();
         let status_style = self.theme.get(theming::Player::Status(Some(status)));
         let status_label = match status {
-            PlaybackStatus::None => " - ",
-            PlaybackStatus::Buffering => " o ",
-            PlaybackStatus::Playing => " > ",
-            PlaybackStatus::Paused => " | ",
+            PlaybackStatus::None => &self.options.label_playback_status_none,
+            PlaybackStatus::Buffering => &self.options.label_playback_status_buffering,
+            PlaybackStatus::Playing => &self.options.label_playback_status_playing,
+            PlaybackStatus::Paused => &self.options.label_playback_status_paused,
         };
 
         let (x, _) = buf.set_span(

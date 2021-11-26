@@ -180,6 +180,7 @@ impl UI {
             let player_widget = PlayerState::new(
                 &self.playback_state,
                 &self.theme,
+                &self.options,
                 self.library.playing_episode.as_ref(),
             );
             f.render_widget(player_widget, player_area);

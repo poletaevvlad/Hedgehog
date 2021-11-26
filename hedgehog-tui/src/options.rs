@@ -3,7 +3,7 @@ use cmd_parser::CmdParsable;
 macro_rules! gen_options {
     ($($command:ident($name:ident: $value:ty = $default:expr)),*$(,)?) => {
         pub(crate) struct Options {
-            pub(crate) $($name: $value),*
+            $(pub(crate) $name: $value),*
         }
 
         impl Default for Options {
@@ -31,4 +31,8 @@ macro_rules! gen_options {
 
 gen_options! {
     DateFormat(date_format: String = "%x".to_string()),
+    LabelPlaybackStatePlaying(label_playback_status_playing: String = " > ".to_string()),
+    LabelPlaybackStatePaused(label_playback_status_paused: String = " | ".to_string()),
+    LabelPlaybackStateBuffering(label_playback_status_buffering: String = " o ".to_string()),
+    LabelPlaybackStateNone(label_playback_status_none: String = " - ".to_string()),
 }

@@ -1,9 +1,8 @@
+use super::layout::{shrink_h, split_top};
 use crate::theming::{self, Theme};
 use tui::layout::Alignment;
 use tui::text::Text;
 use tui::widgets::{Paragraph, Widget, Wrap};
-
-use super::layout::split_top;
 
 pub(crate) struct EmptyView<'t> {
     theme: &'t Theme,
@@ -35,6 +34,7 @@ impl<'t> Widget for EmptyView<'t> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         buf.set_style(area, self.theme.get(theming::Empty::View));
         let (_, area) = split_top(area, 10.min(area.height / 5));
+        let area = shrink_h(area, 3);
 
         let mut text = Text::styled(self.title, self.theme.get(theming::Empty::Title));
         if !self.subtitle.is_empty() {

@@ -32,9 +32,22 @@ pub(crate) fn split_top(rect: Rect, height: u16) -> (Rect, Rect) {
     )
 }
 
+pub(crate) fn shrink_h(rect: Rect, margin: u16) -> Rect {
+    if rect.width > margin * 2 {
+        Rect::new(
+            rect.x + margin,
+            rect.y,
+            rect.width - margin * 2,
+            rect.height,
+        )
+    } else {
+        rect
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{split_bottom, split_left, split_right, split_top};
+    use super::{shrink_h, split_bottom, split_left, split_right, split_top};
     use tui::layout::Rect;
 
     #[test]
@@ -131,5 +144,12 @@ mod tests {
         let (top, bottom) = split_top(original, 12);
         assert_eq!(top, original);
         assert_eq!(bottom, Rect::new(2, 11, 10, 0));
+    }
+
+    #[test]
+    fn shring_h_wide() {
+        let rect = Rect::new(2, 3, 10, 8);
+        let actual = shrink_h(rect, 2);
+        assert_eq!(actual, Rect::new(4, 3, 6, 8));
     }
 }

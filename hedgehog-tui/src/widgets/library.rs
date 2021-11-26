@@ -40,6 +40,7 @@ impl<'a> Widget for LibraryWidget<'a> {
             List::new(
                 FeedsListRowRenderer::new(
                     self.theme,
+                    self.options,
                     self.data.focus == FocusedPane::FeedsList,
                     &self.data.updating_feeds,
                 ),

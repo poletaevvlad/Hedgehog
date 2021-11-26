@@ -41,4 +41,6 @@ gen_options! {
     LabelEpisodeStarted(label_episode_started: String = " started ".to_string()),
     LabelEpisodeFinished(label_episode_finished: String = " finished ".to_string()),
     LabelEpisodeError(label_episode_error: String = " error ".to_string()),
+    LabelFeedError(label_feed_error: String = " E ".to_string()),
+    LabelFeedUpdating(label_feed_updating: String = " U ".to_string()),
 }

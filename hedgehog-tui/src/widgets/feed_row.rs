@@ -1,3 +1,5 @@
+use super::{layout::split_right, list::ListItemRenderingDelegate};
+use crate::options::Options;
 use crate::theming::{self, Theme};
 use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary};
 use std::collections::HashSet;
@@ -7,11 +9,10 @@ use tui::style::Style;
 use tui::widgets::{Paragraph, Widget};
 use unicode_width::UnicodeWidthStr;
 
-use super::{layout::split_right, list::ListItemRenderingDelegate};
-
 pub(crate) struct FeedsListRowRenderer<'t> {
     theme: &'t Theme,
     default_item_state: theming::ListState,
+    options: &'t Options,
     updating_feeds: &'t HashSet<FeedId>,
 }
 
@@ -29,10 +30,10 @@ impl FeedsListStatusIndicator {
         theme.get(theming::List::Item(item_state, Some(subitem_selector)))
     }
 
-    fn label(&self) -> &'static str {
+    fn label<'a>(&self, options: &'a Options) -> &'a str {
         match self {
-            FeedsListStatusIndicator::Error => " E ",
-            FeedsListStatusIndicator::Update => " U ",
+            FeedsListStatusIndicator::Error => options.label_feed_error.as_str(),
+            FeedsListStatusIndicator::Update => options.label_feed_updating.as_str(),
         }
     }
 }
@@ -40,11 +41,13 @@ impl FeedsListStatusIndicator {
 impl<'t> FeedsListRowRenderer<'t> {
     pub(crate) fn new(
         theme: &'t theming::Theme,
+        options: &'t Options,
         is_focused: bool,
         updating_feeds: &'t HashSet<FeedId>,
     ) -> Self {
         FeedsListRowRenderer {
             theme,
+            options,
             default_item_state: if is_focused {
                 theming::ListState::FOCUSED
             } else {
@@ -79,7 +82,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
         if let Some(item) = item {
             if let Some(status_indicator) = self.get_status_indicator(item) {
                 let style = status_indicator.style(self.theme, item_state);
-                let label = status_indicator.label();
+                let label = status_indicator.label(self.options);
 
                 let (rest, indicator_area) = split_right(area, label.width() as u16);
                 area = rest;

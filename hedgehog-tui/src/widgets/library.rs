@@ -82,7 +82,8 @@ impl<'a> Widget for LibraryWidget<'a> {
                     None => {}
                 }
             } else {
-                let sizing = EpisodesListSizing::compute(self.options, metadata);
+                let sizing =
+                    EpisodesListSizing::compute(self.options, metadata).with_width(layout[1].width);
                 List::new(
                     EpisodesListRowRenderer::new(
                         self.theme,

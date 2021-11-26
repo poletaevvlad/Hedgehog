@@ -51,6 +51,8 @@ impl EpisodeState {
 }
 
 impl EpisodesListSizing {
+    const TITLE_WIDTH: u16 = 32;
+
     pub(crate) fn compute(options: &Options, metadata: &EpisodesListMetadata) -> Self {
         let episode_number_width = match metadata.max_episode_number {
             Some(episode_number) => {
@@ -77,6 +79,24 @@ impl EpisodesListSizing {
             episode_number_width,
             duration_width,
         }
+    }
+
+    pub(crate) fn with_width(mut self, width: u16) -> Self {
+        let mut fields_width = self.date_width + self.episode_number_width + self.duration_width;
+
+        if self.duration_width > 0 && fields_width + Self::TITLE_WIDTH > width {
+            fields_width -= self.duration_width;
+            self.duration_width = 0;
+        }
+        if self.episode_number_width > 0 && fields_width + Self::TITLE_WIDTH > width {
+            fields_width -= self.episode_number_width;
+            self.episode_number_width = 0;
+        }
+        if self.date_width > 0 && fields_width + Self::TITLE_WIDTH > width {
+            self.date_width = 0;
+        }
+
+        self
     }
 }
 

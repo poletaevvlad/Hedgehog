@@ -9,9 +9,9 @@ actix = "0.12"
 cmd-parser = { path = "../cmd-parser" }
 
 # MPIRS
-dbus = "0.9"
-dbus-crossroads = "0.5"
-dbus-tokio = "0.7"
+dbus= { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
+dbus-crossroads = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
+dbus-tokio = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
 
 [[bin]]
 name = "player-client"

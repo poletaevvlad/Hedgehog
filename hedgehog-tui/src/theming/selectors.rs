@@ -173,6 +173,33 @@ impl StyleSelector for List {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum Empty {
+    View,
+    Title,
+}
+
+impl Empty {
+    fn parse(input: &[&str]) -> Result<Empty, SelectorParsingError> {
+        match input {
+            [] => Ok(Empty::View),
+            [".title"] => Ok(Empty::Title),
+            _ => Err(SelectorParsingError),
+        }
+    }
+}
+
+impl StyleSelector for Empty {
+    fn for_each_overrides(&self, mut callback: impl FnMut(Self))
+    where
+        Self: Sized,
+    {
+        if let Empty::View = self {
+            callback(Empty::Title);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Player {
     Title,
     Status(Option<PlaybackStatus>),
@@ -208,6 +235,7 @@ impl StyleSelector for Player {
 pub(crate) enum Selector {
     StatusBar(StatusBar),
     List(List),
+    Empty(Empty),
     Player(Player),
 }
 
@@ -240,6 +268,9 @@ impl StyleSelector for Selector {
             Selector::List(selector) => {
                 selector.for_each_overrides(|sel| callback(Selector::List(sel)));
             }
+            Selector::Empty(selector) => {
+                selector.for_each_overrides(|sel| callback(Selector::Empty(sel)));
+            }
             Selector::Player(selector) => {
                 selector.for_each_overrides(|sel| callback(Selector::Player(sel)));
             }
@@ -255,6 +286,7 @@ impl FromStr for Selector {
         match split.get(0) {
             Some(&"statusbar") => StatusBar::parse(&split[1..]).map(Selector::StatusBar),
             Some(&"list") => List::parse(&split[1..]).map(Selector::List),
+            Some(&"empty") => Empty::parse(&split[1..]).map(Selector::Empty),
             Some(&"player") => Player::parse(&split[1..]).map(Selector::Player),
             _ => Err(SelectorParsingError),
         }
@@ -281,7 +313,7 @@ impl From<Player> for Selector {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListState, ListSubitem, Player, Selector, StatusBar};
+    use super::{Empty, List, ListState, ListSubitem, Player, Selector, StatusBar};
     use crate::status::Severity;
     use cmd_parser::CmdParsable;
     use hedgehog_player::state::PlaybackStatus;
@@ -303,6 +335,8 @@ mod tests {
             Selector::parse_cmd_full("list.divider").unwrap(),
             Selector::List(List::Divider)
         );
+        assert_eq!("empty".parse(), Ok(Selector::Empty(Empty::View)));
+        assert_eq!("empty.title".parse(), Ok(Selector::Empty(Empty::Title)));
         assert_eq!(
             "player.timing".parse(),
             Ok(Selector::Player(Player::Timing))

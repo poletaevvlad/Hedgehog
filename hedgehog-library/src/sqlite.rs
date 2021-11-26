@@ -176,7 +176,7 @@ impl DataProvider for SqliteDataProvider {
                     max_season_number: row.get(1)?,
                     max_episode_number: row.get(2)?,
                     max_duration: row.get::<_, Option<u64>>(3)?.map(Duration::from_nanos),
-                    has_publication_date: row.get::<_, u64>(4)? > 0,
+                    has_publication_date: row.get::<_, Option<u64>>(4)?.unwrap_or(0) > 0,
                 })
             })
             .map_err(QueryError::from)

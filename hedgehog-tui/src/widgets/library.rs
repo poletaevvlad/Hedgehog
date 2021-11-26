@@ -56,7 +56,8 @@ impl<'a> Widget for LibraryWidget<'a> {
         ) {
             if self.data.episodes.is_empty() {
                 EmptyView::new(self.theme)
-                    .title("The feed is empty")
+                    .title("This feed is empty")
+                    .subtitle("There are no episodes in this feed. Perhaps, it is not a podcast?")
                     .render(layout[1], buf);
             } else {
                 let sizing = EpisodesListSizing::compute(self.options, metadata);

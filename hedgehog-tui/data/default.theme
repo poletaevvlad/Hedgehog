@@ -22,3 +22,5 @@ set player.status.playing bg:green fg:black
 set player.status.paused bg:blue fg:black
 set player.status.buffering bg:red fg:black
 set player.timing bg:blue fg:black
+
+set empty.title +bold

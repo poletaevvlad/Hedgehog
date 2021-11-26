@@ -4,7 +4,7 @@ mod style_parser;
 use crate::cmdreader::{self, CommandReader, FileResolver};
 use cmd_parser::CmdParsable;
 use selectors::StyleSelector;
-pub(crate) use selectors::{List, ListState, ListSubitem, Player, Selector, StatusBar};
+pub(crate) use selectors::{Empty, List, ListState, ListSubitem, Player, Selector, StatusBar};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tui::style::Style;

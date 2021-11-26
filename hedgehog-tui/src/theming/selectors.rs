@@ -176,6 +176,7 @@ impl StyleSelector for List {
 pub(crate) enum Empty {
     View,
     Title,
+    Subtitle,
 }
 
 impl Empty {
@@ -183,6 +184,7 @@ impl Empty {
         match input {
             [] => Ok(Empty::View),
             [".title"] => Ok(Empty::Title),
+            [".subtitle"] => Ok(Empty::Subtitle),
             _ => Err(SelectorParsingError),
         }
     }
@@ -302,6 +304,12 @@ impl From<StatusBar> for Selector {
 impl From<List> for Selector {
     fn from(list: List) -> Self {
         Selector::List(list)
+    }
+}
+
+impl From<Empty> for Selector {
+    fn from(empty: Empty) -> Self {
+        Selector::Empty(empty)
     }
 }
 

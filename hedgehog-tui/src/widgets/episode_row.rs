@@ -38,14 +38,14 @@ enum EpisodeState {
 }
 
 impl EpisodeState {
-    fn label(&self) -> &'static str {
+    fn label<'a>(&self, options: &'a Options) -> &'a str {
         match self {
-            EpisodeState::NotStarted => "",
-            EpisodeState::New => " new ",
-            EpisodeState::Playing => " playing ",
-            EpisodeState::Started => " started ",
-            EpisodeState::Finished => " done ",
-            EpisodeState::Error => " error ",
+            EpisodeState::NotStarted => options.label_episode_seen.as_str(),
+            EpisodeState::New => options.label_episode_new.as_str(),
+            EpisodeState::Playing => options.label_episode_playing.as_str(),
+            EpisodeState::Started => options.label_episode_started.as_str(),
+            EpisodeState::Finished => options.label_episode_finished.as_str(),
+            EpisodeState::Error => options.label_episode_error.as_str(),
         }
     }
 }
@@ -203,7 +203,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
 
         if let Some(item) = item {
             let status = self.episode_status(item);
-            let status_label = status.label();
+            let status_label = status.label(self.options);
             if !status_label.is_empty() {
                 let label_width = status_label.width();
                 let (rest, status_area) = split_right(area, label_width as u16);

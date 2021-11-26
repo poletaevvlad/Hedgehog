@@ -35,4 +35,10 @@ gen_options! {
     LabelPlaybackStatePaused(label_playback_status_paused: String = " | ".to_string()),
     LabelPlaybackStateBuffering(label_playback_status_buffering: String = " o ".to_string()),
     LabelPlaybackStateNone(label_playback_status_none: String = " - ".to_string()),
+    LabelEpisodeNew(label_episode_new: String = " new ".to_string()),
+    LabelEpisodeSeen(label_episode_seen: String = "".to_string()),
+    LabelEpisodePlaying(label_episode_playing: String = " playing ".to_string()),
+    LabelEpisodeStarted(label_episode_started: String = " started ".to_string()),
+    LabelEpisodeFinished(label_episode_finished: String = " finished ".to_string()),
+    LabelEpisodeError(label_episode_error: String = " error ".to_string()),
 }

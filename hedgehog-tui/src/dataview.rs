@@ -533,6 +533,10 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         }
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.data.size().map(|size| size == 0).unwrap_or(false)
+    }
+
     pub(crate) fn iter(&self) -> Option<impl Iterator<Item = (Option<&T::Item>, bool)>> {
         let window_size = self.window_size;
         let offset = self.offset;

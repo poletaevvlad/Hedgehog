@@ -1,3 +1,4 @@
+use super::empty::EmptyView;
 use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
 use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
@@ -53,18 +54,24 @@ impl<'a> Widget for LibraryWidget<'a> {
             self.data.episodes.iter(),
             self.data.episodes_list_metadata.as_ref(),
         ) {
-            let sizing = EpisodesListSizing::compute(self.options, metadata);
-            List::new(
-                EpisodesListRowRenderer::new(
-                    self.theme,
-                    self.data.focus == FocusedPane::EpisodesList,
-                    self.options,
-                    sizing,
+            if self.data.episodes.is_empty() {
+                EmptyView::new(self.theme)
+                    .title("The feed is empty")
+                    .render(layout[1], buf);
+            } else {
+                let sizing = EpisodesListSizing::compute(self.options, metadata);
+                List::new(
+                    EpisodesListRowRenderer::new(
+                        self.theme,
+                        self.data.focus == FocusedPane::EpisodesList,
+                        self.options,
+                        sizing,
+                    )
+                    .with_playing_id(self.data.playing_episode.as_ref().map(|episode| episode.id)),
+                    iter,
                 )
-                .with_playing_id(self.data.playing_episode.as_ref().map(|episode| episode.id)),
-                iter,
-            )
-            .render(layout[1], buf);
+                .render(layout[1], buf);
+            }
         }
     }
 }

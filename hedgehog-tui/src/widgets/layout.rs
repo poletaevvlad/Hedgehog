@@ -24,9 +24,17 @@ pub(crate) fn split_bottom(rect: Rect, height: u16) -> (Rect, Rect) {
     )
 }
 
+pub(crate) fn split_top(rect: Rect, height: u16) -> (Rect, Rect) {
+    let height = height.min(rect.height);
+    (
+        Rect::new(rect.x, rect.y, rect.width, height),
+        Rect::new(rect.x, rect.y + height, rect.width, rect.height - height),
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{split_bottom, split_left, split_right};
+    use super::{split_bottom, split_left, split_right, split_top};
     use tui::layout::Rect;
 
     #[test]
@@ -78,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn split_bottom_normat() {
+    fn split_bottom_normal() {
         let original = Rect::new(2, 3, 10, 8);
         let (top, bottom) = split_bottom(original, 3);
         assert_eq!(top, Rect::new(2, 3, 10, 5));
@@ -99,5 +107,29 @@ mod tests {
         let (top, bottom) = split_bottom(original, 12);
         assert_eq!(top, Rect::new(2, 3, 10, 0));
         assert_eq!(bottom, original);
+    }
+
+    #[test]
+    fn split_top_normal() {
+        let original = Rect::new(2, 3, 10, 8);
+        let (top, bottom) = split_top(original, 3);
+        assert_eq!(top, Rect::new(2, 3, 10, 3));
+        assert_eq!(bottom, Rect::new(2, 6, 10, 5));
+    }
+
+    #[test]
+    fn split_top_full_height() {
+        let original = Rect::new(2, 3, 10, 8);
+        let (top, bottom) = split_top(original, 8);
+        assert_eq!(top, original);
+        assert_eq!(bottom, Rect::new(2, 11, 10, 0));
+    }
+
+    #[test]
+    fn split_top_higher() {
+        let original = Rect::new(2, 3, 10, 8);
+        let (top, bottom) = split_top(original, 12);
+        assert_eq!(top, original);
+        assert_eq!(bottom, Rect::new(2, 11, 10, 0));
     }
 }

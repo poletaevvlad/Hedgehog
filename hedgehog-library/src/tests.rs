@@ -7,7 +7,7 @@ use crate::{
 };
 use actix::prelude::*;
 use reqwest::StatusCode;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 struct NotificationListener {
     messages: Sender<FeedUpdateNotification>,
@@ -34,6 +34,16 @@ impl Handler<FeedUpdateNotification> for NotificationListener {
     }
 }
 
+async fn create_library() -> (Addr<Library>, Receiver<FeedUpdateNotification>) {
+    let provider = SqliteDataProvider::connect(":memory:").unwrap();
+    let library = Library::new(provider).start();
+    let (sender, reciever) = channel(16);
+    let notifications = NotificationListener::new(sender).start();
+    let msg = FeedUpdateRequest::Subscribe(notifications.recipient());
+    library.send(msg).await.unwrap();
+    (library, reciever)
+}
+
 macro_rules! let_assert {
     (let $first:ident$(::$tail:ident)* ($($var:ident),*) = $value:expr) => {
        let ($($var,)*) = match $value {
@@ -46,19 +56,13 @@ macro_rules! let_assert {
 #[actix::test]
 async fn adding_new_feed() {
     let mock_server = httpmock::MockServer::start();
-    let _mock = mock_server.mock(|when, then| {
+    mock_server.mock(|when, then| {
         when.method(httpmock::Method::GET).path("/feed.xml");
         then.status(200)
             .header("content-type", "application/xml")
             .body(include_str!("./test_data/bedtime.xml"));
     });
-
-    let provider = SqliteDataProvider::connect(":memory:").unwrap();
-    let library = Library::new(provider).start();
-    let (sender, mut reciever) = channel(16);
-    let notifications = NotificationListener::new(sender).start();
-    let msg = FeedUpdateRequest::Subscribe(notifications.recipient());
-    library.send(msg).await.unwrap();
+    let (library, mut reciever) = create_library().await;
 
     let summaries = library.send(FeedSummariesRequest).await.unwrap().unwrap();
     assert_eq!(summaries.len(), 0);
@@ -94,17 +98,11 @@ async fn adding_new_feed() {
 #[actix::test]
 async fn adding_new_feed_error() {
     let mock_server = httpmock::MockServer::start();
-    let _mock = mock_server.mock(|when, then| {
+    mock_server.mock(|when, then| {
         when.method(httpmock::Method::GET).path("/feed.xml");
         then.status(404);
     });
-
-    let provider = SqliteDataProvider::connect(":memory:").unwrap();
-    let library = Library::new(provider).start();
-    let (sender, mut reciever) = channel(16);
-    let notifications = NotificationListener::new(sender).start();
-    let msg = FeedUpdateRequest::Subscribe(notifications.recipient());
-    library.send(msg).await.unwrap();
+    let (library, mut reciever) = create_library().await;
 
     let source_url = format!("{}/feed.xml", mock_server.base_url());
     let msg = FeedUpdateRequest::AddFeed(source_url.clone());

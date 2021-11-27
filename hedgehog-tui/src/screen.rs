@@ -21,6 +21,7 @@ use actix::prelude::*;
 use cmd_parser::CmdParsable;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
+use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
     EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
@@ -481,6 +482,19 @@ impl Actor for UI {
             ));
 
         ctx.add_stream(crossterm::event::EventStream::new());
+
+        if let Some(dirs) = BaseDirs::new() {
+            let mut data_dir = dirs.data_local_dir().to_path_buf();
+            data_dir.push("hedgehog");
+            let result = std::fs::create_dir_all(&data_dir).and_then(|_| {
+                data_dir.push("history");
+                self.commands_history.load_file(data_dir)
+            });
+            if let Err(error) = result {
+                self.handle_error(error, ctx);
+            }
+        }
+
         self.invalidate(ctx);
     }
 }

@@ -14,16 +14,14 @@ pub(crate) struct CommandsHistory {
 impl CommandsHistory {
     const DEFAULT_CAPACITY: usize = 512;
 
-    pub(crate) fn from_file(path: PathBuf) -> io::Result<Self> {
-        let mut history = CommandsHistory::new();
-
+    pub(crate) fn load_file(&mut self, path: PathBuf) -> io::Result<()> {
         let file = OpenOptions::new().read(true).write(true).open(&path);
 
         let mut file = match file {
             Ok(file) => file,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                history.file_path = Some(path);
-                return Ok(history);
+                self.file_path = Some(path);
+                return Ok(());
             }
             Err(err) => return Err(err),
         };
@@ -31,20 +29,20 @@ impl CommandsHistory {
         let mut lines_count = 0;
         for line in BufReader::new(&file).lines() {
             let line = line?;
-            history.push(&line)?;
+            self.push(&line)?;
             lines_count += 1;
         }
 
         if lines_count > Self::DEFAULT_CAPACITY {
             file.seek(SeekFrom::Start(0))?;
             file.set_len(0)?;
-            for line in &history.items {
+            for line in &self.items {
                 writeln!(&mut file, "{}", line)?;
             }
         }
 
-        history.file_path = Some(path);
-        Ok(history)
+        self.file_path = Some(path);
+        Ok(())
     }
 
     pub(crate) fn new() -> Self {
@@ -206,19 +204,22 @@ mod tests {
         let mut path = dir.path().to_path_buf();
         path.push("commands");
 
-        let mut history = CommandsHistory::from_file(path.clone()).unwrap();
+        let mut history = CommandsHistory::new();
+        history.load_file(path.clone()).unwrap();
         assert!(history.iter().next().is_none());
         history.push("a").unwrap();
         history.push("b").unwrap();
         history.push("c").unwrap();
 
-        let mut history = CommandsHistory::from_file(path.clone()).unwrap();
+        let mut history = CommandsHistory::new();
+        history.load_file(path.clone()).unwrap();
         assert_eq!(history.iter().collect::<Vec<&str>>(), vec!["c", "b", "a"]);
         history.push("b").unwrap();
         history.push("d").unwrap();
         history.push("a").unwrap();
 
-        let history = CommandsHistory::from_file(path.clone()).unwrap();
+        let mut history = CommandsHistory::new();
+        history.load_file(path.clone()).unwrap();
         assert_eq!(
             history.iter().collect::<Vec<&str>>(),
             vec!["a", "d", "b", "c"]
@@ -231,7 +232,8 @@ mod tests {
         let mut path = dir.path().to_path_buf();
         path.push("commands");
 
-        let mut history = CommandsHistory::from_file(path.clone()).unwrap();
+        let mut history = CommandsHistory::new();
+        history.load_file(path.clone()).unwrap();
         for i in 0..1000 {
             history.push(&format!("{}", i)).unwrap();
         }
@@ -240,7 +242,7 @@ mod tests {
             1000
         );
 
-        CommandsHistory::from_file(path.clone()).unwrap();
+        CommandsHistory::new().load_file(path.clone()).unwrap();
         assert_eq!(
             BufReader::new(File::open(&path).unwrap()).lines().count(),
             512

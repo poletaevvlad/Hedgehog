@@ -1116,6 +1116,7 @@ dependencies = [
  "chrono",
  "cmd-parser",
  "crossterm 0.20.0",
+ "directories",
  "hedgehog-library",
  "hedgehog-player",
  "tempfile",

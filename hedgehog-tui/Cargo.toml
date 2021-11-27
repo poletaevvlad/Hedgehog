@@ -13,6 +13,7 @@ thiserror = "1.0"
 hedgehog-library = { path = "../hedgehog-library" }
 hedgehog-player = { path = "../hedgehog-player" }
 cmd-parser = { path = "../cmd-parser" }
+directories = "4.0"
 
 [dev-dependencies]
 tempfile = "3.2"

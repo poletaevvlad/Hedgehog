@@ -103,9 +103,9 @@ pub(crate) enum ListState {
 
 impl ListState {
     fn for_each(state: Option<Self>, mut callback: impl FnMut(Option<Self>)) {
+        callback(state);
         match state {
             None => {
-                callback(None);
                 callback(Some(ListState::Feed));
                 callback(Some(ListState::FeedUpdating));
                 callback(Some(ListState::FeedError));

@@ -107,7 +107,7 @@ pub(crate) enum ThemeCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListItem, ListState, StatusBar, Theme};
+    use super::{List, ListColumn, ListItem, ListState, StatusBar, Theme};
     use crate::status::Severity;
     use tui::style::{Color, Modifier, Style};
 
@@ -154,24 +154,10 @@ mod tests {
         );
         theme.set(
             List::Item(ListItem {
-                missing_title: true,
-                ..Default::default()
-            }),
-            Style::default().add_modifier(Modifier::RAPID_BLINK),
-        );
-        theme.set(
-            List::Item(ListItem {
-                selected: true,
-                ..Default::default()
-            }),
-            Style::default().bg(Color::Red),
-        );
-        theme.set(
-            List::Item(ListItem {
                 focused: true,
                 ..Default::default()
             }),
-            Style::default().add_modifier(Modifier::BOLD),
+            Style::default().bg(Color::Red),
         );
         theme.set(
             List::Item(ListItem {
@@ -180,51 +166,35 @@ mod tests {
             }),
             Style::default().add_modifier(Modifier::UNDERLINED),
         );
-
-        let selected_focused = theme.get(List::Item(ListItem {
-            selected: true,
-            focused: true,
-            ..Default::default()
-        }));
-        assert_eq!(
-            selected_focused,
-            Style {
-                fg: Some(Color::White),
-                bg: Some(Color::Red),
-                add_modifier: Modifier::BOLD,
-                sub_modifier: Modifier::empty(),
-            }
+        theme.set(
+            List::Item(ListItem {
+                column: Some(ListColumn::Title),
+                ..Default::default()
+            }),
+            Style::default().add_modifier(Modifier::BOLD),
         );
 
-        let focused_playing = theme.get(List::Item(ListItem {
-            focused: true,
-            state: Some(ListState::EpisodePlaying),
-            ..Default::default()
-        }));
         assert_eq!(
-            focused_playing,
-            Style {
-                fg: Some(Color::White),
-                bg: None,
-                add_modifier: Modifier::BOLD | Modifier::UNDERLINED,
-                sub_modifier: Modifier::empty(),
-            }
+            theme.get(List::Item(ListItem {
+                focused: true,
+                column: Some(ListColumn::Title),
+                ..Default::default()
+            })),
+            Style::default()
+                .fg(Color::White)
+                .bg(Color::Red)
+                .add_modifier(Modifier::BOLD)
         );
-
-        let focused_active_missing = theme.get(List::Item(ListItem {
-            focused: true,
-            state: Some(ListState::EpisodePlaying),
-            missing_title: true,
-            ..Default::default()
-        }));
         assert_eq!(
-            focused_active_missing,
-            Style {
-                fg: Some(Color::White),
-                bg: None,
-                add_modifier: Modifier::BOLD | Modifier::UNDERLINED | Modifier::RAPID_BLINK,
-                sub_modifier: Modifier::empty(),
-            }
+            theme.get(List::Item(ListItem {
+                state: Some(ListState::EpisodePlaying),
+                column: Some(ListColumn::Title),
+                ..Default::default()
+            })),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::UNDERLINED)
         );
     }
 }

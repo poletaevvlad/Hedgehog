@@ -27,6 +27,17 @@ impl<'a> LibraryWidget<'a> {
 
 impl<'a> Widget for LibraryWidget<'a> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+        if self.data.feeds.is_empty() {
+            EmptyView::new(self.theme)
+                .title("Hedgehog Podcast Player")
+                .subtitle(
+                    "Welcome.\nAdd podcasts by their RSS feeds by typing :add [feed-url]<Enter>",
+                )
+                .render(area, buf);
+
+            return;
+        }
+
         let layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Min(24), Constraint::Percentage(75)].as_ref())

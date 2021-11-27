@@ -5,6 +5,7 @@ pub mod model;
 mod rss_client;
 mod sqlite;
 pub mod status_writer;
+mod tests;
 
 pub use rss;
 

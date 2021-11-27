@@ -113,7 +113,7 @@ pub trait Identifiable {
     fn id(&self) -> Self::Id;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FeedSummary {
     pub id: FeedId,
     pub title: String,

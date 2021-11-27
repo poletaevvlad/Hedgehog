@@ -185,8 +185,8 @@ mod tests {
     #[test]
     fn navigating_history() {
         let mut history = CommandsHistory::new();
-        history.push("first");
-        history.push("second");
+        history.push("first").unwrap();
+        history.push("second").unwrap();
 
         let mut state = CommandState::default();
         assert_display(&mut state, &history, ":");
@@ -225,8 +225,8 @@ mod tests {
     #[test]
     fn keeps_the_entered_command() {
         let mut history = CommandsHistory::new();
-        history.push("first");
-        history.push("second");
+        history.push("first").unwrap();
+        history.push("second").unwrap();
         let mut state = CommandState::default();
 
         assert_eq!(
@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn submits_history_command() {
         let mut history = CommandsHistory::new();
-        history.push("first");
+        history.push("first").unwrap();
         let mut state = CommandState::default();
         state.handle_event(key!(Up), &history);
 
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn updates_from_history() {
         let mut history = CommandsHistory::new();
-        history.push("first");
+        history.push("first").unwrap();
         let mut state = CommandState::default();
         state.handle_event(key!(Up), &history);
 

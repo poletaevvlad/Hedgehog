@@ -551,6 +551,8 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
         match command {
             CursorCommand::Next => self.move_cursor(1),
             CursorCommand::Previous => self.move_cursor(-1),
+            CursorCommand::PageUp => self.move_cursor(-(self.window_size as isize)),
+            CursorCommand::PageDown => self.move_cursor(self.window_size as isize),
             CursorCommand::First => self.move_cursor_first(),
             CursorCommand::Last => self.move_cursor_last(),
         }
@@ -616,6 +618,8 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
 pub(crate) enum CursorCommand {
     Next,
     Previous,
+    PageUp,
+    PageDown,
     First,
     Last,
 }

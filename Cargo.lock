@@ -1113,7 +1113,6 @@ name = "hedgehog-tui"
 version = "0.1.0"
 dependencies = [
  "actix",
- "bitflags",
  "chrono",
  "cmd-parser",
  "crossterm 0.20.0",

@@ -1,5 +1,4 @@
 use crate::status::Severity;
-use bitflags::bitflags;
 use cmd_parser::CmdParsable;
 use hedgehog_player::state::PlaybackStatus;
 use std::{borrow::Borrow, str::FromStr};
@@ -66,46 +65,95 @@ impl StyleSelector for StatusBar {
     }
 }
 
-bitflags! {
-    pub(crate) struct ListState: usize {
-        const FOCUSED = 0b0001;
-        const ACTIVE = 0b0010;
-        const SELECTED = 0b0100;
-        const NEW = 0b1000;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum ListColumn {
+    StateIndicator,
+    Title,
+    EpisodeNumber,
+    Duration,
+    Date,
+    Loading,
+}
+
+impl ListColumn {
+    fn enumerate() -> impl IntoIterator<Item = Self> {
+        [
+            ListColumn::StateIndicator,
+            ListColumn::Title,
+            ListColumn::EpisodeNumber,
+            ListColumn::Duration,
+            ListColumn::Date,
+            ListColumn::Loading,
+        ]
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum ListSubitem {
-    MissingTitle,
-    ErrorIndicator,
-    LoadingIndicator,
-    UpdateIndicator,
-    Date,
-    NewIndicator,
-    Duration,
-    EpisodeNumber,
+pub(crate) enum ListState {
+    Feed,
+    FeedUpdating,
+    FeedError,
+    Episode,
+    EpisodeError,
+    EpisodePlaying,
+    EpisodeFinished,
+    EpisodeNew,
+    EpisodeStarted,
 }
 
-impl ListSubitem {
-    pub(crate) fn enumerate() -> impl IntoIterator<Item = Self> {
-        [
-            ListSubitem::MissingTitle,
-            ListSubitem::ErrorIndicator,
-            ListSubitem::LoadingIndicator,
-            ListSubitem::UpdateIndicator,
-            ListSubitem::Date,
-            ListSubitem::NewIndicator,
-            ListSubitem::Duration,
-            ListSubitem::EpisodeNumber,
-        ]
+impl ListState {
+    fn for_each(state: Option<Self>, mut callback: impl FnMut(Option<Self>)) {
+        match state {
+            None => {
+                callback(None);
+                callback(Some(ListState::Feed));
+                callback(Some(ListState::FeedUpdating));
+                callback(Some(ListState::FeedError));
+                callback(Some(ListState::Episode));
+                callback(Some(ListState::EpisodeError));
+                callback(Some(ListState::EpisodePlaying));
+                callback(Some(ListState::EpisodeNew));
+                callback(Some(ListState::EpisodeStarted));
+                callback(Some(ListState::EpisodeFinished));
+            }
+            Some(ListState::Feed) => {
+                callback(Some(ListState::FeedUpdating));
+                callback(Some(ListState::FeedError));
+            }
+            Some(ListState::Episode) => {
+                callback(Some(ListState::EpisodeError));
+                callback(Some(ListState::EpisodePlaying));
+                callback(Some(ListState::EpisodeNew));
+                callback(Some(ListState::EpisodeStarted));
+                callback(Some(ListState::EpisodeFinished));
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct ListItem {
+    pub(crate) selected: bool,
+    pub(crate) focused: bool,
+    pub(crate) missing_title: bool,
+    pub(crate) state: Option<ListState>,
+    pub(crate) column: Option<ListColumn>,
+}
+
+impl ListItem {
+    pub(crate) fn with_column(&self, column: ListColumn) -> Self {
+        ListItem {
+            column: Some(column),
+            ..*self
+        }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum List {
     Divider,
-    Item(ListState, Option<ListSubitem>),
+    Item(ListItem),
 }
 
 impl List {
@@ -113,33 +161,47 @@ impl List {
         match input {
             [".divider"] => Ok(List::Divider),
             [".item", ..] => {
-                let mut state = ListState::empty();
+                let mut list_item = ListItem::default();
+
                 input = &input[1..];
                 while let Some(item) = input.get(0) {
-                    let state_item = match *item {
-                        ":focused" => ListState::FOCUSED,
-                        ":active" => ListState::ACTIVE,
-                        ":selected" => ListState::SELECTED,
-                        ":new" => ListState::NEW,
-                        _ => break,
+                    match *item {
+                        ":focused" => list_item.focused = true,
+                        ":selected" => list_item.selected = true,
+                        ":missing-title" => list_item.missing_title = true,
+                        item => {
+                            let new_state = match item {
+                                ":feed" => ListState::Feed,
+                                ":feed-updating" => ListState::FeedUpdating,
+                                ":feed-error" => ListState::FeedError,
+                                ":episode" => ListState::Episode,
+                                ":episode-error" => ListState::EpisodeError,
+                                ":episode-playing" => ListState::EpisodePlaying,
+                                ":episode-new" => ListState::EpisodeNew,
+                                ":episode-started" => ListState::EpisodeStarted,
+                                _ => break,
+                            };
+                            if list_item.state.is_some() {
+                                return Err(SelectorParsingError);
+                            }
+                            list_item.state = Some(new_state);
+                        }
                     };
-                    state |= state_item;
                     input = &input[1..];
                 }
 
-                let subitem = match input {
+                list_item.column = match input {
                     [] => None,
-                    [".missing"] => Some(ListSubitem::MissingTitle),
-                    [".loading"] => Some(ListSubitem::LoadingIndicator),
-                    [".update"] => Some(ListSubitem::LoadingIndicator),
-                    [".error"] => Some(ListSubitem::ErrorIndicator),
-                    [".date"] => Some(ListSubitem::Date),
-                    [".new"] => Some(ListSubitem::NewIndicator),
-                    [".duration"] => Some(ListSubitem::Duration),
-                    [".episodenumber"] => Some(ListSubitem::EpisodeNumber),
+                    [".state"] => Some(ListColumn::StateIndicator),
+                    [".title"] => Some(ListColumn::Title),
+                    [".episode-number"] => Some(ListColumn::EpisodeNumber),
+                    [".duration"] => Some(ListColumn::Duration),
+                    [".date"] => Some(ListColumn::Date),
+                    [".loading"] => Some(ListColumn::Loading),
                     _ => return Err(SelectorParsingError),
                 };
-                Ok(List::Item(state, subitem))
+
+                Ok(List::Item(list_item))
             }
             _ => Err(SelectorParsingError),
         }
@@ -154,17 +216,50 @@ impl StyleSelector for List {
             }
         };
 
-        if let List::Item(item, subitem) = self {
-            for bits in 0..ListState::all().bits {
-                let current = ListState::from_bits_truncate(bits);
-                if current.contains(*item) {
-                    if subitem.is_some() {
-                        callback(List::Item(current, *subitem));
-                    } else {
-                        callback(List::Item(current, None));
-                        for subitem in ListSubitem::enumerate() {
-                            callback(List::Item(current, Some(subitem)));
-                        }
+        if let List::Item(item) = self {
+            let selected_variants: &[bool] = if item.selected {
+                &[true]
+            } else {
+                &[true, false]
+            };
+            let focused_variants: &[bool] = if item.focused {
+                &[true]
+            } else {
+                &[true, false]
+            };
+            let missing_variants: &[bool] = if item.missing_title {
+                &[true]
+            } else {
+                &[true, false]
+            };
+
+            for selected in selected_variants {
+                for focused in focused_variants {
+                    for missing in missing_variants {
+                        ListState::for_each(item.state, |state| {
+                            let new_item = ListItem {
+                                selected: *selected,
+                                focused: *focused,
+                                missing_title: *missing,
+                                state,
+                                column: None,
+                            };
+
+                            if let Some(column) = item.column {
+                                callback(List::Item(ListItem {
+                                    column: Some(column),
+                                    ..new_item
+                                }));
+                            } else {
+                                callback(List::Item(new_item));
+                                for column in ListColumn::enumerate() {
+                                    callback(List::Item(ListItem {
+                                        column: Some(column),
+                                        ..new_item
+                                    }));
+                                }
+                            }
+                        });
                     }
                 }
             }
@@ -321,7 +416,7 @@ impl From<Player> for Selector {
 
 #[cfg(test)]
 mod tests {
-    use super::{Empty, List, ListState, ListSubitem, Player, Selector, StatusBar};
+    use super::{Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar};
     use crate::status::Severity;
     use cmd_parser::CmdParsable;
     use hedgehog_player::state::PlaybackStatus;
@@ -373,32 +468,37 @@ mod tests {
     fn parse_item_state() {
         assert_eq!(
             "list.item".parse(),
-            Ok(Selector::List(List::Item(ListState::empty(), None)))
+            Ok(Selector::List(List::Item(ListItem::default())))
         );
         assert_eq!(
-            "list.item:active".parse(),
-            Ok(Selector::List(List::Item(ListState::ACTIVE, None)))
+            "list.item:episode-playing".parse(),
+            Ok(Selector::List(List::Item(ListItem {
+                state: Some(ListState::EpisodePlaying),
+                ..Default::default()
+            })))
         );
         assert_eq!(
             "list.item:focused:selected".parse(),
-            Ok(Selector::List(List::Item(
-                ListState::FOCUSED | ListState::SELECTED,
-                None
-            )))
+            Ok(Selector::List(List::Item(ListItem {
+                focused: true,
+                selected: true,
+                ..Default::default()
+            })))
         );
         assert_eq!(
-            "list.item.missing".parse(),
-            Ok(Selector::List(List::Item(
-                ListState::empty(),
-                Some(ListSubitem::MissingTitle)
-            )))
+            "list.item:missing-title".parse(),
+            Ok(Selector::List(List::Item(ListItem {
+                missing_title: true,
+                ..Default::default()
+            })))
         );
         assert_eq!(
-            "list.item:selected.missing".parse(),
-            Ok(Selector::List(List::Item(
-                ListState::SELECTED,
-                Some(ListSubitem::MissingTitle)
-            )))
+            "list.item:selected.title".parse(),
+            Ok(Selector::List(List::Item(ListItem {
+                selected: true,
+                column: Some(ListColumn::Title),
+                ..Default::default()
+            })))
         );
     }
 

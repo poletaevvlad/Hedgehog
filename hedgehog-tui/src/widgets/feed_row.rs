@@ -5,13 +5,12 @@ use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::{Alignment, Rect};
-use tui::style::Style;
 use tui::widgets::{Paragraph, Widget};
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct FeedsListRowRenderer<'t> {
     theme: &'t Theme,
-    default_item_state: theming::ListState,
+    focused: bool,
     options: &'t Options,
     updating_feeds: &'t HashSet<FeedId>,
 }
@@ -22,14 +21,6 @@ enum FeedsListStatusIndicator {
 }
 
 impl FeedsListStatusIndicator {
-    fn style(&self, theme: &theming::Theme, item_state: theming::ListState) -> Style {
-        let subitem_selector = match self {
-            FeedsListStatusIndicator::Error => theming::ListSubitem::ErrorIndicator,
-            FeedsListStatusIndicator::Update => theming::ListSubitem::UpdateIndicator,
-        };
-        theme.get(theming::List::Item(item_state, Some(subitem_selector)))
-    }
-
     fn label<'a>(&self, options: &'a Options) -> &'a str {
         match self {
             FeedsListStatusIndicator::Error => options.label_feed_error.as_str(),
@@ -42,17 +33,13 @@ impl<'t> FeedsListRowRenderer<'t> {
     pub(crate) fn new(
         theme: &'t theming::Theme,
         options: &'t Options,
-        is_focused: bool,
+        focused: bool,
         updating_feeds: &'t HashSet<FeedId>,
     ) -> Self {
         FeedsListRowRenderer {
             theme,
             options,
-            default_item_state: if is_focused {
-                theming::ListState::FOCUSED
-            } else {
-                theming::ListState::empty()
-            },
+            focused,
             updating_feeds,
         }
     }
@@ -74,14 +61,24 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
 
-        let mut item_state = self.default_item_state;
-        if selected {
-            item_state |= theming::ListState::SELECTED;
-        }
-
         if let Some(item) = item {
+            let status_indicator = self.get_status_indicator(item);
+            let item_selector = theming::ListItem {
+                selected,
+                focused: self.focused,
+                missing_title: item.has_title,
+                state: Some(match status_indicator {
+                    Some(FeedsListStatusIndicator::Error) => theming::ListState::FeedError,
+                    Some(FeedsListStatusIndicator::Update) => theming::ListState::FeedUpdating,
+                    None => theming::ListState::Feed,
+                }),
+                column: None,
+            };
+
             if let Some(status_indicator) = self.get_status_indicator(item) {
-                let style = status_indicator.style(self.theme, item_state);
+                let style = self.theme.get(theming::List::Item(
+                    item_selector.with_column(theming::ListColumn::StateIndicator),
+                ));
                 let label = status_indicator.label(self.options);
 
                 let (rest, indicator_area) = split_right(area, label.width() as u16);
@@ -89,11 +86,9 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 buf.set_string(indicator_area.x, indicator_area.y, label, style);
             }
 
-            let subitem = match item.has_title {
-                true => None,
-                false => Some(theming::ListSubitem::MissingTitle),
-            };
-            let style = self.theme.get(theming::List::Item(item_state, subitem));
+            let style = self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Title),
+            ));
             buf.set_style(area, style);
 
             let paragraph = Paragraph::new(item.title.as_str());
@@ -107,10 +102,13 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 buf,
             );
         } else {
-            let style = self.theme.get(theming::List::Item(
-                item_state,
-                Some(theming::ListSubitem::LoadingIndicator),
-            ));
+            let item_selector = theming::ListItem {
+                selected,
+                focused: self.focused,
+                column: Some(theming::ListColumn::Loading),
+                ..Default::default()
+            };
+            let style = self.theme.get(theming::List::Item(item_selector));
             let paragraph = Paragraph::new(".  .  .")
                 .style(style)
                 .alignment(Alignment::Center);
@@ -119,8 +117,11 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
     }
 
     fn render_empty(&self, area: Rect, buf: &mut Buffer) {
-        let item_state = self.default_item_state;
-        let style = self.theme.get(theming::List::Item(item_state, None));
+        let item_selector = theming::ListItem {
+            focused: self.focused,
+            ..Default::default()
+        };
+        let style = self.theme.get(theming::List::Item(item_selector));
         buf.set_style(area, style);
     }
 }

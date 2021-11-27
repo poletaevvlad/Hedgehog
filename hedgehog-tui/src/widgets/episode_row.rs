@@ -15,7 +15,7 @@ use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct EpisodesListRowRenderer<'t> {
     theme: &'t theming::Theme,
-    default_item_state: theming::ListState,
+    focused: bool,
     playing_id: Option<EpisodeId>,
     options: &'t Options,
     sizing: EpisodesListSizing,
@@ -46,6 +46,17 @@ impl EpisodeState {
             EpisodeState::Started => options.label_episode_started.as_str(),
             EpisodeState::Finished => options.label_episode_finished.as_str(),
             EpisodeState::Error => options.label_episode_error.as_str(),
+        }
+    }
+
+    fn as_theme_state(&self) -> theming::ListState {
+        match self {
+            EpisodeState::NotStarted => theming::ListState::Episode,
+            EpisodeState::New => theming::ListState::EpisodeNew,
+            EpisodeState::Playing => theming::ListState::EpisodePlaying,
+            EpisodeState::Started => theming::ListState::EpisodeStarted,
+            EpisodeState::Finished => theming::ListState::EpisodeFinished,
+            EpisodeState::Error => theming::ListState::EpisodeError,
         }
     }
 }
@@ -103,17 +114,13 @@ impl EpisodesListSizing {
 impl<'t> EpisodesListRowRenderer<'t> {
     pub(crate) fn new(
         theme: &'t theming::Theme,
-        is_focused: bool,
+        focused: bool,
         options: &'t Options,
         sizing: EpisodesListSizing,
     ) -> Self {
         EpisodesListRowRenderer {
             theme,
-            default_item_state: if is_focused {
-                theming::ListState::FOCUSED
-            } else {
-                theming::ListState::empty()
-            },
+            focused,
             playing_id: None,
             options,
             sizing,
@@ -146,23 +153,23 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut Buffer) {
         let (item, selected) = item;
 
-        let mut item_state = self.default_item_state;
-        if selected {
-            item_state |= theming::ListState::SELECTED;
-        }
-        if item.is_some() && self.playing_id == item.map(|item| item.id) {
-            item_state |= theming::ListState::ACTIVE;
-        }
-        if item.map(|item| matches!(item.status, EpisodeSummaryStatus::New)) == Some(true) {
-            item_state |= theming::ListState::NEW;
-        }
+        let item_selector = theming::ListItem {
+            selected,
+            focused: self.focused,
+            missing_title: item.map(|item| item.title.is_none()).unwrap_or(false),
+            state: Some(
+                item.map(|item| self.episode_status(item))
+                    .unwrap_or(EpisodeState::NotStarted)
+                    .as_theme_state(),
+            ),
+            column: None,
+        };
 
         if self.sizing.date_width > 0 {
-            let date = item.and_then(|item| item.publication_date);
             let style = self.theme.get(theming::List::Item(
-                item_state,
-                Some(theming::ListSubitem::Date),
+                item_selector.with_column(theming::ListColumn::Date),
             ));
+            let date = item.and_then(|item| item.publication_date);
             area = if let Some(date) = date {
                 let formatted = format!(" {} ", date.format(&self.options.date_format));
                 let width = (formatted.width() as u16).max(self.sizing.date_width);
@@ -179,8 +186,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
 
         if self.sizing.duration_width > 0 {
             let style = self.theme.get(theming::List::Item(
-                item_state,
-                Some(theming::ListSubitem::Duration),
+                item_selector.with_column(theming::ListColumn::Duration),
             ));
             let duration = item.and_then(|item| item.duration);
             let (rest, duration_area) = split_right(area, self.sizing.duration_width);
@@ -198,8 +204,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
 
         if self.sizing.episode_number_width > 0 {
             let style = self.theme.get(theming::List::Item(
-                item_state,
-                Some(theming::ListSubitem::EpisodeNumber),
+                item_selector.with_column(theming::ListColumn::EpisodeNumber),
             ));
             let number = item
                 .map(|item| (item.season_number, item.episode_number))
@@ -227,21 +232,22 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
             if !status_label.is_empty() {
                 let label_width = status_label.width();
                 let (rest, status_area) = split_right(area, label_width as u16);
+                let style = self.theme.get(theming::List::Item(
+                    item_selector.with_column(theming::ListColumn::StateIndicator),
+                ));
                 buf.set_stringn(
                     status_area.x,
                     status_area.y,
                     status_label,
                     label_width,
-                    self.theme.get(theming::List::Item(item_state, None)),
+                    style,
                 );
                 area = rest;
             }
 
-            let subtitle = match item.title.is_none() {
-                true => Some(theming::ListSubitem::MissingTitle),
-                false => None,
-            };
-            let style = self.theme.get(theming::List::Item(item_state, subtitle));
+            let style = self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Title),
+            ));
             let title = item.title.as_deref().unwrap_or("Untitled");
             buf.set_style(area, style);
             buf.set_span(
@@ -252,8 +258,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
             );
         } else {
             let style = self.theme.get(theming::List::Item(
-                item_state,
-                Some(theming::ListSubitem::LoadingIndicator),
+                item_selector.with_column(theming::ListColumn::Loading),
             ));
             let paragraph = Paragraph::new(".  .  .")
                 .style(style)
@@ -263,29 +268,37 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
     }
 
     fn render_empty(&self, area: Rect, buf: &mut Buffer) {
-        let state = self.default_item_state;
+        let item_selector = theming::ListItem {
+            state: Some(theming::ListState::Episode),
+            ..Default::default()
+        };
+
         let (number_rect, area) = split_left(area, self.sizing.episode_number_width);
         let (area, date_rect) = split_right(area, self.sizing.date_width);
         let (area, duration_rect) = split_right(area, self.sizing.duration_width);
 
-        buf.set_style(area, self.theme.get(theming::List::Item(state, None)));
+        buf.set_style(
+            area,
+            self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Title),
+            )),
+        );
         buf.set_style(
             number_rect,
             self.theme.get(theming::List::Item(
-                state,
-                Some(theming::ListSubitem::EpisodeNumber),
+                item_selector.with_column(theming::ListColumn::EpisodeNumber),
             )),
         );
         buf.set_style(
             date_rect,
-            self.theme
-                .get(theming::List::Item(state, Some(theming::ListSubitem::Date))),
+            self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Date),
+            )),
         );
         buf.set_style(
             duration_rect,
             self.theme.get(theming::List::Item(
-                state,
-                Some(theming::ListSubitem::Duration),
+                item_selector.with_column(theming::ListColumn::Duration),
             )),
         );
     }

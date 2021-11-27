@@ -4,7 +4,9 @@ mod style_parser;
 use crate::cmdreader::{self, CommandReader, FileResolver};
 use cmd_parser::CmdParsable;
 use selectors::StyleSelector;
-pub(crate) use selectors::{Empty, List, ListState, ListSubitem, Player, Selector, StatusBar};
+pub(crate) use selectors::{
+    Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar,
+};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tui::style::Style;
@@ -105,7 +107,7 @@ pub(crate) enum ThemeCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::{List, ListState, ListSubitem, StatusBar, Theme};
+    use super::{List, ListItem, ListState, StatusBar, Theme};
     use crate::status::Severity;
     use tui::style::{Color, Modifier, Style};
 
@@ -147,28 +149,43 @@ mod tests {
     fn list_item_style() {
         let mut theme = Theme::default();
         theme.set(
-            List::Item(ListState::empty(), None),
+            List::Item(ListItem::default()),
             Style::default().fg(Color::White),
         );
         theme.set(
-            List::Item(ListState::empty(), Some(ListSubitem::MissingTitle)),
+            List::Item(ListItem {
+                missing_title: true,
+                ..Default::default()
+            }),
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         );
         theme.set(
-            List::Item(ListState::SELECTED, None),
+            List::Item(ListItem {
+                selected: true,
+                ..Default::default()
+            }),
             Style::default().bg(Color::Red),
         );
         theme.set(
-            List::Item(ListState::FOCUSED, None),
+            List::Item(ListItem {
+                focused: true,
+                ..Default::default()
+            }),
             Style::default().add_modifier(Modifier::BOLD),
         );
         theme.set(
-            List::Item(ListState::ACTIVE, None),
+            List::Item(ListItem {
+                state: Some(ListState::EpisodePlaying),
+                ..Default::default()
+            }),
             Style::default().add_modifier(Modifier::UNDERLINED),
         );
 
-        let selected_focused =
-            theme.get(List::Item(ListState::SELECTED | ListState::FOCUSED, None));
+        let selected_focused = theme.get(List::Item(ListItem {
+            selected: true,
+            focused: true,
+            ..Default::default()
+        }));
         assert_eq!(
             selected_focused,
             Style {
@@ -179,9 +196,13 @@ mod tests {
             }
         );
 
-        let focused_active = theme.get(List::Item(ListState::FOCUSED | ListState::ACTIVE, None));
+        let focused_playing = theme.get(List::Item(ListItem {
+            focused: true,
+            state: Some(ListState::EpisodePlaying),
+            ..Default::default()
+        }));
         assert_eq!(
-            focused_active,
+            focused_playing,
             Style {
                 fg: Some(Color::White),
                 bg: None,
@@ -190,10 +211,12 @@ mod tests {
             }
         );
 
-        let focused_active_missing = theme.get(List::Item(
-            ListState::FOCUSED | ListState::ACTIVE,
-            Some(ListSubitem::MissingTitle),
-        ));
+        let focused_active_missing = theme.get(List::Item(ListItem {
+            focused: true,
+            state: Some(ListState::EpisodePlaying),
+            missing_title: true,
+            ..Default::default()
+        }));
         assert_eq!(
             focused_active_missing,
             Style {

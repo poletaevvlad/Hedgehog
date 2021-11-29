@@ -6,14 +6,14 @@
     <description>Mock feed</description>
   </channel>
   <item>
-	  <guid>ep1</guid>
-		<enclosure url="https://example.com/ep1.mp3" type="audio/mp3" />
+    <guid>ep1</guid>
+    <enclosure url="https://example.com/ep1.mp3" type="audio/mp3"/>
   </item>
   <item>
-	  <guid>ep2</guid>
+    <guid>ep2</guid>
   </item>
   <item>
-	  <guid>ep3</guid>
-		<enclosure url="https://example.com/ep3.mp3" type="audio/mp3" />
+    <guid>ep3</guid>
+    <enclosure url="https://example.com/ep3.mp3" type="audio/mp3"/>
   </item>
 </rss>

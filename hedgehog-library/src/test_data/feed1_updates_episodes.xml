@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+  <channel>
+    <title>Sample Podcast</title>
+    <description>Cras posuere euismod purus, eget porttitor ante lacinia ac. Sed vel mattis ipsum, id efficitur arcu. Integer vitae hendrerit erat.</description>
+    <link>https://example.com/podcast-1.html</link>
+    <itunes:author>John Smith</itunes:author>
+    <language>en-UK</language>
+    <item>
+      <title>Episode #6</title>
+      <description>Maecenas turpis nisi, tempus ut arcu non, cursus molestie elit.</description>
+      <link>https://example.com/episode-6.html</link>
+      <guid isPermaLink="false">bdd92623-1d7f-4894-954d-b3ce66a148af</guid>
+      <pubDate>Thu, 23 Dec 2021 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode6.mp3" length="1000" type="audio/mpeg"/>
+      <itunes:duration>140</itunes:duration>
+    </item>
+    <item>
+      <title>Episode #5</title>
+      <description>Aenean commodo elit id lorem luctus, at euismod sapien sagittis. Aenean ultricies odio non erat dignissim, sed mattis augue pharetra.</description>
+      <link>https://example.com/episode-5.html</link>
+      <guid isPermaLink="false">5d3c6343-641b-422d-b18a-1117b5ac4103</guid>
+      <pubDate>Wed, 22 Dec 2021 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode5.mp3" length="1000" type="audio/mpeg"/>
+      <itunes:duration>150</itunes:duration>
+    </item>
+    <item>
+      <title>Episode #4</title>
+      <description>Interdum et malesuada fames ac ante ipsum primis in faucibus. Nunc eu efficitur tortor. Donec nunc dui, lobortis at molestie a, tristique eget eros.</description>
+      <link>https://example.com/episode-4.html</link>
+      <guid isPermaLink="false">2463c8c6-98ac-42aa-9df5-40a00cb6201c</guid>
+      <pubDate>Tue, 21 Dec 2021 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode4.mp3" length="1000" type="audio/mpeg"/>
+      <itunes:duration>2:40</itunes:duration>
+      <itunes:season>1</itunes:season>
+    </item>
+    <item>
+      <title>Episode #3 (updated)</title>
+      <description>Fusce eu urna felis. Vivamus vitae iaculis dui. Aliquam libero nunc, suscipit feugiat elementum sed, bibendum vel diam.</description>
+      <link>https://example.com/episode-3.html</link>
+      <guid isPermaLink="false">a13f8ee9-3cfc-451d-a080-57883991ea34</guid>
+      <pubDate>Mon, 20 Dec 2021 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode3.mp3" length="1000" type="audio/mpeg"/>
+      <itunes:duration>02:50</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+    </item>
+    <item>
+      <title>Episode #2</title>
+      <description>Cras neque ligula, molestie id sem non, placerat egestas risus. Phasellus vel ante porta, dapibus sem id, imperdiet nunc.</description>
+      <link>https://example.com/episode-2.html</link>
+      <guid isPermaLink="false">189a5ec8-d67b-417d-9dc9-80ea487ebc21</guid>
+      <pubDate>Sun, 19 Dec 2021 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode2.mp3" length="1000" type="audio/mpeg"/>
+      <itunes:duration>0:03:00</itunes:duration>
+      <itunes:season>1</itunes:season>
+      <itunes:episode>2</itunes:episode>
+    </item>
+  </channel>
+</rss>

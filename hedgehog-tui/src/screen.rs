@@ -107,6 +107,8 @@ pub(crate) enum Command {
         #[cmd(attr(all = "true"))]
         update_all: bool,
     },
+
+    Refresh,
 }
 
 #[derive(Debug, Clone, PartialEq, CmdParsable)]
@@ -396,6 +398,11 @@ impl UI {
                     self.status_writer_actor
                         .do_send(StatusWriterCommand::set(selected_id, status));
                 }
+                self.invalidate(ctx);
+            }
+            Command::Refresh => {
+                self.library.feeds.invalidate();
+                self.library.episodes.invalidate();
                 self.invalidate(ctx);
             }
         }

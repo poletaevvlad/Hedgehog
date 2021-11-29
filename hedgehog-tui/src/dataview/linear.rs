@@ -38,6 +38,19 @@ impl<T> DataView for ListData<T> {
     fn item_at(&self, index: usize) -> Option<&Self::Item> {
         self.items.as_ref().and_then(|items| items.get(index))
     }
+
+    fn has_data(&self) -> bool {
+        self.items.is_some()
+    }
+
+    fn index_of<ID: Eq>(&self, id: ID) -> Option<usize>
+    where
+        Self::Item: Identifiable<Id = ID>,
+    {
+        self.items
+            .as_ref()
+            .and_then(|items| index_with_id(items.iter(), id))
+    }
 }
 
 impl<T: Identifiable> EditableDataView for ListData<T> {

@@ -35,6 +35,10 @@ pub(crate) trait DataView {
     fn size(&self) -> Option<usize>;
     fn update(&mut self, range: Range<usize>, request_data: impl Fn(Self::Request));
     fn handle(&mut self, msg: Self::Message) -> bool;
+    fn has_data(&self) -> bool;
+    fn index_of<ID: Eq>(&self, id: ID) -> Option<usize>
+    where
+        Self::Item: Identifiable<Id = ID>;
 }
 
 pub(crate) trait EditableDataView {

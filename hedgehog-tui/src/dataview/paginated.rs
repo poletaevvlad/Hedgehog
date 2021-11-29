@@ -136,6 +136,28 @@ impl<T> DataView for PaginatedData<T> {
             .and_then(|page| page.as_ref())
             .and_then(|page| page.get(self.page_item_index(index)))
     }
+
+    fn has_data(&self) -> bool {
+        !self.pages.is_empty() && self.pages.iter().all(Option::is_some)
+    }
+
+    fn index_of<ID: Eq>(&self, id: ID) -> Option<usize>
+    where
+        Self::Item: Identifiable<Id = ID>,
+    {
+        for (page_index, page) in self.pages.iter().enumerate() {
+            if let Some(page_items) = page {
+                for (item_index, item) in page_items.iter().enumerate() {
+                    if item.id() == id {
+                        return Some(
+                            item_index + (self.first_page_index + page_index) * self.page_size,
+                        );
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 impl<T: Identifiable> UpdatableDataView for PaginatedData<T> {

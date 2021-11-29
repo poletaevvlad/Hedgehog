@@ -4,7 +4,6 @@ use super::{
 };
 use hedgehog_library::model::Identifiable;
 
-#[derive(Debug)]
 pub(crate) struct InteractiveList<T: DataView, P: DataProvider<Request = T::Request>>
 where
     T::Item: Identifiable,
@@ -15,7 +14,7 @@ where
     selection: usize,
     offset: usize,
     window_size: usize,
-    //updating_index: Option<(usize, <T::Item as Identifiable>::Id)>,
+    updating_index: Option<(usize, usize, <T::Item as Identifiable>::Id)>,
 }
 
 impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P>
@@ -34,11 +33,14 @@ where
             selection: 0,
             offset: 0,
             window_size,
-            // updating_index: None,
+            updating_index: None,
         }
     }
 
     pub(crate) fn set_provider(&mut self, provider: P) {
+        if let Some(selected) = self.data.item_at(self.selection) {
+            self.updating_index = Some((self.offset, self.selection, selected.id()));
+        }
         self.provider = self.provider.update(Some(provider));
         self.offset = 0;
         self.selection = 0;
@@ -90,8 +92,24 @@ where
             return false;
         };
         if previous_size.is_none() && self.data.size().is_some() {
+            if let Some((offset, selection, _)) = self.updating_index {
+                self.offset = offset;
+                self.selection = selection;
+            }
             self.update();
         }
+
+        if self.updating_index.is_some() && self.data.has_data() {
+            let (_, _, id) = self.updating_index.take().unwrap();
+            let index = self.data.index_of(id);
+            if let Some(index) = index {
+                self.selection = index;
+            } else {
+                self.offset = 0;
+                self.selection = 0;
+            }
+        }
+
         true
     }
 

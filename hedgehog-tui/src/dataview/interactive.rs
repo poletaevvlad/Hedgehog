@@ -5,16 +5,23 @@ use super::{
 use hedgehog_library::model::Identifiable;
 
 #[derive(Debug)]
-pub(crate) struct InteractiveList<T: DataView, P: DataProvider<Request = T::Request>> {
+pub(crate) struct InteractiveList<T: DataView, P: DataProvider<Request = T::Request>>
+where
+    T::Item: Identifiable,
+{
     provider: Versioned<Option<P>>,
     pub(super) data: T,
     options: DataViewOptions,
     selection: usize,
     offset: usize,
     window_size: usize,
+    //updating_index: Option<(usize, <T::Item as Identifiable>::Id)>,
 }
 
-impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
+impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P>
+where
+    T::Item: Identifiable,
+{
     pub(crate) fn new(window_size: usize) -> Self {
         Self::new_with_options(window_size, DataViewOptions::default())
     }
@@ -27,6 +34,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
             selection: 0,
             offset: 0,
             window_size,
+            // updating_index: None,
         }
     }
 
@@ -41,7 +49,7 @@ impl<T: DataView, P: DataProvider<Request = T::Request>> InteractiveList<T, P> {
     }
 
     pub(crate) fn update_provider(&mut self, update: impl FnOnce(&mut P)) -> bool {
-        let provider = self.provider.1.take();
+        let provider = self.provider.take();
         if let Some(mut provider) = provider {
             update(&mut provider);
             self.set_provider(provider);

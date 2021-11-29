@@ -1,10 +1,12 @@
 pub(crate) mod interactive;
 pub(crate) mod linear;
 pub(crate) mod paginated;
+mod version;
 
 use cmd_parser::CmdParsable;
 use hedgehog_library::model::Identifiable;
 use std::ops::Range;
+pub(crate) use version::Versioned;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DataViewOptions {
@@ -61,72 +63,6 @@ fn index_with_id<'a, T: Identifiable + 'a>(
         .filter(|(_, item)| item.id() == id)
         .map(|(index, _)| index)
         .next()
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-#[repr(transparent)]
-pub(crate) struct Version(usize);
-
-impl Version {
-    fn advanced(&self) -> Version {
-        Version(self.0.wrapping_add(1))
-    }
-}
-
-impl Default for Version {
-    fn default() -> Self {
-        Version(0)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct Versioned<T>(Version, T);
-
-impl<T> Versioned<T> {
-    pub(crate) fn new(value: T) -> Self {
-        Versioned(Version::default(), value)
-    }
-
-    pub(crate) fn with_version(mut self, version: Version) -> Self {
-        self.0 = version;
-        self
-    }
-
-    pub(crate) fn update<R>(&self, new_value: R) -> Versioned<R> {
-        Versioned(self.0.advanced(), new_value)
-    }
-
-    pub(crate) fn with_data<R>(&self, new_value: R) -> Versioned<R> {
-        Versioned(self.0, new_value)
-    }
-
-    pub(crate) fn same_version<R>(&self, other: &Versioned<R>) -> bool {
-        self.0 == other.0
-    }
-
-    pub(crate) fn as_ref(&self) -> Versioned<&T> {
-        Versioned(self.0, &self.1)
-    }
-
-    pub(crate) fn map<R>(self, f: impl FnOnce(T) -> R) -> Versioned<R> {
-        Versioned(self.0, f(self.1))
-    }
-
-    pub(crate) fn as_inner(&self) -> &T {
-        &self.1
-    }
-
-    pub(crate) fn version(&self) -> Version {
-        self.0
-    }
-
-    pub(crate) fn into_inner(self) -> T {
-        self.1
-    }
-
-    pub(crate) fn deconstruct(self) -> (Version, T) {
-        (self.0, self.1)
-    }
 }
 
 pub(crate) trait DataProvider {
@@ -196,7 +132,7 @@ mod tests {
         }
     }
 
-    fn assert_list<P: DataProvider, T: PartialEq + std::fmt::Debug + Clone>(
+    fn assert_list<P: DataProvider, T: PartialEq + std::fmt::Debug + Clone + Identifiable>(
         list: &InteractiveList<impl DataView<Item = T, Request = P::Request>, P>,
         expected: &[(Option<T>, bool)],
     ) {
@@ -210,12 +146,41 @@ mod tests {
         );
     }
 
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    struct SimpleItem<T>(T);
+
+    impl<T: Clone + Eq> Identifiable for SimpleItem<T> {
+        type Id = T;
+
+        fn id(&self) -> Self::Id {
+            self.0.clone()
+        }
+    }
+
     macro_rules! item {
         ($value:expr) => {
             (Some($value), false)
         };
-        ($value:expr, selected) => {
+        ($value:expr, sel) => {
             (Some($value), true)
+        };
+    }
+
+    macro_rules! s_item {
+        ($value:expr) => {
+            (Some(SimpleItem($value)), false)
+        };
+        ($value:expr, sel) => {
+            (Some(SimpleItem($value)), true)
+        };
+    }
+
+    macro_rules! s_items {
+        ($($val:expr),*) => {
+            vec![$(SimpleItem($val)),*]
+        };
+        ($val:expr; $size:expr) => {
+            vec![SimpleItem($val); $size]
         };
     }
 
@@ -231,7 +196,10 @@ mod tests {
     #[test]
     fn scrolling_list_data() {
         let mut scroll_list =
-            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(4, TEST_OPTIONS);
+            InteractiveList::<ListData<SimpleItem<u8>>, MockDataProvider<_>>::new_with_options(
+                4,
+                TEST_OPTIONS,
+            );
         assert!(scroll_list.iter().is_none());
 
         let (provider, requests) = MockDataProvider::new();
@@ -241,42 +209,45 @@ mod tests {
         assert!(requests.borrow().is_empty());
         requests.borrow_mut().clear();
 
-        scroll_list.handle_data(request.with_data(vec![1, 2, 3, 4, 5, 6]));
+        scroll_list.handle_data(request.with_data(s_items![1, 2, 3, 4, 5, 6]));
         let expected_forward = vec![
-            [item!(1, selected), item!(2), item!(3), item!(4)],
-            [item!(1), item!(2, selected), item!(3), item!(4)],
-            [item!(1), item!(2), item!(3, selected), item!(4)],
-            [item!(2), item!(3), item!(4, selected), item!(5)],
-            [item!(3), item!(4), item!(5, selected), item!(6)],
-            [item!(3), item!(4), item!(5), item!(6, selected)],
-            [item!(3), item!(4), item!(5), item!(6, selected)],
+            [s_item!(1, sel), s_item!(2), s_item!(3), s_item!(4)],
+            [s_item!(1), s_item!(2, sel), s_item!(3), s_item!(4)],
+            [s_item!(1), s_item!(2), s_item!(3, sel), s_item!(4)],
+            [s_item!(2), s_item!(3), s_item!(4, sel), s_item!(5)],
+            [s_item!(3), s_item!(4), s_item!(5, sel), s_item!(6)],
+            [s_item!(3), s_item!(4), s_item!(5), s_item!(6, sel)],
+            [s_item!(3), s_item!(4), s_item!(5), s_item!(6, sel)],
         ];
         for expected in expected_forward {
             assert_list(&scroll_list, &expected);
             scroll_list.move_cursor(1);
         }
-        assert_eq!(scroll_list.selection(), Some(&6));
+        assert_eq!(scroll_list.selection(), Some(&SimpleItem(6)));
 
         let expected_backward = vec![
-            [item!(3), item!(4), item!(5), item!(6, selected)],
-            [item!(3), item!(4), item!(5, selected), item!(6)],
-            [item!(3), item!(4, selected), item!(5), item!(6)],
-            [item!(2), item!(3, selected), item!(4), item!(5)],
-            [item!(1), item!(2, selected), item!(3), item!(4)],
-            [item!(1, selected), item!(2), item!(3), item!(4)],
-            [item!(1, selected), item!(2), item!(3), item!(4)],
+            [s_item!(3), s_item!(4), s_item!(5), s_item!(6, sel)],
+            [s_item!(3), s_item!(4), s_item!(5, sel), s_item!(6)],
+            [s_item!(3), s_item!(4, sel), s_item!(5), s_item!(6)],
+            [s_item!(2), s_item!(3, sel), s_item!(4), s_item!(5)],
+            [s_item!(1), s_item!(2, sel), s_item!(3), s_item!(4)],
+            [s_item!(1, sel), s_item!(2), s_item!(3), s_item!(4)],
+            [s_item!(1, sel), s_item!(2), s_item!(3), s_item!(4)],
         ];
         for expected in expected_backward {
             assert_list(&scroll_list, &expected);
             scroll_list.move_cursor(-1);
         }
-        assert_eq!(scroll_list.selection(), Some(&1));
+        assert_eq!(scroll_list.selection(), Some(&SimpleItem(1)));
     }
 
     #[test]
     fn scrolling_fits_on_screen() {
         let mut scroll_list =
-            InteractiveList::<ListData<u8>, MockDataProvider<_>>::new_with_options(4, TEST_OPTIONS);
+            InteractiveList::<ListData<SimpleItem<u8>>, MockDataProvider<_>>::new_with_options(
+                4,
+                TEST_OPTIONS,
+            );
         assert!(scroll_list.iter().is_none());
 
         let (provider, requests) = MockDataProvider::new();
@@ -286,13 +257,13 @@ mod tests {
         assert!(requests.borrow().is_empty());
         requests.borrow_mut().clear();
 
-        scroll_list.handle_data(request.with_data(vec![1, 2, 3]));
+        scroll_list.handle_data(request.with_data(s_items![1, 2, 3]));
         let expected_both_ways = vec![
-            [item!(1, selected), item!(2), item!(3)],
-            [item!(1, selected), item!(2), item!(3)],
-            [item!(1), item!(2, selected), item!(3)],
-            [item!(1), item!(2), item!(3, selected)],
-            [item!(1), item!(2), item!(3, selected)],
+            [s_item!(1, sel), s_item!(2), s_item!(3)],
+            [s_item!(1, sel), s_item!(2), s_item!(3)],
+            [s_item!(1), s_item!(2, sel), s_item!(3)],
+            [s_item!(1), s_item!(2), s_item!(3, sel)],
+            [s_item!(1), s_item!(2), s_item!(3, sel)],
         ];
         for expected in expected_both_ways.iter().skip(1) {
             assert_list(&scroll_list, expected);
@@ -307,7 +278,7 @@ mod tests {
     #[test]
     fn initializing_paginated_list() {
         let mut scroll_list =
-            InteractiveList::<PaginatedData<u8>, MockDataProvider<_>>::new_with_options(
+            InteractiveList::<PaginatedData<SimpleItem<u8>>, MockDataProvider<_>>::new_with_options(
                 6,
                 TEST_OPTIONS,
             );
@@ -344,7 +315,7 @@ mod tests {
 
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
             index: 1,
-            values: vec![4, 5, 6, 7],
+            values: s_items![4, 5, 6, 7],
         }));
         assert_list(
             &scroll_list,
@@ -353,24 +324,24 @@ mod tests {
                 no_item!(),
                 no_item!(),
                 no_item!(),
-                item!(4),
-                item!(5),
+                s_item!(4),
+                s_item!(5),
             ],
         );
 
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
             index: 0,
-            values: vec![0, 1, 2, 3],
+            values: s_items![0, 1, 2, 3],
         }));
         assert_list(
             &scroll_list,
             &[
-                item!(0, selected),
-                item!(1),
-                item!(2),
-                item!(3),
-                item!(4),
-                item!(5),
+                s_item!(0, sel),
+                s_item!(1),
+                s_item!(2),
+                s_item!(3),
+                s_item!(4),
+                s_item!(5),
             ],
         );
 
@@ -378,12 +349,12 @@ mod tests {
         assert_list(
             &scroll_list,
             &[
-                item!(2),
-                item!(3),
-                item!(4),
-                item!(5),
-                item!(6, selected),
-                item!(7),
+                s_item!(2),
+                s_item!(3),
+                s_item!(4),
+                s_item!(5),
+                s_item!(6, sel),
+                s_item!(7),
             ],
         );
         assert_eq!(
@@ -396,11 +367,11 @@ mod tests {
         assert_list(
             &scroll_list,
             &[
-                item!(3),
-                item!(4),
-                item!(5),
-                item!(6),
-                item!(7, selected),
+                s_item!(3),
+                s_item!(4),
+                s_item!(5),
+                s_item!(6),
+                s_item!(7, sel),
                 no_item!(),
             ],
         );
@@ -411,7 +382,9 @@ mod tests {
         let mut options = TEST_OPTIONS.clone();
         options.page_size = 3;
         let mut scroll_list =
-            InteractiveList::<PaginatedData<u8>, MockDataProvider<_>>::new_with_options(4, options);
+            InteractiveList::<PaginatedData<SimpleItem<u8>>, MockDataProvider<_>>::new_with_options(
+                4, options,
+            );
 
         let (provider, requests) = MockDataProvider::new();
         scroll_list.set_provider(provider);
@@ -422,16 +395,16 @@ mod tests {
         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Size(100)));
 
         let scrolling_data = vec![
-            (0, 2, [item!(0, selected), item!(0), item!(0), item!(1)]),
-            (0, 2, [item!(0), item!(0, selected), item!(0), item!(1)]),
-            (0, 2, [item!(0), item!(0), item!(0, selected), item!(1)]),
-            (0, 2, [item!(0), item!(0), item!(1, selected), item!(1)]),
-            (0, 3, [item!(0), item!(1), item!(1, selected), item!(1)]),
-            (0, 3, [item!(1), item!(1), item!(1, selected), item!(2)]),
-            (1, 2, [item!(1), item!(1), item!(2, selected), item!(2)]),
-            (1, 3, [item!(1), item!(2), item!(2, selected), item!(2)]),
-            (1, 3, [item!(2), item!(2), item!(2, selected), item!(3)]),
-            (2, 2, [item!(2), item!(2), item!(3, selected), item!(3)]),
+            (0, 2, [s_item!(0, sel), s_item!(0), s_item!(0), s_item!(1)]),
+            (0, 2, [s_item!(0), s_item!(0, sel), s_item!(0), s_item!(1)]),
+            (0, 2, [s_item!(0), s_item!(0), s_item!(0, sel), s_item!(1)]),
+            (0, 2, [s_item!(0), s_item!(0), s_item!(1, sel), s_item!(1)]),
+            (0, 3, [s_item!(0), s_item!(1), s_item!(1, sel), s_item!(1)]),
+            (0, 3, [s_item!(1), s_item!(1), s_item!(1, sel), s_item!(2)]),
+            (1, 2, [s_item!(1), s_item!(1), s_item!(2, sel), s_item!(2)]),
+            (1, 3, [s_item!(1), s_item!(2), s_item!(2, sel), s_item!(2)]),
+            (1, 3, [s_item!(2), s_item!(2), s_item!(2, sel), s_item!(3)]),
+            (2, 2, [s_item!(2), s_item!(2), s_item!(3, sel), s_item!(3)]),
         ];
         for (page_index, offset, expected) in scrolling_data {
             while let Some(request) = requests.borrow_mut().pop_front() {
@@ -440,7 +413,7 @@ mod tests {
                     PaginatedDataRequest::Page(page) => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
                             index: page.index,
-                            values: vec![page.index as u8; page.size],
+                            values: s_items![page.index as u8; page.size],
                         }));
                     }
                 }
@@ -454,17 +427,17 @@ mod tests {
         }
 
         let scrolling_backwards_data = vec![
-            (2, 3, [item!(2), item!(3), item!(3, selected), item!(3)]),
-            (2, 3, [item!(2), item!(3, selected), item!(3), item!(3)]),
-            (2, 2, [item!(2), item!(2, selected), item!(3), item!(3)]),
-            (1, 3, [item!(2), item!(2, selected), item!(2), item!(3)]),
-            (1, 3, [item!(1), item!(2, selected), item!(2), item!(2)]),
-            (1, 2, [item!(1), item!(1, selected), item!(2), item!(2)]),
-            (0, 3, [item!(1), item!(1, selected), item!(1), item!(2)]),
-            (0, 3, [item!(0), item!(1, selected), item!(1), item!(1)]),
-            (0, 2, [item!(0), item!(0, selected), item!(1), item!(1)]),
-            (0, 2, [item!(0), item!(0, selected), item!(0), item!(1)]),
-            (0, 2, [item!(0, selected), item!(0), item!(0), item!(1)]),
+            (2, 3, [s_item!(2), s_item!(3), s_item!(3, sel), s_item!(3)]),
+            (2, 3, [s_item!(2), s_item!(3, sel), s_item!(3), s_item!(3)]),
+            (2, 2, [s_item!(2), s_item!(2, sel), s_item!(3), s_item!(3)]),
+            (1, 3, [s_item!(2), s_item!(2, sel), s_item!(2), s_item!(3)]),
+            (1, 3, [s_item!(1), s_item!(2, sel), s_item!(2), s_item!(2)]),
+            (1, 2, [s_item!(1), s_item!(1, sel), s_item!(2), s_item!(2)]),
+            (0, 3, [s_item!(1), s_item!(1, sel), s_item!(1), s_item!(2)]),
+            (0, 3, [s_item!(0), s_item!(1, sel), s_item!(1), s_item!(1)]),
+            (0, 2, [s_item!(0), s_item!(0, sel), s_item!(1), s_item!(1)]),
+            (0, 2, [s_item!(0), s_item!(0, sel), s_item!(0), s_item!(1)]),
+            (0, 2, [s_item!(0, sel), s_item!(0), s_item!(0), s_item!(1)]),
         ];
         for (page_index, offset, expected) in scrolling_backwards_data {
             while let Some(request) = requests.borrow_mut().pop_front() {
@@ -473,7 +446,7 @@ mod tests {
                     PaginatedDataRequest::Page(page) => {
                         scroll_list.handle_data(request.with_data(PaginatedDataMessage::Page {
                             index: page.index,
-                            values: vec![page.index as u8; page.size],
+                            values: s_items![page.index as u8; page.size],
                         }));
                     }
                 }
@@ -520,7 +493,7 @@ mod tests {
         assert_list(
             &scroll_list,
             &[
-                item!(IdItem(5, "five"), selected),
+                item!(IdItem(5, "five"), sel),
                 item!(IdItem(3, "three")),
                 item!(IdItem(7, "seven")),
                 item!(IdItem(1, "one")),
@@ -532,7 +505,7 @@ mod tests {
         assert_list(
             &scroll_list,
             &[
-                item!(IdItem(5, "five"), selected),
+                item!(IdItem(5, "five"), sel),
                 item!(IdItem(3, "three v2")),
                 item!(IdItem(7, "seven")),
                 item!(IdItem(1, "one")),
@@ -544,7 +517,7 @@ mod tests {
         assert_list(
             &scroll_list,
             &[
-                item!(IdItem(5, "five"), selected),
+                item!(IdItem(5, "five"), sel),
                 item!(IdItem(3, "three v2")),
                 item!(IdItem(1, "one")),
                 item!(IdItem(8, "eight")),
@@ -580,7 +553,7 @@ mod tests {
                 item!(IdItem(1, "a")),
                 item!(IdItem(2, "b")),
                 item!(IdItem(3, "c")),
-                item!(IdItem(4, "d"), selected),
+                item!(IdItem(4, "d"), sel),
                 item!(IdItem(5, "e")),
                 item!(IdItem(6, "f")),
                 item!(IdItem(7, "g")),
@@ -594,7 +567,7 @@ mod tests {
                 item!(IdItem(1, "a")),
                 item!(IdItem(2, "b")),
                 item!(IdItem(3, "c")),
-                item!(IdItem(4, "d"), selected),
+                item!(IdItem(4, "d"), sel),
                 item!(IdItem(5, "e")),
                 item!(IdItem(7, "g")),
             ],
@@ -606,7 +579,7 @@ mod tests {
             &[
                 item!(IdItem(1, "a")),
                 item!(IdItem(2, "b")),
-                item!(IdItem(4, "d"), selected),
+                item!(IdItem(4, "d"), sel),
                 item!(IdItem(5, "e")),
                 item!(IdItem(7, "g")),
             ],
@@ -618,7 +591,7 @@ mod tests {
             &[
                 item!(IdItem(1, "a")),
                 item!(IdItem(2, "b")),
-                item!(IdItem(5, "e"), selected),
+                item!(IdItem(5, "e"), sel),
                 item!(IdItem(7, "g")),
             ],
         );
@@ -629,23 +602,23 @@ mod tests {
             &[
                 item!(IdItem(1, "a")),
                 item!(IdItem(2, "b")),
-                item!(IdItem(5, "e"), selected),
+                item!(IdItem(5, "e"), sel),
             ],
         );
 
         scroll_list.remove_item(5);
         assert_list(
             &scroll_list,
-            &[item!(IdItem(1, "a")), item!(IdItem(2, "b"), selected)],
+            &[item!(IdItem(1, "a")), item!(IdItem(2, "b"), sel)],
         );
 
         scroll_list.remove_item(2);
-        assert_list(&scroll_list, &[item!(IdItem(1, "a"), selected)]);
+        assert_list(&scroll_list, &[item!(IdItem(1, "a"), sel)]);
 
         scroll_list.remove_item(1);
         assert_list(&scroll_list, &[]);
 
         scroll_list.add_item(IdItem(8, "h"));
-        assert_list(&scroll_list, &[item!(IdItem(8, "h"), selected)]);
+        assert_list(&scroll_list, &[item!(IdItem(8, "h"), sel)]);
     }
 }

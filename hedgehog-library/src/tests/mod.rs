@@ -2,6 +2,8 @@
 
 mod data;
 
+use std::collections::HashSet;
+
 use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus};
 use crate::sqlite::SqliteDataProvider;
 use crate::{
@@ -255,8 +257,8 @@ async fn updates_episodes_on_update() {
     let_assert!(let FeedUpdateNotification::UpdateStarted(ids) = update_started);
     assert_eq!(ids, vec![feed_id]);
 
-    let update_started = reciever.recv().await.unwrap();
-    let_assert!(let FeedUpdateNotification::UpdateFinished(id, update) = update_started);
+    let update_finished = reciever.recv().await.unwrap();
+    let_assert!(let FeedUpdateNotification::UpdateFinished(id, update) = update_finished);
     assert_eq!(id, feed_id);
     let_assert!(let FeedUpdateResult::Updated(summary) = update);
     assert_eq!(summary.id, feed_id);
@@ -279,4 +281,135 @@ async fn updates_episodes_on_update() {
     for (expected, actual) in expected.iter().zip(episodes.iter()) {
         expected.assert_equals(actual);
     }
+}
+
+#[actix::test]
+async fn update_failure() {
+    let (library, mut reciever) = create_library().await;
+    let feed = include_str!("../test_data/feed1.xml");
+    let mock_server = httpmock::MockServer::start();
+    let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
+    mock_server.mock(|when, then| {
+        when.method(httpmock::Method::GET).path("/feed.xml");
+        then.status(500);
+    });
+
+    let msg = FeedUpdateRequest::UpdateSingle(feed_id);
+    library.send(msg).await.unwrap();
+
+    let _update_started = reciever.recv().await.unwrap();
+    let update_finished = reciever.recv().await.unwrap();
+    let_assert!(let FeedUpdateNotification::UpdateFinished(id, update) = update_finished);
+    assert_eq!(id, feed_id);
+    let_assert!(let FeedUpdateResult::StatusChanged(new_status) = update);
+    assert_eq!(
+        new_status,
+        FeedStatus::Error(FeedError::HttpError(StatusCode::from_u16(500).unwrap()))
+    );
+
+    let query = EpisodesQuery::Multiple {
+        feed_id: Some(feed_id),
+    };
+    let episodes = get_episode_summaries(library, query).await;
+    assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
+    let expected = [
+        data::feed1::EPISODE_5,
+        data::feed1::EPISODE_4,
+        data::feed1::EPISODE_3,
+        data::feed1::EPISODE_2,
+        data::feed1::EPISODE_1,
+    ];
+    assert_eq!(episodes.len(), expected.len());
+    for (expected, actual) in expected.iter().zip(episodes.iter()) {
+        expected.assert_equals(actual);
+    }
+}
+
+#[actix::test]
+async fn update_all() {
+    let (library, mut reciever) = create_library().await;
+    let mock_server = httpmock::MockServer::start();
+
+    let mut feed_ids = Vec::new();
+    for i in 0..4 {
+        mock_server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path(format!("/feed{}.xml", i));
+            then.status(200)
+                .body(include_str!("../test_data/empty_feed.xml"));
+        });
+
+        let source = format!("{}/feed{}.xml", mock_server.base_url(), i);
+        library
+            .send(FeedUpdateRequest::AddFeed(source))
+            .await
+            .unwrap();
+
+        let mut feed_id = None;
+        loop {
+            match reciever.recv().await.unwrap() {
+                FeedUpdateNotification::UpdateStarted(ids) => {
+                    assert_eq!(ids, vec![feed_id.unwrap()]);
+                }
+                FeedUpdateNotification::UpdateFinished(id, _) => {
+                    assert_eq!(id, feed_id.unwrap());
+                    break;
+                }
+                FeedUpdateNotification::FeedAdded(summary) => feed_id = Some(summary.id),
+                msg => panic!("unexpected message: {:?}", msg),
+            }
+        }
+        feed_ids.push(feed_id.unwrap());
+    }
+
+    async fn get_updated(
+        library: &Addr<Library>,
+        reciever: &mut Receiver<FeedUpdateNotification>,
+    ) -> HashSet<FeedId> {
+        library.send(FeedUpdateRequest::UpdateAll).await.unwrap();
+        let update_started = reciever.recv().await.unwrap();
+        let_assert!(let FeedUpdateNotification::UpdateStarted(feed_ids) = update_started);
+        for _ in 0..feed_ids.len() {
+            let update_started = reciever.recv().await.unwrap();
+            let_assert!(let FeedUpdateNotification::UpdateFinished(id, _update) = update_started);
+            assert!(feed_ids.contains(&id));
+        }
+        feed_ids.into_iter().collect()
+    }
+
+    let updated = get_updated(&library, &mut reciever).await;
+    assert_eq!(updated, feed_ids.iter().cloned().collect());
+
+    library
+        .send(FeedUpdateRequest::SetFeedEnabled(feed_ids[1], false))
+        .await
+        .unwrap();
+    library
+        .send(FeedUpdateRequest::SetFeedEnabled(feed_ids[2], false))
+        .await
+        .unwrap();
+
+    let updated = get_updated(&library, &mut reciever).await;
+    assert_eq!(
+        updated,
+        vec![feed_ids[0], feed_ids[3]].iter().cloned().collect()
+    );
+
+    library
+        .send(FeedUpdateRequest::SetFeedEnabled(feed_ids[0], true))
+        .await
+        .unwrap();
+    library
+        .send(FeedUpdateRequest::SetFeedEnabled(feed_ids[2], true))
+        .await
+        .unwrap();
+
+    let updated = get_updated(&library, &mut reciever).await;
+    assert_eq!(
+        updated,
+        vec![feed_ids[0], feed_ids[2], feed_ids[3]]
+            .iter()
+            .cloned()
+            .collect()
+    );
 }

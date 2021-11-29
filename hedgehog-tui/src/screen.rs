@@ -1,8 +1,8 @@
 use crate::cmdreader::{CommandReader, FileResolver};
-use crate::dataview::{
-    CursorCommand, DataProvider, InteractiveList, ListData, ListDataRequest, PaginatedData,
-    PaginatedDataMessage, PaginatedDataRequest, Versioned,
-};
+use crate::dataview::interactive::InteractiveList;
+use crate::dataview::linear::{ListData, ListDataRequest};
+use crate::dataview::paginated::{PaginatedData, PaginatedDataMessage, PaginatedDataRequest};
+use crate::dataview::{CursorCommand, DataProvider, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};

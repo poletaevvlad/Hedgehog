@@ -13,6 +13,8 @@ pub struct SearchResult {
     pub episodes_count: u64,
 
     #[serde(rename = "feedUrl")]
+    //#[serde(deserialize_with = "deserialize_string_null")]
+    #[serde(default)]
     pub feed_url: String,
 
     #[serde(rename = "artistName")]
@@ -84,7 +86,9 @@ impl SearchClient {
 
         let body = response.text().await?;
         let response: SearchResponse = serde_json::from_str(&body)?;
-        Ok(response.results)
+        let mut results = response.results;
+        results.retain(|entry| !entry.feed_url.is_empty());
+        Ok(results)
     }
 }
 
@@ -131,6 +135,48 @@ mod tests {
                     episodes_count: 29,
                     feed_url: "https://www.nasa.gov/rss/dyn/curious-universe.rss".to_string(),
                     author: "National Aeronautics and Space Administration (NASA)".to_string(),
+                    country: "USA".to_string(),
+                    genre: "Science".to_string(),
+                },
+                SearchResult {
+                    id: 254107991,
+                    title: "NASACast: This Week @NASA Audio".to_string(),
+                    episodes_count: 10,
+                    feed_url: "https://www.nasa.gov/rss/dyn/TWAN_podcast.rss".to_string(),
+                    author: "National Aeronautics and Space Administration (NASA)".to_string(),
+                    country: "USA".to_string(),
+                    genre: "Science".to_string(),
+                },
+            ]
+        );
+
+        mock.assert();
+    }
+
+    #[actix::test]
+    async fn search_success_null_feed_ull() {
+        let server = httpmock::MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path("/search")
+                .query_param("term", "query+terms")
+                .query_param("entity", "podcast")
+                .query_param("limit", "50");
+            then.status(200)
+                .body(include_str!("./test_data/itunes-success-with-no-feed.json"));
+        });
+
+        let client = SearchClient::new().with_endpoint_url(format!("{}/search", server.base_url()));
+        let result = client.perform("query terms").await.unwrap();
+        assert_eq!(
+            result,
+            vec![
+                SearchResult {
+                    id: 262254981,
+                    title: "HD - NASA's Jet Propulsion Laboratory".to_string(),
+                    episodes_count: 100,
+                    feed_url: "https://www.jpl.nasa.gov/multimedia/rss/podfeed-hd.xml".to_string(),
+                    author: "High Definition Video".to_string(),
                     country: "USA".to_string(),
                     genre: "Science".to_string(),
                 },

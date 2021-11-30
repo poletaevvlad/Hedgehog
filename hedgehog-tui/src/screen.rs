@@ -129,6 +129,7 @@ pub(crate) enum Command {
         update_all: bool,
     },
     Search(String),
+    SearchAdd,
 
     Refresh,
 }
@@ -438,6 +439,19 @@ impl UI {
                 });
                 self.library.focus = FocusedPaneState::Search(Ok(list));
                 self.invalidate(ctx);
+            }
+            Command::SearchAdd => {
+                let feed_url = if let FocusedPaneState::Search(Ok(list)) = &self.library.focus {
+                    list.selection().map(|entry| entry.feed_url.clone())
+                } else {
+                    None
+                };
+
+                if let Some(feed_url) = feed_url {
+                    self.handle_command(Command::AddFeed(feed_url), ctx);
+                    self.library.focus = FocusedPaneState::FeedsList;
+                    self.invalidate(ctx);
+                }
             }
             Command::Refresh => {
                 self.library.feeds.invalidate();

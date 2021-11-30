@@ -247,4 +247,8 @@ where
     {
         self.update_item(Identifiable::id(&item), |current| *current = item);
     }
+
+    pub(crate) fn window_size(&self) -> usize {
+        self.window_size
+    }
 }

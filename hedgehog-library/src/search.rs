@@ -1,23 +1,35 @@
+use crate::model::Identifiable;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct SearchResult {
+    #[serde(rename = "collectionId")]
+    pub id: u64,
+
     #[serde(rename = "collectionName")]
-    title: String,
+    pub title: String,
 
     #[serde(rename = "trackCount")]
-    episodes_count: u64,
+    pub episodes_count: u64,
 
     #[serde(rename = "feedUrl")]
-    feed_url: String,
+    pub feed_url: String,
 
     #[serde(rename = "artistName")]
-    author: String,
+    pub author: String,
 
-    country: String,
+    pub country: String,
 
     #[serde(rename = "primaryGenreName")]
-    genre: String,
+    pub genre: String,
+}
+
+impl Identifiable for SearchResult {
+    type Id = u64;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,6 +117,7 @@ mod tests {
             result,
             vec![
                 SearchResult {
+                    id: 262254981,
                     title: "HD - NASA's Jet Propulsion Laboratory".to_string(),
                     episodes_count: 100,
                     feed_url: "https://www.jpl.nasa.gov/multimedia/rss/podfeed-hd.xml".to_string(),
@@ -113,6 +126,7 @@ mod tests {
                     genre: "Science".to_string(),
                 },
                 SearchResult {
+                    id: 1505624059,
                     title: "NASA's Curious Universe".to_string(),
                     episodes_count: 29,
                     feed_url: "https://www.nasa.gov/rss/dyn/curious-universe.rss".to_string(),
@@ -121,6 +135,7 @@ mod tests {
                     genre: "Science".to_string(),
                 },
                 SearchResult {
+                    id: 254107991,
                     title: "NASACast: This Week @NASA Audio".to_string(),
                     episodes_count: 10,
                     feed_url: "https://www.nasa.gov/rss/dyn/TWAN_podcast.rss".to_string(),

@@ -3,8 +3,9 @@ use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
 use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
 use crate::options::Options;
-use crate::screen::{FocusedPane, LibraryViewModel};
+use crate::screen::{FocusedPane, FocusedPaneState, LibraryViewModel, SearchState};
 use crate::theming::{self, Theme};
+use crate::widgets::search_row::SearchResultRowRenderer;
 use hedgehog_library::model::FeedStatus;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Widget};
@@ -23,10 +24,8 @@ impl<'a> LibraryWidget<'a> {
             theme,
         }
     }
-}
 
-impl<'a> Widget for LibraryWidget<'a> {
-    fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+    fn render_library(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         if self.data.feeds.is_empty() {
             EmptyView::new(self.theme)
                 .title("Hedgehog Podcast Player")
@@ -54,7 +53,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                 FeedsListRowRenderer::new(
                     self.theme,
                     self.options,
-                    self.data.focus == FocusedPane::FeedsList,
+                    self.data.focus.as_pane() == FocusedPane::FeedsList,
                     &self.data.updating_feeds,
                 ),
                 iter,
@@ -98,7 +97,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                 List::new(
                     EpisodesListRowRenderer::new(
                         self.theme,
-                        self.data.focus == FocusedPane::EpisodesList,
+                        self.data.focus.as_pane() == FocusedPane::EpisodesList,
                         self.options,
                         sizing,
                     )
@@ -107,6 +106,39 @@ impl<'a> Widget for LibraryWidget<'a> {
                 )
                 .render(layout[1], buf);
             }
+        }
+    }
+
+    fn render_search(
+        self,
+        area: tui::layout::Rect,
+        buf: &mut tui::buffer::Buffer,
+        search: &SearchState,
+    ) {
+        match search {
+            Ok(list) => match list.iter() {
+                Some(items) => {
+                    List::new(SearchResultRowRenderer::new(self.theme), items).render(area, buf);
+                }
+                None => EmptyView::new(self.theme)
+                    .title("Searching...")
+                    .render(area, buf),
+            },
+            Err(err) => EmptyView::new(self.theme)
+                .title("Search request failed")
+                .subtitle(&err.to_string())
+                .render(area, buf),
+        }
+    }
+}
+
+impl<'a> Widget for LibraryWidget<'a> {
+    fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+        match &self.data.focus {
+            FocusedPaneState::FeedsList | FocusedPaneState::EpisodesList => {
+                self.render_library(area, buf);
+            }
+            FocusedPaneState::Search(search_list) => self.render_search(area, buf, search_list),
         }
     }
 }

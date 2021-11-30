@@ -116,6 +116,10 @@ impl<'a> LibraryWidget<'a> {
         search: &SearchState,
     ) {
         match search {
+            Ok(list) if list.is_empty() => EmptyView::new(self.theme)
+                .title("Nothing is found")
+                .subtitle("Please make sure that your query is correct")
+                .render(area, buf),
             Ok(list) => match list.iter() {
                 Some(items) => {
                     List::new(SearchResultRowRenderer::new(self.theme), items).render(area, buf);

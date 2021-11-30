@@ -28,9 +28,54 @@ struct PlayerState {
     metadata: Option<PlaybackMetadata>,
 }
 
+impl PlayerState {
+    fn construct_mpris_metadata(&self) -> HashMap<String, Variant<Box<dyn RefArg>>> {
+        let mut metadata = HashMap::<String, Variant<Box<dyn RefArg>>>::new();
+        let duration = self.state.timing().and_then(|timing| timing.duration);
+        if let Some(duration) = duration {
+            metadata.insert(
+                "mpris:length".to_string(),
+                Variant(Box::new(duration.as_micros() as i64)),
+            );
+        }
+        if let Some(player_medatata) = &self.metadata {
+            let track_id = format!(
+                "/org/mpris/MediaPlayer2/Episodes/{}",
+                player_medatata.episode_id
+            );
+            metadata.insert(
+                "mpris:trackid".to_string(),
+                Variant(Box::new(dbus::Path::from(track_id))),
+            );
+            metadata.insert(
+                "xesam:title".to_string(),
+                Variant(Box::new(
+                    player_medatata
+                        .episode_title
+                        .as_ref()
+                        .cloned()
+                        .unwrap_or_else(String::new),
+                )),
+            );
+            metadata.insert(
+                "xesam:album".to_string(),
+                Variant(Box::new(
+                    player_medatata
+                        .feed_title
+                        .as_ref()
+                        .cloned()
+                        .unwrap_or_else(String::new),
+                )),
+            );
+        }
+        metadata
+    }
+}
+
 struct DBusCallbacks {
     volume_changed: PropChangeCallback,
     status_changed: PropChangeCallback,
+    metadata_changed: PropChangeCallback,
     seeked_signal: Box<dyn Fn(&dbus::Path, &(i64,)) -> dbus::Message + Send + Sync>,
 }
 
@@ -207,51 +252,14 @@ fn build_player_interface(
 
     b.property("Rate").get(|_, _| Ok(1.0));
 
-    b.property("Metadata")
+    let metadata_changed = b
+        .property("Metadata")
         .get(|_, mpris_ctx| match mpris_ctx.state.read() {
-            Ok(state) => {
-                let mut metadata = HashMap::<String, Variant<Box<dyn RefArg>>>::new();
-                let duration = state.state.timing().and_then(|timing| timing.duration);
-                if let Some(duration) = duration {
-                    metadata.insert(
-                        "mpris:length".to_string(),
-                        Variant(Box::new(duration.as_micros() as i64)),
-                    );
-                }
-                if let Some(player_medatata) = &state.metadata {
-                    let track_id = format!(
-                        "/org/mpris/MediaPlayer2/Episodes/{}",
-                        player_medatata.episode_id
-                    );
-                    metadata.insert(
-                        "mpris:trackid".to_string(),
-                        Variant(Box::new(dbus::Path::from(track_id))),
-                    );
-                    metadata.insert(
-                        "xesam:title".to_string(),
-                        Variant(Box::new(
-                            player_medatata
-                                .episode_title
-                                .as_ref()
-                                .cloned()
-                                .unwrap_or_else(String::new),
-                        )),
-                    );
-                    metadata.insert(
-                        "xesam:album".to_string(),
-                        Variant(Box::new(
-                            player_medatata
-                                .feed_title
-                                .as_ref()
-                                .cloned()
-                                .unwrap_or_else(String::new),
-                        )),
-                    );
-                }
-                Ok(metadata)
-            }
+            Ok(state) => Ok(state.construct_mpris_metadata()),
             Err(err) => Err(MethodErr::failed(&err)),
-        });
+        })
+        .emits_changed_true()
+        .changed_msg_fn();
 
     let volume_changed = b
         .property("Volume")
@@ -293,14 +301,16 @@ fn build_player_interface(
     b.property("MaximumRate").get(|_, _| Ok(1.0));
     b.property("CanGoNext").get(|_, _| Ok(false));
     b.property("CanGoPrevious").get(|_, _| Ok(false));
-    b.property("CanPlay").get(|_, _| Ok(false));
-    b.property("CanPause").get(|_, _| Ok(false));
+    b.property("CanPlay").get(|_, _| Ok(true));
+    b.property("CanPause").get(|_, _| Ok(true));
+    b.property("CanSeek").get(|_, _| Ok(true));
     b.property("CanControl").get(|_, _| Ok(true));
 
     *callbacks = Some(DBusCallbacks {
         volume_changed,
         status_changed,
         seeked_signal,
+        metadata_changed,
     });
 }
 
@@ -368,6 +378,14 @@ impl Handler<PlayerNotification> for MprisPlayer {
                 PlayerNotification::DurationSet(duration) => {
                     if let Ok(mut guard) = self.playback_state.write() {
                         guard.state.set_duration(duration);
+
+                        let message = (callbacks.metadata_changed)(
+                            &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
+                            &(guard.construct_mpris_metadata(),),
+                        );
+                        if let Some(message) = message {
+                            let _ = connection.send(message);
+                        }
                     }
                 }
                 PlayerNotification::PositionSet { position, seeked } => {
@@ -385,6 +403,14 @@ impl Handler<PlayerNotification> for MprisPlayer {
                 PlayerNotification::MetadataChanged(metadata) => {
                     if let Ok(mut guard) = self.playback_state.write() {
                         guard.metadata = Some(metadata);
+
+                        let message = (callbacks.metadata_changed)(
+                            &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
+                            &(guard.construct_mpris_metadata(),),
+                        );
+                        if let Some(message) = message {
+                            let _ = connection.send(message);
+                        }
                     }
                 }
                 PlayerNotification::Eos => {}

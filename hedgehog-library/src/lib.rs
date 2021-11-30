@@ -3,6 +3,7 @@ pub mod datasource;
 pub mod metadata;
 pub mod model;
 mod rss_client;
+pub mod search;
 mod sqlite;
 pub mod status_writer;
 mod tests;

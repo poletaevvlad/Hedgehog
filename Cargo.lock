@@ -1091,6 +1091,8 @@ dependencies = [
  "reqwest",
  "rss",
  "rusqlite",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "tokio",

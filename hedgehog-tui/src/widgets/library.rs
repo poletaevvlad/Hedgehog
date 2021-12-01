@@ -6,7 +6,7 @@ use crate::options::Options;
 use crate::screen::{FocusedPane, FocusedPaneState, LibraryViewModel, SearchState};
 use crate::theming::{self, Theme};
 use crate::widgets::search_row::SearchResultRowRenderer;
-use hedgehog_library::model::FeedStatus;
+use hedgehog_library::model::{FeedStatus, FeedView};
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Widget};
 
@@ -66,14 +66,19 @@ impl<'a> LibraryWidget<'a> {
             self.data.episodes_list_metadata.as_ref(),
         ) {
             if self.data.episodes.is_empty() {
-                let state = self.data.feeds.selection().map(|feed| &feed.status);
+                let state = self
+                    .data
+                    .feeds
+                    .selection()
+                    .map(|feed| feed.as_ref().map(|f| &f.status));
                 match state {
-                    Some(FeedStatus::Pending) => {
+                    Some(FeedView::All) => {}
+                    Some(FeedView::Feed(FeedStatus::Pending)) => {
                         EmptyView::new(self.theme)
                             .title("This feed's episodes aren't loaded yet")
                             .render(layout[1], buf);
                     }
-                    Some(FeedStatus::Loaded) => {
+                    Some(FeedView::Feed(FeedStatus::Loaded)) => {
                         EmptyView::new(self.theme)
                             .title("This feed is empty")
                             .subtitle(
@@ -81,7 +86,7 @@ impl<'a> LibraryWidget<'a> {
                             )
                             .render(layout[1], buf);
                     }
-                    Some(FeedStatus::Error(error)) => {
+                    Some(FeedView::Feed(FeedStatus::Error(error))) => {
                         let subtitle =
                             format!("\n{}\n\nType :update<Enter> to reload this feed.", error);
                         EmptyView::new(self.theme)

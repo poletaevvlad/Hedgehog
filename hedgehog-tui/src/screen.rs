@@ -25,6 +25,7 @@ use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
     EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
+    FeedView, Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
@@ -74,7 +75,7 @@ impl FocusedPaneState {
 }
 
 pub(crate) struct LibraryViewModel {
-    pub(crate) feeds: InteractiveList<ListData<FeedSummary>, FeedsListProvider>,
+    pub(crate) feeds: InteractiveList<ListData<FeedView<FeedSummary>>, FeedsListProvider>,
     pub(crate) episodes: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
     pub(crate) focus: FocusedPaneState,
@@ -155,7 +156,7 @@ pub(crate) struct UI {
     theme: Theme,
     key_mapping: KeyMapping<Command, FocusedPane>,
     library: LibraryViewModel,
-    selected_feed: Option<FeedId>,
+    selected_feed: Option<FeedView<FeedId>>,
     playback_state: PlaybackState,
 
     status: StatusLog,
@@ -385,14 +386,14 @@ impl UI {
                 .library_actor
                 .do_send(FeedUpdateRequest::AddFeed(source)),
             Command::DeleteFeed => {
-                if let Some(selected_feed) = self.library.feeds.selection() {
+                if let Some(FeedView::Feed(selected_feed)) = self.library.feeds.selection() {
                     self.library_actor
                         .do_send(FeedUpdateRequest::DeleteFeed(selected_feed.id));
                 }
             }
             Command::Update { current_only } => {
                 if current_only {
-                    if let Some(selected_feed) = self.selected_feed {
+                    if let Some(FeedView::Feed(selected_feed)) = self.selected_feed {
                         self.library_actor
                             .do_send(FeedUpdateRequest::UpdateSingle(selected_feed));
                     }
@@ -405,7 +406,7 @@ impl UI {
                 self.invalidate(ctx);
             }
             Command::SetFeedEnabled(enabled) => {
-                if let Some(selected_feed) = self.selected_feed {
+                if let Some(FeedView::Feed(selected_feed)) = self.selected_feed {
                     self.library_actor
                         .do_send(FeedUpdateRequest::SetFeedEnabled(selected_feed, enabled));
                 }
@@ -470,15 +471,17 @@ impl UI {
     }
 
     fn update_current_feed(&mut self, ctx: &mut <UI as Actor>::Context) {
-        let selected_id = self.library.feeds.selection().map(|item| item.id);
+        let selected_id = self.library.feeds.selection().map(|item| item.id());
         if selected_id == self.selected_feed {
             return;
         }
 
         self.library.episodes.update_provider(|provider| {
-            provider.query = selected_id.map(|selected_id| EpisodesQuery::Multiple {
-                feed_id: Some(selected_id),
-            });
+            provider.query = selected_id
+                .clone()
+                .map(|selected_id| EpisodesQuery::Multiple {
+                    feed_id: selected_id.as_feed().cloned(),
+                });
         });
         self.selected_feed = selected_id;
         self.invalidate(ctx);
@@ -758,10 +761,13 @@ impl Handler<DataFetchingRequest> for UI {
                     .into_actor(self)
                     .map(move |data, actor, ctx| {
                         if let Some(data) = actor.handle_response_error(data, ctx) {
+                            let mut feeds = Vec::with_capacity(data.len() + 1);
+                            feeds.push(FeedView::All);
+                            feeds.extend(data.into_iter().map(FeedView::Feed));
                             actor
                                 .library
                                 .feeds
-                                .handle_data(Versioned::new(data).with_version(request.version()));
+                                .handle_data(Versioned::new(feeds).with_version(request.version()));
                             actor.update_current_feed(ctx);
                             actor.invalidate(ctx);
                         }
@@ -873,23 +879,28 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::UpdateFinished(id, result) => {
                 self.library.updating_feeds.remove(&id);
                 match result {
-                    FeedUpdateResult::Updated(summary) => self.library.feeds.replace_item(summary),
-                    FeedUpdateResult::StatusChanged(status) => self
-                        .library
-                        .feeds
-                        .update_item(id, |summary| summary.status = status),
+                    FeedUpdateResult::Updated(summary) => {
+                        self.library.feeds.replace_item(FeedView::Feed(summary));
+                    }
+                    FeedUpdateResult::StatusChanged(status) => {
+                        self.library
+                            .feeds
+                            .update_item(FeedView::Feed(id), |summary| {
+                                summary.as_mut().unwrap().status = status;
+                            });
+                    }
                 }
-                if self.selected_feed == Some(id) {
+                if self.selected_feed == Some(FeedView::Feed(id)) {
                     self.library.episodes.invalidate();
                 }
             }
             FeedUpdateNotification::Error(error) => self.handle_error(error, ctx),
             FeedUpdateNotification::FeedAdded(feed) => {
-                self.library.feeds.add_item(feed);
+                self.library.feeds.add_item(FeedView::Feed(feed));
                 self.update_current_feed(ctx);
             }
             FeedUpdateNotification::FeedDeleted(feed_id) => {
-                self.library.feeds.remove_item(feed_id);
+                self.library.feeds.remove_item(FeedView::Feed(feed_id));
                 self.update_current_feed(ctx);
             }
         }

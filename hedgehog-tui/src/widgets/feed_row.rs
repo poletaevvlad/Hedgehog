@@ -1,7 +1,7 @@
 use super::{layout::split_right, list::ListItemRenderingDelegate};
 use crate::options::Options;
 use crate::theming::{self, Theme};
-use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary};
+use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary, FeedView};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::{Alignment, Rect};
@@ -56,63 +56,88 @@ impl<'t> FeedsListRowRenderer<'t> {
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
-    type Item = (Option<&'a FeedSummary>, bool);
+    type Item = (Option<&'a FeedView<FeedSummary>>, bool);
 
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
 
-        if let Some(item) = item {
-            let status_indicator = self.get_status_indicator(item);
-            let item_selector = theming::ListItem {
-                selected,
-                focused: self.focused,
-                missing_title: item.has_title,
-                state: Some(match status_indicator {
-                    Some(FeedsListStatusIndicator::Error) => theming::ListState::FeedError,
-                    Some(FeedsListStatusIndicator::Update) => theming::ListState::FeedUpdating,
-                    None => theming::ListState::Feed,
-                }),
-                column: None,
-            };
+        match item {
+            Some(FeedView::All) => {
+                let item_selector = theming::ListItem {
+                    selected,
+                    focused: self.focused,
+                    missing_title: false,
+                    state: Some(theming::ListState::Feed),
+                    column: None,
+                };
+                let style = self.theme.get(theming::List::Item(item_selector));
+                buf.set_style(area, style);
 
-            if let Some(status_indicator) = self.get_status_indicator(item) {
-                let style = self.theme.get(theming::List::Item(
-                    item_selector.with_column(theming::ListColumn::StateIndicator),
-                ));
-                let label = status_indicator.label(self.options);
-
-                let (rest, indicator_area) = split_right(area, label.width() as u16);
-                area = rest;
-                buf.set_string(indicator_area.x, indicator_area.y, label, style);
+                let paragraph = Paragraph::new("All episodes");
+                paragraph.render(
+                    Rect::new(
+                        area.x + 1,
+                        area.y,
+                        area.width.saturating_sub(2),
+                        area.height,
+                    ),
+                    buf,
+                );
             }
+            Some(FeedView::Feed(item)) => {
+                let status_indicator = self.get_status_indicator(item);
+                let item_selector = theming::ListItem {
+                    selected,
+                    focused: self.focused,
+                    missing_title: item.has_title,
+                    state: Some(match status_indicator {
+                        Some(FeedsListStatusIndicator::Error) => theming::ListState::FeedError,
+                        Some(FeedsListStatusIndicator::Update) => theming::ListState::FeedUpdating,
+                        None => theming::ListState::Feed,
+                    }),
+                    column: None,
+                };
 
-            let style = self.theme.get(theming::List::Item(
-                item_selector.with_column(theming::ListColumn::Title),
-            ));
-            buf.set_style(area, style);
+                if let Some(status_indicator) = self.get_status_indicator(item) {
+                    let style = self.theme.get(theming::List::Item(
+                        item_selector.with_column(theming::ListColumn::StateIndicator),
+                    ));
+                    let label = status_indicator.label(self.options);
 
-            let paragraph = Paragraph::new(item.title.as_str());
-            paragraph.render(
-                Rect::new(
-                    area.x + 1,
-                    area.y,
-                    area.width.saturating_sub(2),
-                    area.height,
-                ),
-                buf,
-            );
-        } else {
-            let item_selector = theming::ListItem {
-                selected,
-                focused: self.focused,
-                column: Some(theming::ListColumn::Loading),
-                ..Default::default()
-            };
-            let style = self.theme.get(theming::List::Item(item_selector));
-            let paragraph = Paragraph::new(".  .  .")
-                .style(style)
-                .alignment(Alignment::Center);
-            paragraph.render(area, buf);
+                    let (rest, indicator_area) = split_right(area, label.width() as u16);
+                    area = rest;
+                    buf.set_string(indicator_area.x, indicator_area.y, label, style);
+                }
+
+                let style = self.theme.get(theming::List::Item(
+                    item_selector.with_column(theming::ListColumn::Title),
+                ));
+                buf.set_style(area, style);
+
+                let paragraph = Paragraph::new(item.title.as_str());
+                paragraph.render(
+                    Rect::new(
+                        area.x + 1,
+                        area.y,
+                        area.width.saturating_sub(2),
+                        area.height,
+                    ),
+                    buf,
+                );
+            }
+            None => {
+                let item_selector = theming::ListItem {
+                    selected,
+                    focused: self.focused,
+                    column: Some(theming::ListColumn::Loading),
+                    ..Default::default()
+                };
+                let style = self.theme.get(theming::List::Item(item_selector));
+                let paragraph = Paragraph::new(".  .  .")
+                    .style(style)
+                    .alignment(Alignment::Center);
+                paragraph.render(area, buf);
+            }
         }
     }
 

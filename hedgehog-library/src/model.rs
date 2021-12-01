@@ -279,3 +279,50 @@ pub struct EpisodesListMetadata {
     pub max_duration: Option<Duration>,
     pub has_publication_date: bool,
 }
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum FeedView<T> {
+    All,
+    Feed(T),
+}
+
+impl<T> FeedView<T> {
+    pub fn as_feed(&self) -> Option<&T> {
+        match self {
+            FeedView::All => None,
+            FeedView::Feed(feed) => Some(feed),
+        }
+    }
+
+    pub fn as_mut(&mut self) -> Option<&mut T> {
+        match self {
+            FeedView::All => None,
+            FeedView::Feed(feed) => Some(feed),
+        }
+    }
+
+    pub fn map<R>(self, f: impl FnOnce(T) -> R) -> FeedView<R> {
+        match self {
+            FeedView::All => FeedView::All,
+            FeedView::Feed(feed) => FeedView::Feed(f(feed)),
+        }
+    }
+
+    pub fn as_ref(&self) -> FeedView<&T> {
+        match self {
+            FeedView::All => FeedView::All,
+            FeedView::Feed(feed) => FeedView::Feed(feed),
+        }
+    }
+}
+
+impl<T: Identifiable> Identifiable for FeedView<T> {
+    type Id = FeedView<T::Id>;
+
+    fn id(&self) -> Self::Id {
+        match self {
+            FeedView::All => FeedView::All,
+            FeedView::Feed(feed) => FeedView::Feed(feed.id()),
+        }
+    }
+}

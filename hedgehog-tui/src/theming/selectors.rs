@@ -93,6 +93,7 @@ pub(crate) enum ListState {
     Feed,
     FeedUpdating,
     FeedError,
+    FeedSpecial,
     Episode,
     EpisodeError,
     EpisodePlaying,
@@ -109,6 +110,7 @@ impl ListState {
                 callback(Some(ListState::Feed));
                 callback(Some(ListState::FeedUpdating));
                 callback(Some(ListState::FeedError));
+                callback(Some(ListState::FeedSpecial));
                 callback(Some(ListState::Episode));
                 callback(Some(ListState::EpisodeError));
                 callback(Some(ListState::EpisodePlaying));
@@ -119,6 +121,7 @@ impl ListState {
             Some(ListState::Feed) => {
                 callback(Some(ListState::FeedUpdating));
                 callback(Some(ListState::FeedError));
+                callback(Some(ListState::FeedSpecial));
             }
             Some(ListState::Episode) => {
                 callback(Some(ListState::EpisodeError));
@@ -174,6 +177,7 @@ impl List {
                                 ":feed" => ListState::Feed,
                                 ":feed-updating" => ListState::FeedUpdating,
                                 ":feed-error" => ListState::FeedError,
+                                ":feed-special" => ListState::FeedSpecial,
                                 ":episode" => ListState::Episode,
                                 ":episode-error" => ListState::EpisodeError,
                                 ":episode-playing" => ListState::EpisodePlaying,

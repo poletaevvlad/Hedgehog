@@ -67,7 +67,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     selected,
                     focused: self.focused,
                     missing_title: false,
-                    state: Some(theming::ListState::Feed),
+                    state: Some(theming::ListState::FeedSpecial),
                     column: None,
                 };
                 let style = self.theme.get(theming::List::Item(item_selector));

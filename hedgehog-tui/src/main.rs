@@ -5,6 +5,7 @@ mod history;
 mod keymap;
 mod options;
 mod screen;
+mod scrolling;
 mod status;
 mod theming;
 mod widgets;

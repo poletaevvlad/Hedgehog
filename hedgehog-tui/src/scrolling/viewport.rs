@@ -29,6 +29,12 @@ impl Viewport {
         self.ensure_visible();
     }
 
+    pub(crate) fn update(&mut self, selection: usize, items_count: usize) {
+        self.selected_item = selection;
+        self.items_count = items_count;
+        self.ensure_visible();
+    }
+
     pub(crate) fn selected_index(&self) -> usize {
         self.selected_item
     }
@@ -37,15 +43,21 @@ impl Viewport {
         (self.offset)..(self.offset + self.window_size).min(self.items_count)
     }
 
+    fn effective_scroll_margin(&self) -> usize {
+        self.scroll_margin
+            .min(self.window_size.saturating_sub(1) / 2)
+    }
+
     fn scroll_range(&self) -> Range<usize> {
-        (self.offset + self.scroll_margin)
-            ..((self.offset + self.window_size).saturating_sub(self.scroll_margin))
-                .min(self.items_count)
+        let margin = self.effective_scroll_margin();
+        (self.offset + margin)
+            ..((self.offset + self.window_size).saturating_sub(margin)).min(self.items_count)
     }
 
     fn ensure_visible(&mut self) {
         let mut range = self.scroll_range();
-        if (range.len() + self.scroll_margin * 2) < self.window_size && range.start > 0 {
+        let margin = self.effective_scroll_margin();
+        if (range.len() + margin * 2) < self.window_size && range.start > 0 {
             self.offset = self.items_count.saturating_sub(self.window_size);
             range = self.scroll_range();
         }
@@ -76,6 +88,10 @@ impl Viewport {
     pub(crate) fn select(&mut self, selected_item: usize) {
         self.selected_item = selected_item;
         self.ensure_visible();
+    }
+
+    pub(crate) fn items_count(&self) -> usize {
+        self.items_count
     }
 }
 
@@ -158,6 +174,62 @@ mod tests {
     }
 
     #[test]
+    fn scrolling_margins_height_1() {
+        let mut viewport = Viewport::new(1, 4).with_scroll_margin(2);
+        assert_scrolling! {
+            viewport;
+            0 => (0..1, 0),
+            1 => (1..2, 1),
+            1 => (2..3, 2),
+            1 => (3..4, 3),
+            1 => (3..4, 3),
+            -1 => (2..3, 2),
+            -1 => (1..2, 1),
+            -1 => (0..1, 0),
+            -1 => (0..1, 0),
+        };
+    }
+
+    #[test]
+    fn scrolling_margins_height_2() {
+        let mut viewport = Viewport::new(2, 5).with_scroll_margin(2);
+        assert_scrolling! {
+            viewport;
+            0 => (0..2, 0),
+            1 => (0..2, 1),
+            1 => (1..3, 2),
+            1 => (2..4, 3),
+            1 => (3..5, 4),
+            1 => (3..5, 4),
+            -1 => (3..5, 3),
+            -1 => (2..4, 2),
+            -1 => (1..3, 1),
+            -1 => (0..2, 0),
+            -1 => (0..2, 0),
+        };
+    }
+
+    #[test]
+    fn scrolling_margins_height_3() {
+        let mut viewport = Viewport::new(3, 6).with_scroll_margin(2);
+        assert_scrolling! {
+            viewport;
+            0 => (0..3, 0),
+            1 => (0..3, 1),
+            1 => (1..4, 2),
+            1 => (2..5, 3),
+            1 => (3..6, 4),
+            1 => (3..6, 5),
+            1 => (3..6, 5),
+            -1 => (3..6, 4),
+            -1 => (2..5, 3),
+            -1 => (1..4, 2),
+            -1 => (0..3, 1),
+            -1 => (0..3, 0),
+        };
+    }
+
+    #[test]
     fn size_change() {
         let mut viewport = Viewport::new(4, 10);
         assert_eq!(viewport.selected_index(), 0);
@@ -186,5 +258,13 @@ mod tests {
             assert_eq!(viewport.selected_index(), 8);
             assert_eq!(viewport.range(), range);
         }
+    }
+
+    #[test]
+    fn empty_viewport() {
+        let mut viewport = Viewport::new(10, 0);
+        assert_eq!(viewport.selected_index(), 0);
+        assert_eq!(viewport.items_count(), 0);
+        assert_scrolling!(viewport; 0 => (0..0, 0), 1 => (0..0, 0), -1 => (0..0, 0));
     }
 }

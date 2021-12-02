@@ -39,6 +39,14 @@ impl Viewport {
         self.selected_item
     }
 
+    pub(crate) fn items_count(&self) -> usize {
+        self.items_count
+    }
+
+    pub(crate) fn window_size(&self) -> usize {
+        self.window_size
+    }
+
     pub(crate) fn range(&self) -> Range<usize> {
         (self.offset)..(self.offset + self.window_size).min(self.items_count)
     }
@@ -88,10 +96,6 @@ impl Viewport {
     pub(crate) fn select(&mut self, selected_item: usize) {
         self.selected_item = selected_item;
         self.ensure_visible();
-    }
-
-    pub(crate) fn items_count(&self) -> usize {
-        self.items_count
     }
 }
 

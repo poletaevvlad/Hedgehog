@@ -1,7 +1,9 @@
+pub(crate) mod pagination;
 pub(crate) mod selection;
 mod viewport;
 
 use cmd_parser::CmdParsable;
+use std::ops::Range;
 use viewport::Viewport;
 
 pub(crate) trait DataView {
@@ -10,6 +12,9 @@ pub(crate) trait DataView {
     fn size(&self) -> usize;
     fn item_at(&self, index: usize) -> Option<&Self::Item>;
     fn find(&self, p: impl Fn(&Self::Item) -> bool) -> Option<usize>;
+    fn prepare(&mut self, range: Range<usize>) {
+        let _ = range;
+    }
 }
 
 impl<T> DataView for Vec<T> {
@@ -59,6 +64,7 @@ impl<D: DataView> ScrollableList<D> {
 
     pub(crate) fn set_window_size(&mut self, window_size: usize) {
         self.viewport.set_window_size(window_size);
+        self.data.prepare(self.viewport.range());
     }
 
     pub(crate) fn viewport(&self) -> &Viewport {
@@ -79,6 +85,7 @@ impl<D: DataView> ScrollableList<D> {
         let update_tmp = SelectionUpdate::before_update(&self.viewport, &self.data);
         f(&mut self.data);
         SelectionUpdate::update(&mut self.viewport, &self.data, update_tmp);
+        self.data.prepare(self.viewport.range());
     }
 
     pub(crate) fn selection(&self) -> Option<&D::Item> {
@@ -100,6 +107,7 @@ impl<D: DataView> ScrollableList<D> {
                 .viewport
                 .select(self.viewport.items_count().saturating_sub(1)),
         }
+        self.data.prepare(self.viewport.range());
     }
 }
 

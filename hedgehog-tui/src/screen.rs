@@ -2,11 +2,12 @@ use crate::cmdreader::{CommandReader, FileResolver};
 use crate::dataview::interactive::InteractiveList;
 use crate::dataview::linear::{ListData, ListDataRequest};
 use crate::dataview::paginated::{PaginatedData, PaginatedDataMessage, PaginatedDataRequest};
-use crate::dataview::{CursorCommand, DataProvider, Versioned};
+use crate::dataview::{DataProvider, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
 use crate::options::{Options, OptionsUpdate};
+use crate::scrolling::{selection, ScrollAction, ScrollableList};
 use crate::status::{Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
@@ -75,7 +76,7 @@ impl FocusedPaneState {
 }
 
 pub(crate) struct LibraryViewModel {
-    pub(crate) feeds: InteractiveList<ListData<FeedView<FeedSummary>>, FeedsListProvider>,
+    pub(crate) feeds: ScrollableList<Vec<FeedView<FeedSummary>>>,
     pub(crate) episodes: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
     pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
     pub(crate) focus: FocusedPaneState,
@@ -86,7 +87,7 @@ pub(crate) struct LibraryViewModel {
 impl LibraryViewModel {
     fn new(window_size: usize) -> Self {
         LibraryViewModel {
-            feeds: InteractiveList::new(window_size),
+            feeds: ScrollableList::new_with_margins(Vec::new(), window_size, 3),
             episodes: InteractiveList::new(window_size),
             episodes_list_metadata: None,
             focus: FocusedPaneState::FeedsList,
@@ -104,7 +105,7 @@ impl LibraryViewModel {
 #[derive(Debug, Clone, PartialEq, CmdParsable)]
 pub(crate) enum Command {
     #[cmd(rename = "line")]
-    Cursor(CursorCommand),
+    Cursor(ScrollAction),
     Map(Key, #[cmd(attr(state))] Option<FocusedPane>, Box<Command>),
     Unmap(Key, #[cmd(attr(state))] Option<FocusedPane>),
     Theme(ThemeCommand),
@@ -252,7 +253,7 @@ impl UI {
             Command::Cursor(command) => {
                 match &mut self.library.focus {
                     FocusedPaneState::FeedsList => {
-                        self.library.feeds.handle_command(command);
+                        self.library.feeds.scroll(command);
                         self.update_current_feed(ctx);
                     }
                     FocusedPaneState::EpisodesList => self.library.episodes.handle_command(command),
@@ -433,7 +434,7 @@ impl UI {
                 self.invalidate(ctx);
             }
             Command::Search(query) => {
-                let mut list = InteractiveList::new(self.library.feeds.window_size());
+                let mut list = InteractiveList::new(self.library.feeds.viewport().window_size());
                 list.set_provider(SearchResultsProvider {
                     actor: ctx.address(),
                     query,
@@ -455,7 +456,7 @@ impl UI {
                 }
             }
             Command::Refresh => {
-                self.library.feeds.invalidate();
+                self.load_feeds(ctx);
                 self.library.episodes.invalidate();
                 self.invalidate(ctx);
             }
@@ -516,6 +517,29 @@ impl UI {
             ctx.cancel_future(handle);
         }
     }
+
+    fn load_feeds(&mut self, ctx: &mut <UI as Actor>::Context) {
+        ctx.spawn(
+            self.library_actor
+                .send(FeedSummariesRequest)
+                .into_actor(self)
+                .map(move |data, actor, ctx| {
+                    if let Some(data) = actor.handle_response_error(data, ctx) {
+                        actor
+                            .library
+                            .feeds
+                            .update_data::<selection::FindPrevious, _>(|current_feeds| {
+                                let mut feeds = Vec::with_capacity(data.len() + 1);
+                                feeds.push(FeedView::All);
+                                feeds.extend(data.into_iter().map(FeedView::Feed));
+                                *current_feeds = feeds;
+                            });
+                        actor.update_current_feed(ctx);
+                        actor.invalidate(ctx);
+                    }
+                }),
+        );
+    }
 }
 
 impl Actor for UI {
@@ -526,9 +550,7 @@ impl Actor for UI {
             query: None,
             actor: ctx.address(),
         });
-        self.library.feeds.set_provider(FeedsListProvider {
-            actor: ctx.address(),
-        });
+        self.load_feeds(ctx);
         self.init_rc(ctx);
 
         self.player_actor
@@ -660,23 +682,10 @@ impl DataProvider for EpisodesListProvider {
     }
 }
 
-pub(crate) struct FeedsListProvider {
-    actor: Addr<UI>,
-}
-
-impl DataProvider for FeedsListProvider {
-    type Request = ListDataRequest;
-
-    fn request(&self, request: Versioned<Self::Request>) {
-        self.actor.do_send(DataFetchingRequest::Feeds(request));
-    }
-}
-
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 enum DataFetchingRequest {
     Episodes(EpisodesQuery, Versioned<PaginatedDataRequest>),
-    Feeds(Versioned<ListDataRequest>),
     Search(Versioned<String>),
 }
 
@@ -755,24 +764,6 @@ impl Handler<DataFetchingRequest> for UI {
                     }
                 }
             }
-            DataFetchingRequest::Feeds(request) => Box::pin(
-                self.library_actor
-                    .send(FeedSummariesRequest)
-                    .into_actor(self)
-                    .map(move |data, actor, ctx| {
-                        if let Some(data) = actor.handle_response_error(data, ctx) {
-                            let mut feeds = Vec::with_capacity(data.len() + 1);
-                            feeds.push(FeedView::All);
-                            feeds.extend(data.into_iter().map(FeedView::Feed));
-                            actor
-                                .library
-                                .feeds
-                                .handle_data(Versioned::new(feeds).with_version(request.version()));
-                            actor.update_current_feed(ctx);
-                            actor.invalidate(ctx);
-                        }
-                    }),
-            ),
             DataFetchingRequest::Search(search) => Box::pin({
                 let (version, query) = search.deconstruct();
                 let client = SearchClient::new();
@@ -878,29 +869,48 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::UpdateStarted(ids) => self.library.updating_feeds.extend(ids),
             FeedUpdateNotification::UpdateFinished(id, result) => {
                 self.library.updating_feeds.remove(&id);
-                match result {
-                    FeedUpdateResult::Updated(summary) => {
-                        self.library.feeds.replace_item(FeedView::Feed(summary));
-                    }
-                    FeedUpdateResult::StatusChanged(status) => {
-                        self.library
-                            .feeds
-                            .update_item(FeedView::Feed(id), |summary| {
-                                summary.as_mut().unwrap().status = status;
-                            });
-                    }
-                }
+                self.library
+                    .feeds
+                    .update_data::<selection::DoNotUpdate, _>(|feeds| {
+                        let item = feeds
+                            .iter_mut()
+                            .find(|feed| feed.id() == FeedView::Feed(id));
+                        let item = match item {
+                            Some(item) => item,
+                            None => return,
+                        };
+                        match result {
+                            FeedUpdateResult::Updated(summary) => *item = FeedView::Feed(summary),
+                            FeedUpdateResult::StatusChanged(status) => {
+                                item.as_mut().unwrap().status = status;
+                            }
+                        }
+                    });
                 if self.selected_feed == Some(FeedView::Feed(id)) {
                     self.library.episodes.invalidate();
                 }
             }
             FeedUpdateNotification::Error(error) => self.handle_error(error, ctx),
             FeedUpdateNotification::FeedAdded(feed) => {
-                self.library.feeds.add_item(FeedView::Feed(feed));
+                self.library
+                    .feeds
+                    .update_data::<selection::Keep, _>(|feeds| feeds.push(FeedView::Feed(feed)));
                 self.update_current_feed(ctx);
             }
             FeedUpdateNotification::FeedDeleted(feed_id) => {
-                self.library.feeds.remove_item(FeedView::Feed(feed_id));
+                self.library
+                    .feeds
+                    .update_data::<selection::FindPrevious, _>(|feeds| {
+                        let index = feeds.iter().enumerate().find_map(|(index, feed)| {
+                            match feed.id() == FeedView::Feed(feed_id) {
+                                true => Some(index),
+                                false => None,
+                            }
+                        });
+                        if let Some(index) = index {
+                            feeds.remove(index);
+                        }
+                    });
                 self.update_current_feed(ctx);
             }
         }

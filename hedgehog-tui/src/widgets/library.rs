@@ -26,7 +26,7 @@ impl<'a> LibraryWidget<'a> {
     }
 
     fn render_library(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        if self.data.feeds.is_empty() {
+        if self.data.feeds.data().is_empty() {
             EmptyView::new(self.theme)
                 .title("Hedgehog Podcast Player")
                 .subtitle(
@@ -48,18 +48,16 @@ impl<'a> LibraryWidget<'a> {
         let feeds_area = feeds_border.inner(layout[0]);
         feeds_border.render(layout[0], buf);
 
-        if let Some(iter) = self.data.feeds.iter() {
-            List::new(
-                FeedsListRowRenderer::new(
-                    self.theme,
-                    self.options,
-                    self.data.focus.as_pane() == FocusedPane::FeedsList,
-                    &self.data.updating_feeds,
-                ),
-                iter,
-            )
-            .render(feeds_area, buf);
-        }
+        List::new(
+            FeedsListRowRenderer::new(
+                self.theme,
+                self.options,
+                self.data.focus.as_pane() == FocusedPane::FeedsList,
+                &self.data.updating_feeds,
+            ),
+            self.data.feeds.visible_iter(),
+        )
+        .render(feeds_area, buf);
 
         if let (Some(iter), Some(metadata)) = (
             self.data.episodes.iter(),

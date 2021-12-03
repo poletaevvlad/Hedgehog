@@ -57,6 +57,14 @@ impl<D: DataView> ScrollableList<D> {
         }
     }
 
+    pub(crate) fn set_window_size(&mut self, window_size: usize) {
+        self.viewport.set_window_size(window_size);
+    }
+
+    pub(crate) fn viewport(&self) -> &Viewport {
+        &self.viewport
+    }
+
     pub(crate) fn visible_iter(&self) -> impl Iterator<Item = (&D::Item, bool)> {
         let start = self.viewport.range().start;
         let size = self.viewport.items_count();

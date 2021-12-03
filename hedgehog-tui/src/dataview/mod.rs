@@ -3,7 +3,6 @@ pub(crate) mod linear;
 pub(crate) mod paginated;
 mod version;
 
-use cmd_parser::CmdParsable;
 use hedgehog_library::model::Identifiable;
 use std::ops::Range;
 pub(crate) use version::Versioned;
@@ -73,16 +72,6 @@ pub(crate) trait DataProvider {
     type Request;
 
     fn request(&self, request: Versioned<Self::Request>);
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, CmdParsable)]
-pub(crate) enum CursorCommand {
-    Next,
-    Previous,
-    PageUp,
-    PageDown,
-    First,
-    Last,
 }
 
 fn request_data<P: DataProvider>(provider: &Versioned<Option<P>>, message: P::Request) {

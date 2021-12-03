@@ -4,7 +4,7 @@ use crate::theming::{self, Theme};
 use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary, FeedView};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
-use tui::layout::{Alignment, Rect};
+use tui::layout::Rect;
 use tui::widgets::{Paragraph, Widget};
 use unicode_width::UnicodeWidthStr;
 
@@ -56,13 +56,13 @@ impl<'t> FeedsListRowRenderer<'t> {
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
-    type Item = (Option<&'a FeedView<FeedSummary>>, bool);
+    type Item = (&'a FeedView<FeedSummary>, bool);
 
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
 
         match item {
-            Some(FeedView::All) => {
+            FeedView::All => {
                 let item_selector = theming::ListItem {
                     selected,
                     focused: self.focused,
@@ -84,7 +84,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     buf,
                 );
             }
-            Some(FeedView::Feed(item)) => {
+            FeedView::Feed(item) => {
                 let status_indicator = self.get_status_indicator(item);
                 let item_selector = theming::ListItem {
                     selected,
@@ -124,19 +124,6 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     ),
                     buf,
                 );
-            }
-            None => {
-                let item_selector = theming::ListItem {
-                    selected,
-                    focused: self.focused,
-                    column: Some(theming::ListColumn::Loading),
-                    ..Default::default()
-                };
-                let style = self.theme.get(theming::List::Item(item_selector));
-                let paragraph = Paragraph::new(".  .  .")
-                    .style(style)
-                    .alignment(Alignment::Center);
-                paragraph.render(area, buf);
             }
         }
     }

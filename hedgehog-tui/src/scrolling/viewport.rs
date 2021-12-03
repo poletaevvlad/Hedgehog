@@ -48,7 +48,7 @@ impl Viewport {
     }
 
     pub(crate) fn range(&self) -> Range<usize> {
-        (self.offset)..(self.offset + self.window_size).min(self.items_count)
+        (self.offset)..(self.offset + self.window_size)
     }
 
     fn effective_scroll_margin(&self) -> usize {
@@ -121,17 +121,17 @@ mod tests {
         let mut viewport = Viewport::new(10, 5);
         assert_scrolling! {
             viewport;
-            0 => (0..5, 0),
-            1 => (0..5, 1),
-            1 => (0..5, 2),
-            1 => (0..5, 3),
-            1 => (0..5, 4),
-            1 => (0..5, 4),
-            -1 => (0..5, 3),
-            -1 => (0..5, 2),
-            -1 => (0..5, 1),
-            -1 => (0..5, 0),
-            -1 => (0..5, 0),
+            0 => (0..10, 0),
+            1 => (0..10, 1),
+            1 => (0..10, 2),
+            1 => (0..10, 3),
+            1 => (0..10, 4),
+            1 => (0..10, 4),
+            -1 => (0..10, 3),
+            -1 => (0..10, 2),
+            -1 => (0..10, 1),
+            -1 => (0..10, 0),
+            -1 => (0..10, 0),
         };
     }
 
@@ -255,7 +255,7 @@ mod tests {
             (8, 2..10),
             (9, 1..10),
             (10, 0..10),
-            (11, 0..10),
+            (11, 0..11),
         ];
         for (size, range) in size_increase_cases {
             viewport.set_window_size(size);
@@ -269,6 +269,6 @@ mod tests {
         let mut viewport = Viewport::new(10, 0);
         assert_eq!(viewport.selected_index(), 0);
         assert_eq!(viewport.items_count(), 0);
-        assert_scrolling!(viewport; 0 => (0..0, 0), 1 => (0..0, 0), -1 => (0..0, 0));
+        assert_scrolling!(viewport; 0 => (0..10, 0), 1 => (0..10, 0), -1 => (0..10, 0));
     }
 }

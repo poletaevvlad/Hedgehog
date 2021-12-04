@@ -152,9 +152,19 @@ impl<T> DataView for PaginatedData<T> {
         let first_required_page = self.page_index(range.start.saturating_sub(self.load_margins));
         let last_required_page =
             self.page_index(((range.end + self.load_margins).saturating_sub(1)).min(self.size));
-        let indices_count = last_required_page - first_required_page + 1;
+        let last_current_page = self.first_page_index + self.pages.len().saturating_sub(1);
 
-        if !self.pages.is_empty() {
+        if self.pages.is_empty()
+            || last_required_page < self.first_page_index
+            || last_current_page < first_required_page
+        {
+            self.pages.clear();
+            for _i in first_required_page..=last_required_page {
+                self.pages.push_front(None);
+            }
+            self.request_pages(first_required_page..(last_required_page + 1));
+            self.first_page_index = first_required_page;
+        } else {
             while self.first_page_index < first_required_page {
                 self.pages.pop_front();
                 self.first_page_index += 1;
@@ -165,15 +175,15 @@ impl<T> DataView for PaginatedData<T> {
                 self.first_page_index -= 1;
             }
 
-            if self.pages.len() > indices_count {
+            let indices_count = last_required_page - first_required_page + 1;
+            if indices_count < self.pages.len() {
                 self.pages.drain(indices_count..);
+            } else {
+                self.request_pages((last_current_page + 1)..(last_required_page + 1));
+                while self.pages.len() < indices_count {
+                    self.pages.push_back(None);
+                }
             }
-        } else {
-            self.first_page_index = first_required_page;
-        }
-        self.request_pages((self.first_page_index + self.pages.len())..(last_required_page + 1));
-        while self.pages.len() < indices_count {
-            self.pages.push_back(None);
         }
     }
 }
@@ -281,5 +291,52 @@ mod tests {
             list_items(&list),
             vec![0, 0, 0, 0, 231, 232, 241, 242, 0, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn requesting_and_dropping_pages() {
+        let mut list = PaginatedData::<usize>::new()
+            .with_page_size(3)
+            .with_load_margins(1);
+        let requested = Rc::new(RefCell::new(VecDeque::new()));
+        list.set_provider(MockProvider(requested.clone()));
+
+        list.set_initial(12, vec![4, 5, 6, 7, 8, 9], 3..9);
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (1, 2));
+
+        list.prepare(4..6);
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (1, 2));
+
+        list.prepare(3..5);
+        assert_eq!(requested.borrow_mut().pop_back(), Some(0..3));
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (0, 2));
+
+        list.prepare(8..10);
+        assert_eq!(requested.borrow_mut().pop_back(), Some(6..12));
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (2, 2));
+
+        list.prepare(0..2);
+        assert_eq!(requested.borrow_mut().pop_back(), Some(0..3));
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (0, 1));
+
+        list.prepare(4..5);
+        assert_eq!(requested.borrow_mut().pop_back(), Some(3..6));
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (1, 1));
+
+        list.prepare(2..7);
+        assert_eq!(requested.borrow_mut().pop_back(), Some(0..3));
+        assert_eq!(requested.borrow_mut().pop_back(), Some(6..9));
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (0, 3));
+
+        list.prepare(4..5);
+        assert_eq!(requested.borrow_mut().pop_back(), None);
+        assert_eq!(list.pages_range(), (1, 1));
     }
 }

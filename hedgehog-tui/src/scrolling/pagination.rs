@@ -85,7 +85,9 @@ impl<T> PaginatedData<T> {
     pub(crate) fn set(&mut self, mut data: Vec<T>, range: Range<usize>) {
         let mut page = range.start / self.page_size;
         let starting_index = if page < self.first_page_index {
-            (self.first_page_index - page) * self.page_size
+            let index = (self.first_page_index - page) * self.page_size;
+            page = self.first_page_index;
+            index
         } else {
             0
         };
@@ -226,5 +228,58 @@ mod tests {
         }
 
         assert_eq!(list.pages_range(), (3, 2));
+    }
+
+    fn list_items<T: Default + Clone>(list: &PaginatedData<T>) -> Vec<T> {
+        let mut items = Vec::with_capacity(list.size());
+        for index in 0..list.size {
+            items.push(list.item_at(index).cloned().unwrap_or_default());
+        }
+        items
+    }
+
+    #[test]
+    fn set_data() {
+        let mut list = PaginatedData::<usize>::new().with_page_size(2);
+        list.set_initial(12, vec![31, 32, 41, 42], 4..8);
+        assert_eq!(
+            list_items(&list),
+            vec![0, 0, 0, 0, 31, 32, 41, 42, 0, 0, 0, 0]
+        );
+
+        // before first page, ignore
+        list.set(vec![11, 12, 21, 22], 0..4);
+        assert_eq!(
+            list_items(&list),
+            vec![0, 0, 0, 0, 31, 32, 41, 42, 0, 0, 0, 0]
+        );
+
+        // after last page, ignore
+        list.set(vec![51, 52, 61, 62], 8..12);
+        assert_eq!(
+            list_items(&list),
+            vec![0, 0, 0, 0, 31, 32, 41, 42, 0, 0, 0, 0]
+        );
+
+        // before first page, and inside the visible range ignore
+        list.set(vec![21, 22, 131, 132], 2..6);
+        assert_eq!(
+            list_items(&list),
+            vec![0, 0, 0, 0, 131, 132, 41, 42, 0, 0, 0, 0]
+        );
+
+        // inside the visible range and after the last page
+        list.set(vec![141, 142, 151, 152], 6..10);
+        assert_eq!(
+            list_items(&list),
+            vec![0, 0, 0, 0, 131, 132, 141, 142, 0, 0, 0, 0]
+        );
+
+        // inside and outside of the visible range
+        list.set(vec![221, 222, 231, 232, 241, 242, 251, 252], 2..10);
+        assert_eq!(
+            list_items(&list),
+            vec![0, 0, 0, 0, 231, 232, 241, 242, 0, 0, 0, 0]
+        );
     }
 }

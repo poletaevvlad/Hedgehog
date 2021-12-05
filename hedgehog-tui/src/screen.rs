@@ -1,12 +1,12 @@
 use crate::cmdreader::{CommandReader, FileResolver};
 use crate::dataview::interactive::InteractiveList;
 use crate::dataview::linear::{ListData, ListDataRequest};
-use crate::dataview::{DataProvider, Versioned};
+use crate::dataview::{self, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
 use crate::options::{Options, OptionsUpdate};
-use crate::scrolling::pagination::PaginatedData;
+use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, ScrollAction, ScrollableList};
 use crate::status::{Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
@@ -42,6 +42,7 @@ use hedgehog_player::{
 };
 use std::collections::HashSet;
 use std::io::{stdout, Write};
+use std::ops::Range;
 use std::path::PathBuf;
 use std::time::Duration;
 use tui::backend::CrosstermBackend;
@@ -493,6 +494,10 @@ impl UI {
             self.invalidate(ctx);
 
             let query = EpisodesQuery::from_feed_view(selected_id);
+            let new_provider = EpisodesListProvider {
+                query: query.clone(),
+                actor: ctx.address(),
+            };
             let future = wrap_future(
                 self.library_actor
                     .send(EpisodesListMetadataRequest(query.clone())),
@@ -530,6 +535,7 @@ impl UI {
                                     .library
                                     .episodes
                                     .update_data::<selection::FindPrevious, _>(|data| {
+                                        data.set_provider(new_provider);
                                         data.set_initial(items_count, episodes, range);
                                     });
                             }
@@ -538,7 +544,10 @@ impl UI {
                             actor
                                 .library
                                 .episodes
-                                .update_data::<selection::FindPrevious, _>(|data| data.clear());
+                                .update_data::<selection::FindPrevious, _>(|data| {
+                                    data.set_provider(new_provider);
+                                    data.clear();
+                                });
                         }
                     }
                     actor.invalidate(ctx);
@@ -732,26 +741,22 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
     }
 }
 
-// pub(crate) struct EpisodesListProvider {
-//     pub(crate) query: Option<EpisodesQuery>,
-//     actor: Addr<UI>,
-// }
-//
-// impl DataProvider for EpisodesListProvider {
-//     type Request = PaginatedDataRequest;
-//
-//     fn request(&self, request: crate::dataview::Versioned<Self::Request>) {
-//         if let Some(query) = &self.query {
-//             self.actor
-//                 .do_send(DataFetchingRequest::Episodes(query.clone(), request));
-//         }
-//     }
-// }
+pub(crate) struct EpisodesListProvider {
+    query: EpisodesQuery,
+    actor: Addr<UI>,
+}
+
+impl DataProvider for EpisodesListProvider {
+    fn request(&self, range: std::ops::Range<usize>) {
+        self.actor
+            .do_send(DataFetchingRequest::Episodes(self.query.clone(), range));
+    }
+}
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 enum DataFetchingRequest {
-    // Episodes(EpisodesQuery, Versioned<PaginatedDataRequest>),
+    Episodes(EpisodesQuery, Range<usize>),
     Search(Versioned<String>),
 }
 
@@ -777,7 +782,7 @@ pub(crate) struct SearchResultsProvider {
     actor: Addr<UI>,
 }
 
-impl DataProvider for SearchResultsProvider {
+impl dataview::DataProvider for SearchResultsProvider {
     type Request = ListDataRequest;
 
     fn request(&self, request: Versioned<Self::Request>) {
@@ -792,44 +797,22 @@ impl Handler<DataFetchingRequest> for UI {
 
     fn handle(&mut self, msg: DataFetchingRequest, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            // DataFetchingRequest::Episodes(query, request) => {
-            //     let (version, request) = request.deconstruct();
-            //     match request {
-            //         PaginatedDataRequest::Size => Box::pin(
-            //             self.library_actor
-            //                 .send(EpisodesListMetadataRequest(query))
-            //                 .into_actor(self)
-            //                 .map(move |metadata, actor, ctx| {
-            //                     if let Some(metadata) = actor.handle_response_error(metadata, ctx) {
-            //                         actor.library.episodes.handle_data(
-            //                             Versioned::new(PaginatedDataMessage::size(
-            //                                 metadata.items_count,
-            //                             ))
-            //                             .with_version(version),
-            //                         );
-            //                         actor.library.episodes_list_metadata = Some(metadata);
-            //                         actor.invalidate(ctx);
-            //                     }
-            //                 }),
-            //         ),
-            //         PaginatedDataRequest::Page(page) => {
-            //             let page_index = page.index;
-            //             let request = EpisodeSummariesRequest::new(query, page);
-            //             Box::pin(self.library_actor.send(request).into_actor(self).map(
-            //                 move |data, actor, ctx| {
-            //                     if let Some(data) = actor.handle_response_error(data, ctx) {
-            //                         let message = PaginatedDataMessage::page(page_index, data);
-            //                         actor
-            //                             .library
-            //                             .episodes
-            //                             .handle_data(Versioned::new(message).with_version(version));
-            //                         actor.invalidate(ctx);
-            //                     }
-            //                 },
-            //             ))
-            //         }
-            //     }
-            // }
+            DataFetchingRequest::Episodes(query, range) => {
+                let request = EpisodeSummariesRequest::new(query, range.clone());
+                Box::pin(self.library_actor.send(request).into_actor(self).map(
+                    move |data, actor, ctx| {
+                        if let Some(episodes) = actor.handle_response_error(data, ctx) {
+                            actor
+                                .library
+                                .episodes
+                                .update_data::<selection::DoNotUpdate, _>(|data| {
+                                    data.set(episodes, range);
+                                });
+                            actor.invalidate(ctx);
+                        }
+                    },
+                ))
+            }
             DataFetchingRequest::Search(search) => Box::pin({
                 let (version, query) = search.deconstruct();
                 let client = SearchClient::new();

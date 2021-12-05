@@ -50,6 +50,25 @@ impl<T> PaginatedData<T> {
         (self.first_page_index, self.pages.len())
     }
 
+    pub(crate) fn item_at_mut(&mut self, index: usize) -> Option<&mut T> {
+        let page_index = self.page_index(index);
+        if page_index < self.first_page_index {
+            return None;
+        }
+        let page_item_index = self.page_item_index(index);
+        self.pages
+            .get_mut(page_index - self.first_page_index)
+            .and_then(|page| page.as_mut())
+            .and_then(|page| page.get_mut(page_item_index))
+    }
+
+    pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.pages
+            .iter_mut()
+            .filter_map(Option::as_mut)
+            .flat_map(|page| page.iter_mut())
+    }
+
     pub(crate) fn initial_range(
         &self,
         size: usize,

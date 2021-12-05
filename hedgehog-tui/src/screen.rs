@@ -7,7 +7,7 @@ use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
-use crate::scrolling::{selection, ScrollAction, ScrollableList};
+use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
 use crate::status::{Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
@@ -25,8 +25,8 @@ use crossterm::{terminal, QueueableCommand};
 use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
-    EpisodeStatus, EpisodeSummary, EpisodesListMetadata, FeedId, FeedSummary, FeedView,
-    Identifiable,
+    EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
+    FeedView, Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
@@ -374,9 +374,17 @@ impl UI {
                                         feed_title: playback_data.feed_title,
                                     }),
                                 ));
-                            // actor.library.episodes.update_item(episode_id, |episode| {
-                            //     episode.status = EpisodeSummaryStatus::Started;
-                            // });
+                            actor
+                                .library
+                                .episodes
+                                .update_data::<selection::DoNotUpdate, _>(|data| {
+                                    let episode = data
+                                        .find(|item| item.id == episode_id)
+                                        .and_then(|index| data.item_at_mut(index));
+                                    if let Some(episode) = episode {
+                                        episode.status = EpisodeSummaryStatus::Started;
+                                    }
+                                });
                             actor.invalidate(ctx);
                         }
                     });
@@ -415,20 +423,29 @@ impl UI {
             }
             Command::Mark { status, update_all } => {
                 if update_all {
-                    // let episodes = &mut self.library.episodes;
-                    // episodes.update_all(|episode| episode.status = status.clone().into());
-                    // let query = episodes.provider().and_then(|p| p.query.as_ref());
-                    // if let Some(query) = query {
-                    //     self.status_writer_actor
-                    //         .do_send(StatusWriterCommand::Set(query.clone(), status));
-                    // }
+                    if let Some(feed) = self.selected_feed {
+                        self.library
+                            .episodes
+                            .update_data::<selection::DoNotUpdate, _>(|data| {
+                                for episode in data.iter_mut() {
+                                    episode.status = status.clone().into();
+                                }
+                            });
+                        let query = EpisodesQuery::from_feed_view(feed);
+                        self.status_writer_actor
+                            .do_send(StatusWriterCommand::Set(query, status));
+                    }
                 } else if let Some(selected_id) =
                     self.library.episodes.selection().map(|episode| episode.id)
                 {
-                    // self.library.episodes.update_selection(|selected| {
-                    //     selected.status = status.clone().into();
-                    // });
-
+                    let selected_index = self.library.episodes.viewport().selected_index();
+                    self.library
+                        .episodes
+                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                            if let Some(selected) = data.item_at_mut(selected_index) {
+                                selected.status = status.clone().into();
+                            }
+                        });
                     self.status_writer_actor
                         .do_send(StatusWriterCommand::set(selected_id, status));
                 }
@@ -874,11 +891,16 @@ impl Handler<PlayerNotification> for UI {
                 if let Some(playing_episode) = &self.library.playing_episode {
                     self.status_writer_actor
                         .do_send(StatusWriterCommand::set_finished(playing_episode.id));
-                    // self.library
-                    //     .episodes
-                    //     .update_item(playing_episode.id, |episode| {
-                    //         episode.status = EpisodeSummaryStatus::Finished;
-                    //     });
+                    self.library
+                        .episodes
+                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                            let episode = data
+                                .find(|item| item.id == playing_episode.id)
+                                .and_then(|index| data.item_at_mut(index));
+                            if let Some(episode) = episode {
+                                episode.status = EpisodeSummaryStatus::Finished;
+                            }
+                        });
                 }
             }
             PlayerNotification::MetadataChanged(_) => {}
@@ -900,11 +922,16 @@ impl Handler<PlayerErrorNotification> for UI {
                         .map(|timing| timing.position)
                         .unwrap_or_default(),
                 ));
-            // self.library
-            //     .episodes
-            //     .update_item(playing_episode.id, |episode| {
-            //         episode.status = EpisodeSummaryStatus::Error;
-            //     });
+            self.library
+                .episodes
+                .update_data::<selection::DoNotUpdate, _>(|data| {
+                    let episode = data
+                        .find(|item| item.id == playing_episode.id)
+                        .and_then(|index| data.item_at_mut(index));
+                    if let Some(episode) = episode {
+                        episode.status = EpisodeSummaryStatus::Error;
+                    }
+                });
             self.invalidate(ctx);
         }
     }

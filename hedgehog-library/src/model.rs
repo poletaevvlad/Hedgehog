@@ -280,7 +280,7 @@ pub struct EpisodesListMetadata {
     pub has_publication_date: bool,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum FeedView<T> {
     All,
     Feed(T),

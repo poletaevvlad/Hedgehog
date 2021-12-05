@@ -1,6 +1,4 @@
-use crate::datasource::{
-    DataProvider, DbResult, EpisodeWriter, Page, QueryError, WritableDataProvider,
-};
+use crate::datasource::{DataProvider, DbResult, EpisodeWriter, QueryError, WritableDataProvider};
 use crate::model::{
     EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata, FeedError,
     FeedId, FeedStatus, FeedSummary,
@@ -11,6 +9,7 @@ use crate::EpisodesQuery;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use std::collections::HashSet;
+use std::ops::Range;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
@@ -40,12 +39,12 @@ impl<D: DataProvider + 'static> Actor for Library<D> {
 #[rtype(result = "DbResult<Vec<EpisodeSummary>>")]
 pub struct EpisodeSummariesRequest {
     pub query: EpisodesQuery,
-    pub page: Page,
+    pub range: Range<usize>,
 }
 
 impl EpisodeSummariesRequest {
-    pub fn new(query: EpisodesQuery, page: Page) -> Self {
-        EpisodeSummariesRequest { query, page }
+    pub fn new(query: EpisodesQuery, range: Range<usize>) -> Self {
+        EpisodeSummariesRequest { query, range }
     }
 }
 
@@ -57,7 +56,7 @@ where
 
     fn handle(&mut self, msg: EpisodeSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
         self.data_provider
-            .get_episode_summaries(msg.query, msg.page)
+            .get_episode_summaries(msg.query, msg.range)
     }
 }
 

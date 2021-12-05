@@ -72,10 +72,15 @@ impl<D: DataView> ScrollableList<D> {
     }
 
     pub(crate) fn visible_iter(&self) -> impl Iterator<Item = (&D::Item, bool)> {
+        self.visible_iter_partial()
+            .map(|(item, selected)| (item.unwrap(), selected))
+    }
+
+    pub(crate) fn visible_iter_partial(&self) -> impl Iterator<Item = (Option<&D::Item>, bool)> {
         let start = self.viewport.range().start;
         let size = self.viewport.items_count();
         let selection = self.viewport.selected_index();
-        (start..size).map(move |index| (self.data.item_at(index).unwrap(), index == selection))
+        (start..size).map(move |index| (self.data.item_at(index), index == selection))
     }
 
     pub(crate) fn update_data<SelectionUpdate: selection::UpdateStrategy<D>, F: FnOnce(&mut D)>(

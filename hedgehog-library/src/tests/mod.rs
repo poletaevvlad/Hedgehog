@@ -8,7 +8,7 @@ use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus};
 use crate::sqlite::SqliteDataProvider;
 use crate::{
     EpisodeSummariesRequest, EpisodesListMetadataRequest, EpisodesQuery, FeedSummariesRequest,
-    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library, Page,
+    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library,
 };
 use actix::prelude::*;
 use reqwest::StatusCode;
@@ -172,25 +172,25 @@ async fn get_episode_summaries(
         .unwrap();
 
     let mut episodes = Vec::with_capacity(list_metadata.items_count);
-    let mut index = 0;
-    while index * 2 < list_metadata.items_count {
+    let mut offset = 0;
+    while offset < list_metadata.items_count {
         let page = library
             .send(EpisodeSummariesRequest::new(
                 query.clone(),
-                Page { index, size: 2 },
+                offset..(offset + 2),
             ))
             .await
             .unwrap()
             .unwrap();
         assert!(page.len() <= 2);
         episodes.extend(page);
-        index += 1;
+        offset += 1;
     }
 
     let empty_page = library
         .send(EpisodeSummariesRequest::new(
             query.clone(),
-            Page { index, size: 2 },
+            offset..(offset + 2),
         ))
         .await
         .unwrap()

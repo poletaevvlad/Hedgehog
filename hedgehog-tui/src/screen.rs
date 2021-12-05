@@ -1,12 +1,12 @@
 use crate::cmdreader::{CommandReader, FileResolver};
 use crate::dataview::interactive::InteractiveList;
 use crate::dataview::linear::{ListData, ListDataRequest};
-use crate::dataview::paginated::{PaginatedData, PaginatedDataMessage, PaginatedDataRequest};
 use crate::dataview::{DataProvider, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
 use crate::options::{Options, OptionsUpdate};
+use crate::scrolling::pagination::PaginatedData;
 use crate::scrolling::{selection, ScrollAction, ScrollableList};
 use crate::status::{Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
@@ -25,8 +25,8 @@ use crossterm::{terminal, QueueableCommand};
 use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
-    EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
-    FeedView, Identifiable,
+    EpisodeStatus, EpisodeSummary, EpisodesListMetadata, FeedId, FeedSummary, FeedView,
+    Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
@@ -77,7 +77,7 @@ impl FocusedPaneState {
 
 pub(crate) struct LibraryViewModel {
     pub(crate) feeds: ScrollableList<Vec<FeedView<FeedSummary>>>,
-    pub(crate) episodes: InteractiveList<PaginatedData<EpisodeSummary>, EpisodesListProvider>,
+    pub(crate) episodes: ScrollableList<PaginatedData<EpisodeSummary>>,
     pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
     pub(crate) focus: FocusedPaneState,
     pub(crate) updating_feeds: HashSet<FeedId>,
@@ -88,7 +88,7 @@ impl LibraryViewModel {
     fn new(window_size: usize) -> Self {
         LibraryViewModel {
             feeds: ScrollableList::new_with_margins(Vec::new(), window_size, 3),
-            episodes: InteractiveList::new(window_size),
+            episodes: ScrollableList::new_with_margins(PaginatedData::new(), window_size, 3),
             episodes_list_metadata: None,
             focus: FocusedPaneState::FeedsList,
             playing_episode: None,
@@ -256,7 +256,7 @@ impl UI {
                         self.library.feeds.scroll(command);
                         self.update_current_feed(ctx);
                     }
-                    FocusedPaneState::EpisodesList => self.library.episodes.handle_command(command),
+                    FocusedPaneState::EpisodesList => self.library.episodes.scroll(command),
                     FocusedPaneState::Search(Ok(list)) => list.handle_command(command),
                     FocusedPaneState::Search(Err(_)) => (),
                 }
@@ -373,9 +373,9 @@ impl UI {
                                         feed_title: playback_data.feed_title,
                                     }),
                                 ));
-                            actor.library.episodes.update_item(episode_id, |episode| {
-                                episode.status = EpisodeSummaryStatus::Started;
-                            });
+                            // actor.library.episodes.update_item(episode_id, |episode| {
+                            //     episode.status = EpisodeSummaryStatus::Started;
+                            // });
                             actor.invalidate(ctx);
                         }
                     });
@@ -414,19 +414,19 @@ impl UI {
             }
             Command::Mark { status, update_all } => {
                 if update_all {
-                    let episodes = &mut self.library.episodes;
-                    episodes.update_all(|episode| episode.status = status.clone().into());
-                    let query = episodes.provider().and_then(|p| p.query.as_ref());
-                    if let Some(query) = query {
-                        self.status_writer_actor
-                            .do_send(StatusWriterCommand::Set(query.clone(), status));
-                    }
+                    // let episodes = &mut self.library.episodes;
+                    // episodes.update_all(|episode| episode.status = status.clone().into());
+                    // let query = episodes.provider().and_then(|p| p.query.as_ref());
+                    // if let Some(query) = query {
+                    //     self.status_writer_actor
+                    //         .do_send(StatusWriterCommand::Set(query.clone(), status));
+                    // }
                 } else if let Some(selected_id) =
                     self.library.episodes.selection().map(|episode| episode.id)
                 {
-                    self.library.episodes.update_selection(|selected| {
-                        selected.status = status.clone().into();
-                    });
+                    // self.library.episodes.update_selection(|selected| {
+                    //     selected.status = status.clone().into();
+                    // });
 
                     self.status_writer_actor
                         .do_send(StatusWriterCommand::set(selected_id, status));
@@ -457,7 +457,12 @@ impl UI {
             }
             Command::Refresh => {
                 self.load_feeds(ctx);
-                self.library.episodes.invalidate();
+                self.library
+                    .episodes
+                    .update_data::<selection::Reset, _>(|data| {
+                        data.clear_provider();
+                        data.clear();
+                    });
                 self.invalidate(ctx);
             }
         }
@@ -477,13 +482,78 @@ impl UI {
             return;
         }
 
-        self.library.episodes.update_provider(|provider| {
-            provider.query = selected_id
-                .clone()
-                .map(|selected_id| EpisodesQuery::Multiple {
-                    feed_id: selected_id.as_feed().cloned(),
+        if let Some(selected_id) = selected_id {
+            self.library
+                .episodes
+                .update_data::<selection::DoNotUpdate, _>(|data| {
+                    // To prevent updates for the old
+                    data.clear_provider();
+                    data.clear();
                 });
-        });
+            self.invalidate(ctx);
+
+            let query = EpisodesQuery::from_feed_view(selected_id);
+            let future = wrap_future(
+                self.library_actor
+                    .send(EpisodesListMetadataRequest(query.clone())),
+            )
+            .then(|result, actor: &mut UI, ctx| {
+                let result = actor.handle_response_error(result, ctx).map(|metadata| {
+                    let range = actor.library.episodes.data().initial_range(
+                        metadata.items_count,
+                        actor.library.episodes.viewport().range(),
+                    );
+                    (metadata, range)
+                });
+                let library_actor = actor.library_actor.clone();
+                wrap_future(async move {
+                    match result {
+                        None => None,
+                        Some((metadata, None)) => Some((metadata, None)),
+                        Some((metadata, Some(range))) => {
+                            let episodes = library_actor
+                                .send(EpisodeSummariesRequest::new(query.clone(), range.clone()))
+                                .await;
+                            Some((metadata, Some((range, episodes))))
+                        }
+                    }
+                })
+            })
+            .map(|result, actor: &mut UI, ctx| {
+                if let Some((metadata, episodes)) = result {
+                    let items_count = metadata.items_count;
+                    actor.library.episodes_list_metadata = Some(metadata);
+                    match episodes {
+                        Some((range, episodes)) => {
+                            if let Some(episodes) = actor.handle_response_error(episodes, ctx) {
+                                actor
+                                    .library
+                                    .episodes
+                                    .update_data::<selection::FindPrevious, _>(|data| {
+                                        data.set_initial(items_count, episodes, range);
+                                    });
+                            }
+                        }
+                        None => {
+                            actor
+                                .library
+                                .episodes
+                                .update_data::<selection::FindPrevious, _>(|data| data.clear());
+                        }
+                    }
+                    actor.invalidate(ctx);
+                }
+            });
+            ctx.spawn(future);
+        } else {
+            self.library
+                .episodes
+                .update_data::<selection::Reset, _>(|data| {
+                    data.clear();
+                    data.clear_provider();
+                });
+        }
+
         self.selected_feed = selected_id;
         self.invalidate(ctx);
     }
@@ -546,10 +616,6 @@ impl Actor for UI {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        self.library.episodes.set_provider(EpisodesListProvider {
-            query: None,
-            actor: ctx.address(),
-        });
         self.load_feeds(ctx);
         self.init_rc(ctx);
 
@@ -666,26 +732,26 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
     }
 }
 
-pub(crate) struct EpisodesListProvider {
-    pub(crate) query: Option<EpisodesQuery>,
-    actor: Addr<UI>,
-}
-
-impl DataProvider for EpisodesListProvider {
-    type Request = PaginatedDataRequest;
-
-    fn request(&self, request: crate::dataview::Versioned<Self::Request>) {
-        if let Some(query) = &self.query {
-            self.actor
-                .do_send(DataFetchingRequest::Episodes(query.clone(), request));
-        }
-    }
-}
+// pub(crate) struct EpisodesListProvider {
+//     pub(crate) query: Option<EpisodesQuery>,
+//     actor: Addr<UI>,
+// }
+//
+// impl DataProvider for EpisodesListProvider {
+//     type Request = PaginatedDataRequest;
+//
+//     fn request(&self, request: crate::dataview::Versioned<Self::Request>) {
+//         if let Some(query) = &self.query {
+//             self.actor
+//                 .do_send(DataFetchingRequest::Episodes(query.clone(), request));
+//         }
+//     }
+// }
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 enum DataFetchingRequest {
-    Episodes(EpisodesQuery, Versioned<PaginatedDataRequest>),
+    // Episodes(EpisodesQuery, Versioned<PaginatedDataRequest>),
     Search(Versioned<String>),
 }
 
@@ -726,44 +792,44 @@ impl Handler<DataFetchingRequest> for UI {
 
     fn handle(&mut self, msg: DataFetchingRequest, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            DataFetchingRequest::Episodes(query, request) => {
-                let (version, request) = request.deconstruct();
-                match request {
-                    PaginatedDataRequest::Size => Box::pin(
-                        self.library_actor
-                            .send(EpisodesListMetadataRequest(query))
-                            .into_actor(self)
-                            .map(move |metadata, actor, ctx| {
-                                if let Some(metadata) = actor.handle_response_error(metadata, ctx) {
-                                    actor.library.episodes.handle_data(
-                                        Versioned::new(PaginatedDataMessage::size(
-                                            metadata.items_count,
-                                        ))
-                                        .with_version(version),
-                                    );
-                                    actor.library.episodes_list_metadata = Some(metadata);
-                                    actor.invalidate(ctx);
-                                }
-                            }),
-                    ),
-                    PaginatedDataRequest::Page(page) => {
-                        let page_index = page.index;
-                        let request = EpisodeSummariesRequest::new(query, page);
-                        Box::pin(self.library_actor.send(request).into_actor(self).map(
-                            move |data, actor, ctx| {
-                                if let Some(data) = actor.handle_response_error(data, ctx) {
-                                    let message = PaginatedDataMessage::page(page_index, data);
-                                    actor
-                                        .library
-                                        .episodes
-                                        .handle_data(Versioned::new(message).with_version(version));
-                                    actor.invalidate(ctx);
-                                }
-                            },
-                        ))
-                    }
-                }
-            }
+            // DataFetchingRequest::Episodes(query, request) => {
+            //     let (version, request) = request.deconstruct();
+            //     match request {
+            //         PaginatedDataRequest::Size => Box::pin(
+            //             self.library_actor
+            //                 .send(EpisodesListMetadataRequest(query))
+            //                 .into_actor(self)
+            //                 .map(move |metadata, actor, ctx| {
+            //                     if let Some(metadata) = actor.handle_response_error(metadata, ctx) {
+            //                         actor.library.episodes.handle_data(
+            //                             Versioned::new(PaginatedDataMessage::size(
+            //                                 metadata.items_count,
+            //                             ))
+            //                             .with_version(version),
+            //                         );
+            //                         actor.library.episodes_list_metadata = Some(metadata);
+            //                         actor.invalidate(ctx);
+            //                     }
+            //                 }),
+            //         ),
+            //         PaginatedDataRequest::Page(page) => {
+            //             let page_index = page.index;
+            //             let request = EpisodeSummariesRequest::new(query, page);
+            //             Box::pin(self.library_actor.send(request).into_actor(self).map(
+            //                 move |data, actor, ctx| {
+            //                     if let Some(data) = actor.handle_response_error(data, ctx) {
+            //                         let message = PaginatedDataMessage::page(page_index, data);
+            //                         actor
+            //                             .library
+            //                             .episodes
+            //                             .handle_data(Versioned::new(message).with_version(version));
+            //                         actor.invalidate(ctx);
+            //                     }
+            //                 },
+            //             ))
+            //         }
+            //     }
+            // }
             DataFetchingRequest::Search(search) => Box::pin({
                 let (version, query) = search.deconstruct();
                 let client = SearchClient::new();
@@ -825,11 +891,11 @@ impl Handler<PlayerNotification> for UI {
                 if let Some(playing_episode) = &self.library.playing_episode {
                     self.status_writer_actor
                         .do_send(StatusWriterCommand::set_finished(playing_episode.id));
-                    self.library
-                        .episodes
-                        .update_item(playing_episode.id, |episode| {
-                            episode.status = EpisodeSummaryStatus::Finished;
-                        });
+                    // self.library
+                    //     .episodes
+                    //     .update_item(playing_episode.id, |episode| {
+                    //         episode.status = EpisodeSummaryStatus::Finished;
+                    //     });
                 }
             }
             PlayerNotification::MetadataChanged(_) => {}
@@ -851,11 +917,11 @@ impl Handler<PlayerErrorNotification> for UI {
                         .map(|timing| timing.position)
                         .unwrap_or_default(),
                 ));
-            self.library
-                .episodes
-                .update_item(playing_episode.id, |episode| {
-                    episode.status = EpisodeSummaryStatus::Error;
-                });
+            // self.library
+            //     .episodes
+            //     .update_item(playing_episode.id, |episode| {
+            //         episode.status = EpisodeSummaryStatus::Error;
+            //     });
             self.invalidate(ctx);
         }
     }
@@ -887,7 +953,7 @@ impl Handler<FeedUpdateNotification> for UI {
                         }
                     });
                 if self.selected_feed == Some(FeedView::Feed(id)) {
-                    self.library.episodes.invalidate();
+                    // self.library.episodes.invalidate();
                 }
             }
             FeedUpdateNotification::Error(error) => self.handle_error(error, ctx),

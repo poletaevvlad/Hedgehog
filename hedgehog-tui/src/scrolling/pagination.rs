@@ -29,6 +29,10 @@ impl<T> PaginatedData<T> {
         self
     }
 
+    pub(crate) fn clear_provider(&mut self) {
+        self.data_provider = None;
+    }
+
     pub(crate) fn set_provider(&mut self, data_provider: impl DataProvider + 'static) {
         self.data_provider = Some(Box::new(data_provider));
     }
@@ -100,6 +104,12 @@ impl<T> PaginatedData<T> {
             page += 1;
         }
     }
+
+    pub(crate) fn clear(&mut self) {
+        self.size = 0;
+        self.first_page_index = 0;
+        self.pages.clear();
+    }
 }
 
 impl<T> Default for PaginatedData<T> {
@@ -107,7 +117,7 @@ impl<T> Default for PaginatedData<T> {
         Self {
             page_size: 128,
             size: 0,
-            load_margins: 0,
+            load_margins: 32,
             first_page_index: 0,
             pages: VecDeque::new(),
             data_provider: None,

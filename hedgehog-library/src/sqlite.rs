@@ -1,5 +1,5 @@
 use crate::datasource::{
-    DataProvider, DbResult, EpisodeWriter, EpisodesQuery, Page, QueryError, WritableDataProvider,
+    DataProvider, DbResult, EpisodeWriter, EpisodesQuery, QueryError, WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -8,6 +8,7 @@ use crate::model::{
 };
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
+use std::ops::Range;
 use std::path::Path;
 use std::time::Duration;
 use thiserror::Error;
@@ -185,16 +186,17 @@ impl DataProvider for SqliteDataProvider {
     fn get_episode_summaries(
         &self,
         request: EpisodesQuery,
-        page: Page,
+        range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
         let mut sql = "SELECT id, feed_id, episode_number, season_number, title, status, duration, publication_date FROM episodes".to_string();
         request.build_where_clause(&mut sql);
         sql.push_str(" ORDER BY publication_date DESC LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
 
-        let offset = page.offset();
+        let offset = range.start;
+        let limit = range.end - range.start;
         let mut params = vec![
-            (":limit", &page.size as &dyn rusqlite::ToSql),
+            (":limit", &limit as &dyn rusqlite::ToSql),
             (":offset", &offset as &dyn rusqlite::ToSql),
         ];
         request.build_params(&mut params);
@@ -374,7 +376,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 #[cfg(test)]
 mod tests {
     use super::{ConnectionError, SqliteDataProvider};
-    use crate::datasource::{DataProvider, EpisodeWriter, Page, WritableDataProvider};
+    use crate::datasource::{DataProvider, EpisodeWriter, WritableDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, FeedStatus};
     use crate::EpisodesQuery;
@@ -541,7 +543,7 @@ mod tests {
                 EpisodesQuery::Multiple {
                     feed_id: Some(feed_id),
                 },
-                Page::new(0, 100),
+                0..100,
             )
             .unwrap();
         episodes.sort_by_key(|episode| episode.id.0);

@@ -8,13 +8,11 @@ mod sqlite;
 pub mod status_writer;
 mod tests;
 
-pub use rss;
-
 pub use actor::Library;
-pub use sqlite::SqliteDataProvider;
-
 pub use actor::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     FeedSummariesRequest, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
 };
-pub use datasource::{EpisodesQuery, Page};
+pub use datasource::EpisodesQuery;
+pub use rss;
+pub use sqlite::SqliteDataProvider;

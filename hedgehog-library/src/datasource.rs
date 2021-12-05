@@ -1,9 +1,10 @@
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata,
-    Feed, FeedId, FeedStatus, FeedSummary,
+    Feed, FeedId, FeedStatus, FeedSummary, FeedView,
 };
 use std::marker::Unpin;
+use std::ops::Range;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -21,19 +22,14 @@ pub enum EpisodesQuery {
     Multiple { feed_id: Option<FeedId> },
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Page {
-    pub index: usize,
-    pub size: usize,
-}
-
-impl Page {
-    pub fn new(index: usize, size: usize) -> Self {
-        Page { index, size }
-    }
-
-    pub(crate) fn offset(&self) -> usize {
-        self.index * self.size
+impl EpisodesQuery {
+    pub fn from_feed_view(feed_id: FeedView<FeedId>) -> Self {
+        match feed_id {
+            FeedView::All => EpisodesQuery::Multiple { feed_id: None },
+            FeedView::Feed(feed_id) => EpisodesQuery::Multiple {
+                feed_id: Some(feed_id),
+            },
+        }
     }
 }
 
@@ -48,7 +44,7 @@ pub trait DataProvider: Unpin {
     fn get_episode_summaries(
         &self,
         query: EpisodesQuery,
-        page: Page,
+        range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>>;
 
     fn create_feed_pending(&self, source: &str) -> DbResult<FeedId>;

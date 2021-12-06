@@ -23,7 +23,7 @@ impl<F, I> List<F, I> {
 impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widget for List<F, I> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut iterator = self.items.into_iter();
-        for y in area.top()..=area.bottom() {
+        for y in area.top()..area.bottom() {
             match iterator.next() {
                 Some(item) => {
                     self.delegate

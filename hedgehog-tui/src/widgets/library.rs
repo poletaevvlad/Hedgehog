@@ -3,7 +3,7 @@ use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
 use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
 use crate::options::Options;
-use crate::screen::{FocusedPane, FocusedPaneState, LibraryViewModel, SearchState};
+use crate::screen::{FocusedPane, LibraryViewModel, SearchState};
 use crate::scrolling::DataView;
 use crate::theming::{self, Theme};
 use crate::widgets::search_row::SearchResultRowRenderer;
@@ -53,7 +53,7 @@ impl<'a> LibraryWidget<'a> {
             FeedsListRowRenderer::new(
                 self.theme,
                 self.options,
-                self.data.focus.as_pane() == FocusedPane::FeedsList,
+                self.data.focus == FocusedPane::FeedsList,
                 &self.data.updating_feeds,
             ),
             self.data.feeds.visible_iter(),
@@ -101,7 +101,7 @@ impl<'a> LibraryWidget<'a> {
                 List::new(
                     EpisodesListRowRenderer::new(
                         self.theme,
-                        self.data.focus.as_pane() == FocusedPane::EpisodesList,
+                        self.data.focus == FocusedPane::EpisodesList,
                         self.options,
                         sizing,
                     )
@@ -113,26 +113,21 @@ impl<'a> LibraryWidget<'a> {
         }
     }
 
-    fn render_search(
-        self,
-        area: tui::layout::Rect,
-        buf: &mut tui::buffer::Buffer,
-        search: &SearchState,
-    ) {
-        match search {
-            Ok(list) if list.is_empty() => EmptyView::new(self.theme)
+    fn render_search(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+        match &self.data.search {
+            SearchState::Loaded(list) if list.data().is_empty() => EmptyView::new(self.theme)
                 .title("Nothing is found")
                 .subtitle("Please make sure that your query is correct")
                 .render(area, buf),
-            Ok(list) => match list.iter() {
-                Some(items) => {
-                    List::new(SearchResultRowRenderer::new(self.theme), items).render(area, buf);
-                }
-                None => EmptyView::new(self.theme)
-                    .title("Searching...")
-                    .render(area, buf),
-            },
-            Err(err) => EmptyView::new(self.theme)
+            SearchState::Loaded(list) => List::new(
+                SearchResultRowRenderer::new(self.theme),
+                list.visible_iter(),
+            )
+            .render(area, buf),
+            SearchState::Loading => EmptyView::new(self.theme)
+                .title("Searching...")
+                .render(area, buf),
+            SearchState::Error(err) => EmptyView::new(self.theme)
                 .title("Search request failed")
                 .subtitle(&err.to_string())
                 .render(area, buf),
@@ -143,10 +138,10 @@ impl<'a> LibraryWidget<'a> {
 impl<'a> Widget for LibraryWidget<'a> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         match &self.data.focus {
-            FocusedPaneState::FeedsList | FocusedPaneState::EpisodesList => {
+            FocusedPane::FeedsList | FocusedPane::EpisodesList => {
                 self.render_library(area, buf);
             }
-            FocusedPaneState::Search(search_list) => self.render_search(area, buf, search_list),
+            FocusedPane::Search => self.render_search(area, buf),
         }
     }
 }

@@ -1,7 +1,4 @@
 use crate::cmdreader::{CommandReader, FileResolver};
-use crate::dataview::interactive::InteractiveList;
-use crate::dataview::linear::{ListData, ListDataRequest};
-use crate::dataview::{self, Versioned};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
@@ -57,23 +54,10 @@ pub(crate) enum FocusedPane {
     Search,
 }
 
-pub(crate) type SearchState =
-    Result<InteractiveList<ListData<SearchResult>, SearchResultsProvider>, search::Error>;
-
-pub(crate) enum FocusedPaneState {
-    FeedsList,
-    EpisodesList,
-    Search(SearchState),
-}
-
-impl FocusedPaneState {
-    pub(crate) fn as_pane(&self) -> FocusedPane {
-        match self {
-            FocusedPaneState::FeedsList => FocusedPane::FeedsList,
-            FocusedPaneState::EpisodesList => FocusedPane::EpisodesList,
-            FocusedPaneState::Search(_) => FocusedPane::Search,
-        }
-    }
+pub(crate) enum SearchState {
+    Loading,
+    Loaded(ScrollableList<Vec<SearchResult>>),
+    Error(search::Error),
 }
 
 pub(crate) struct LibraryViewModel {
@@ -81,7 +65,8 @@ pub(crate) struct LibraryViewModel {
     pub(crate) feeds_loaded: bool,
     pub(crate) episodes: ScrollableList<PaginatedData<EpisodeSummary>>,
     pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
-    pub(crate) focus: FocusedPaneState,
+    pub(crate) search: SearchState,
+    pub(crate) focus: FocusedPane,
     pub(crate) updating_feeds: HashSet<FeedId>,
     pub(crate) playing_episode: Option<EpisodeSummary>,
 }
@@ -93,7 +78,8 @@ impl LibraryViewModel {
             feeds_loaded: false,
             episodes: ScrollableList::new_with_margins(PaginatedData::new(), window_size, 3),
             episodes_list_metadata: None,
-            focus: FocusedPaneState::FeedsList,
+            search: SearchState::Loading,
+            focus: FocusedPane::FeedsList,
             playing_episode: None,
             updating_feeds: HashSet::new(),
         }
@@ -255,25 +241,22 @@ impl UI {
         match command {
             Command::Cursor(command) => {
                 match &mut self.library.focus {
-                    FocusedPaneState::FeedsList => {
+                    FocusedPane::FeedsList => {
                         self.library.feeds.scroll(command);
                         self.update_current_feed(ctx);
                     }
-                    FocusedPaneState::EpisodesList => self.library.episodes.scroll(command),
-                    FocusedPaneState::Search(Ok(list)) => list.handle_command(command),
-                    FocusedPaneState::Search(Err(_)) => (),
+                    FocusedPane::EpisodesList => self.library.episodes.scroll(command),
+                    FocusedPane::Search => {
+                        if let SearchState::Loaded(list) = &mut self.library.search {
+                            list.scroll(command);
+                        }
+                    }
                 }
                 self.invalidate(ctx);
             }
             Command::SetFocus(focused_pane) => {
-                if self.library.focus.as_pane() != focused_pane {
-                    match focused_pane {
-                        FocusedPane::FeedsList => self.library.focus = FocusedPaneState::FeedsList,
-                        FocusedPane::EpisodesList => {
-                            self.library.focus = FocusedPaneState::EpisodesList;
-                        }
-                        FocusedPane::Search => {}
-                    }
+                if self.library.focus != focused_pane {
+                    self.library.focus = focused_pane;
                     self.invalidate(ctx);
                 }
             }
@@ -454,25 +437,19 @@ impl UI {
                 self.invalidate(ctx);
             }
             Command::Search(query) => {
-                let mut list = InteractiveList::new(self.library.feeds.viewport().window_size());
-                list.set_provider(SearchResultsProvider {
-                    actor: ctx.address(),
-                    query,
-                });
-                self.library.focus = FocusedPaneState::Search(Ok(list));
+                self.perform_search(query, ctx);
+                self.library.focus = FocusedPane::Search;
                 self.invalidate(ctx);
             }
             Command::SearchAdd => {
-                let feed_url = if let FocusedPaneState::Search(Ok(list)) = &self.library.focus {
-                    list.selection().map(|entry| entry.feed_url.clone())
-                } else {
-                    None
-                };
-
-                if let Some(feed_url) = feed_url {
-                    self.handle_command(Command::AddFeed(feed_url), ctx);
-                    self.library.focus = FocusedPaneState::FeedsList;
-                    self.invalidate(ctx);
+                if let SearchState::Loaded(list) = &self.library.search {
+                    let index = list.viewport().selected_index();
+                    if let Some(item) = list.data().item_at(index) {
+                        let url = item.feed_url.clone();
+                        self.library.focus = FocusedPane::FeedsList;
+                        self.handle_command(Command::AddFeed(url), ctx);
+                        self.invalidate(ctx);
+                    }
                 }
             }
             Command::Refresh => {
@@ -598,6 +575,28 @@ impl UI {
         self.invalidate(ctx);
     }
 
+    fn perform_search(&mut self, query: String, ctx: &mut <UI as Actor>::Context) {
+        self.library.search = SearchState::Loading;
+        self.invalidate(ctx);
+
+        let client = SearchClient::new();
+        ctx.spawn(
+            wrap_future(async move { client.perform(&query).await }).map(
+                move |result, actor: &mut UI, ctx| {
+                    actor.library.search = match result {
+                        Ok(results) => SearchState::Loaded(ScrollableList::new_with_margins(
+                            results,
+                            actor.library.feeds.viewport().window_size(),
+                            3,
+                        )),
+                        Err(err) => SearchState::Error(err),
+                    };
+                    actor.invalidate(ctx);
+                },
+            ),
+        );
+    }
+
     fn handle_error(&mut self, error: impl std::error::Error, ctx: &mut <UI as Actor>::Context) {
         self.status
             .push(Status::new_custom(error.to_string(), Severity::Error));
@@ -721,7 +720,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                 crossterm::event::Event::Key(key_event) => {
                     let command = self
                         .key_mapping
-                        .get(key_event.into(), Some(self.library.focus.as_pane()));
+                        .get(key_event.into(), Some(self.library.focus));
                     if let Some(command) = command.cloned() {
                         self.handle_command(command, ctx);
                     }
@@ -789,7 +788,6 @@ impl DataProvider for EpisodesListProvider {
 #[rtype(result = "()")]
 enum DataFetchingRequest {
     Episodes(EpisodesQuery, Range<usize>),
-    Search(Versioned<String>),
 }
 
 type LibraryQueryResult<T> = Result<Result<T, QueryError>, MailboxError>;
@@ -806,21 +804,6 @@ impl UI {
             Ok(Ok(data)) => return Some(data),
         }
         None
-    }
-}
-
-pub(crate) struct SearchResultsProvider {
-    query: String,
-    actor: Addr<UI>,
-}
-
-impl dataview::DataProvider for SearchResultsProvider {
-    type Request = ListDataRequest;
-
-    fn request(&self, request: Versioned<Self::Request>) {
-        self.actor.do_send(DataFetchingRequest::Search(
-            request.with_data(self.query.clone()),
-        ));
     }
 }
 
@@ -845,29 +828,6 @@ impl Handler<DataFetchingRequest> for UI {
                     },
                 ))
             }
-            DataFetchingRequest::Search(search) => Box::pin({
-                let (version, query) = search.deconstruct();
-                let client = SearchClient::new();
-                wrap_future(async move { client.perform(&query).await }).map(
-                    move |result, actor: &mut UI, ctx| {
-                        if let FocusedPaneState::Search(ref mut search_state) =
-                            &mut actor.library.focus
-                        {
-                            match result {
-                                Ok(results) => {
-                                    if let Ok(ref mut list) = search_state {
-                                        list.handle_data(
-                                            Versioned::new(results).with_version(version),
-                                        );
-                                    }
-                                }
-                                Err(err) => *search_state = Err(err),
-                            }
-                            actor.invalidate(ctx);
-                        }
-                    },
-                )
-            }),
         }
     }
 }

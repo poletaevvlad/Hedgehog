@@ -16,31 +16,28 @@ impl<'t> SearchResultRowRenderer<'t> {
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for SearchResultRowRenderer<'t> {
-    type Item = (Option<&'a SearchResult>, bool);
+    type Item = (&'a SearchResult, bool);
 
     fn render_item(&self, area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
+        let item_selector = theming::ListItem {
+            selected,
+            focused: true,
+            ..Default::default()
+        };
+        let style = self.theme.get(theming::List::Item(item_selector));
+        buf.set_style(area, style);
 
-        if let Some(item) = item {
-            let item_selector = theming::ListItem {
-                selected,
-                focused: true,
-                ..Default::default()
-            };
-            let style = self.theme.get(theming::List::Item(item_selector));
-            buf.set_style(area, style);
-
-            let paragraph = Paragraph::new(item.title.as_str());
-            paragraph.render(
-                Rect::new(
-                    area.x + 1,
-                    area.y,
-                    area.width.saturating_sub(2),
-                    area.height,
-                ),
-                buf,
-            );
-        }
+        let paragraph = Paragraph::new(item.title.as_str());
+        paragraph.render(
+            Rect::new(
+                area.x + 1,
+                area.y,
+                area.width.saturating_sub(2),
+                area.height,
+            ),
+            buf,
+        );
     }
 
     fn render_empty(&self, area: Rect, buf: &mut Buffer) {

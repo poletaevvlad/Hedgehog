@@ -1,5 +1,4 @@
 mod cmdreader;
-mod dataview;
 mod events;
 mod history;
 mod keymap;

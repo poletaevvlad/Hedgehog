@@ -4,6 +4,7 @@ use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
 use crate::options::Options;
 use crate::screen::{FocusedPane, FocusedPaneState, LibraryViewModel, SearchState};
+use crate::scrolling::DataView;
 use crate::theming::{self, Theme};
 use crate::widgets::search_row::SearchResultRowRenderer;
 use tui::layout::{Constraint, Direction, Layout};
@@ -25,7 +26,7 @@ impl<'a> LibraryWidget<'a> {
     }
 
     fn render_library(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        if self.data.feeds.data().is_empty() {
+        if self.data.feeds.data().size() == 1 && self.data.feeds_loaded {
             EmptyView::new(self.theme)
                 .title("Hedgehog Podcast Player")
                 .subtitle(

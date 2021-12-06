@@ -78,6 +78,7 @@ impl FocusedPaneState {
 
 pub(crate) struct LibraryViewModel {
     pub(crate) feeds: ScrollableList<Vec<FeedView<FeedSummary>>>,
+    pub(crate) feeds_loaded: bool,
     pub(crate) episodes: ScrollableList<PaginatedData<EpisodeSummary>>,
     pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
     pub(crate) focus: FocusedPaneState,
@@ -89,6 +90,7 @@ impl LibraryViewModel {
     fn new(window_size: usize) -> Self {
         LibraryViewModel {
             feeds: ScrollableList::new_with_margins(Vec::new(), window_size, 3),
+            feeds_loaded: false,
             episodes: ScrollableList::new_with_margins(PaginatedData::new(), window_size, 3),
             episodes_list_metadata: None,
             focus: FocusedPaneState::FeedsList,
@@ -643,6 +645,7 @@ impl UI {
                                 *current_feeds = feeds;
                             });
                         actor.update_current_feed(ctx);
+                        actor.library.feeds_loaded = true;
                         actor.invalidate(ctx);
                     }
                 }),

@@ -494,17 +494,19 @@ impl UI {
         });
     }
 
-    fn refresh_episodes(&mut self, ctx: &mut <UI as Actor>::Context) {
+    fn refresh_episodes(&mut self, ctx: &mut <UI as Actor>::Context, replace_current: bool) {
         let feed_id = match self.selected_feed {
             Some(feed_id) => feed_id,
             None => return,
         };
         self.library
             .episodes
-            .update_data::<selection::DoNotUpdate, _>(|data| {
+            .update_data::<selection::Keep, _>(|data| {
                 // To prevent updates for the old
                 data.clear_provider();
-                data.clear();
+                if replace_current {
+                    data.clear();
+                }
             });
 
         let query = EpisodesQuery::from_feed_view(feed_id);
@@ -538,30 +540,34 @@ impl UI {
                 }
             })
         })
-        .map(|result, actor: &mut UI, ctx| {
+        .map(move |result, actor: &mut UI, ctx| {
+            macro_rules! update_data {
+                ($fn:expr) => {{
+                    let episodes = &mut actor.library.episodes;
+                    if replace_current {
+                        episodes.update_data::<selection::Reset, _>($fn);
+                    } else {
+                        episodes.update_data::<selection::FindPrevious, _>($fn);
+                    }
+                }};
+            }
             if let Some((metadata, episodes)) = result {
                 let items_count = metadata.items_count;
                 actor.library.episodes_list_metadata = Some(metadata);
                 match episodes {
                     Some((range, episodes)) => {
                         if let Some(episodes) = actor.handle_response_error(episodes, ctx) {
-                            actor
-                                .library
-                                .episodes
-                                .update_data::<selection::FindPrevious, _>(|data| {
-                                    data.set_provider(new_provider);
-                                    data.set_initial(items_count, episodes, range);
-                                });
+                            update_data!(|data| {
+                                data.set_provider(new_provider);
+                                data.set_initial(items_count, episodes, range);
+                            });
                         }
                     }
                     None => {
-                        actor
-                            .library
-                            .episodes
-                            .update_data::<selection::FindPrevious, _>(|data| {
-                                data.set_provider(new_provider);
-                                data.clear();
-                            });
+                        update_data!(|data| {
+                            data.set_provider(new_provider);
+                            data.clear();
+                        });
                     }
                 }
                 actor.invalidate(ctx);
@@ -578,7 +584,7 @@ impl UI {
         self.selected_feed = selected_id;
 
         if selected_id.is_some() {
-            self.refresh_episodes(ctx);
+            self.refresh_episodes(ctx, true);
         } else {
             self.library
                 .episodes
@@ -969,7 +975,7 @@ impl Handler<FeedUpdateNotification> for UI {
                         }
                     });
                 if self.selected_feed == Some(FeedView::Feed(id)) {
-                    self.refresh_episodes(ctx);
+                    self.refresh_episodes(ctx, false);
                 }
             }
             FeedUpdateNotification::Error(error) => self.handle_error(error, ctx),

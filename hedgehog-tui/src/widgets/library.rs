@@ -123,6 +123,7 @@ impl<'a> LibraryWidget<'a> {
                 SearchResultRowRenderer::new(self.theme),
                 list.visible_iter(),
             )
+            .item_height(2)
             .render(area, buf),
             SearchState::Loading => EmptyView::new(self.theme)
                 .title("Searching...")

@@ -12,22 +12,36 @@ pub(crate) trait ListItemRenderingDelegate<'a> {
 pub(crate) struct List<F, I> {
     delegate: F,
     items: I,
+    item_height: u16,
 }
 
 impl<F, I> List<F, I> {
     pub(crate) fn new(delegate: F, items: I) -> Self {
-        List { delegate, items }
+        List {
+            delegate,
+            items,
+            item_height: 1,
+        }
+    }
+
+    pub(crate) fn item_height(mut self, item_height: u16) -> Self {
+        self.item_height = item_height;
+        self
     }
 }
 
 impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widget for List<F, I> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut iterator = self.items.into_iter();
-        for y in area.top()..area.bottom() {
+        let mut y = area.top();
+        while y < area.bottom() {
             match iterator.next() {
                 Some(item) => {
-                    self.delegate
-                        .render_item(Rect::new(area.x, y, area.width, 1), item, buf);
+                    self.delegate.render_item(
+                        Rect::new(area.x, y, area.width, self.item_height),
+                        item,
+                        buf,
+                    );
                 }
                 None => {
                     self.delegate.render_empty(
@@ -37,6 +51,7 @@ impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widg
                     break;
                 }
             }
+            y += self.item_height;
         }
     }
 }

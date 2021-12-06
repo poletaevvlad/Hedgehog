@@ -586,8 +586,8 @@ impl UI {
                     actor.library.search = match result {
                         Ok(results) => SearchState::Loaded(ScrollableList::new_with_margins(
                             results,
-                            actor.library.feeds.viewport().window_size(),
-                            3,
+                            actor.library.feeds.viewport().window_size() / 2,
+                            1,
                         )),
                         Err(err) => SearchState::Error(err),
                     };

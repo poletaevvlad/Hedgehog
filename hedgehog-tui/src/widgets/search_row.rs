@@ -3,7 +3,9 @@ use crate::theming::{self, Theme};
 use hedgehog_library::search::SearchResult;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
+use tui::text::{Span, Spans};
 use tui::widgets::{Paragraph, Widget};
+use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct SearchResultRowRenderer<'t> {
     theme: &'t Theme,
@@ -30,14 +32,36 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for SearchResultRowRenderer<'t> {
 
         let paragraph = Paragraph::new(item.title.as_str());
         paragraph.render(
-            Rect::new(
-                area.x + 1,
-                area.y,
-                area.width.saturating_sub(2),
-                area.height,
-            ),
+            Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1),
             buf,
         );
+
+        if area.height > 1 {
+            let metadata = Paragraph::new(vec![Spans::from(vec![
+                Span::raw(&item.genre),
+                Span::raw(", "),
+                Span::raw("by "),
+                Span::raw(&item.author),
+            ])]);
+            metadata.render(
+                Rect::new(
+                    area.x + 2,
+                    area.y + 1,
+                    area.width.saturating_sub(3),
+                    area.height - 1,
+                ),
+                buf,
+            );
+
+            let episodes_count = format!("   {} ep. ", item.episodes_count);
+            let episodes_count_width = episodes_count.width() as u16;
+            buf.set_span(
+                area.right().saturating_sub(episodes_count_width),
+                area.y + 1,
+                &Span::raw(&episodes_count),
+                episodes_count_width,
+            );
+        }
     }
 
     fn render_empty(&self, area: Rect, buf: &mut Buffer) {

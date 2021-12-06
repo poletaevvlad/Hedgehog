@@ -37,8 +37,14 @@ impl<'a, F: ListItemRenderingDelegate<'a>, I: IntoIterator<Item = F::Item>> Widg
         while y < area.bottom() {
             match iterator.next() {
                 Some(item) => {
+                    let remaining_height = area.bottom() - y;
                     self.delegate.render_item(
-                        Rect::new(area.x, y, area.width, self.item_height),
+                        Rect::new(
+                            area.x,
+                            y,
+                            area.width,
+                            self.item_height.min(remaining_height),
+                        ),
                         item,
                         buf,
                     );

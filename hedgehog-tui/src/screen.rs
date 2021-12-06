@@ -494,83 +494,91 @@ impl UI {
         });
     }
 
-    fn update_current_feed(&mut self, ctx: &mut <UI as Actor>::Context) {
-        let selected_id = self.library.feeds.selection().map(|item| item.id());
-        if selected_id == self.selected_feed {
-            return;
-        }
+    fn refresh_episodes(&mut self, ctx: &mut <UI as Actor>::Context) {
+        let feed_id = match self.selected_feed {
+            Some(feed_id) => feed_id,
+            None => return,
+        };
+        self.library
+            .episodes
+            .update_data::<selection::DoNotUpdate, _>(|data| {
+                // To prevent updates for the old
+                data.clear_provider();
+                data.clear();
+            });
 
-        if let Some(selected_id) = selected_id {
-            self.library
-                .episodes
-                .update_data::<selection::DoNotUpdate, _>(|data| {
-                    // To prevent updates for the old
-                    data.clear_provider();
-                    data.clear();
-                });
-            self.invalidate(ctx);
-
-            let query = EpisodesQuery::from_feed_view(selected_id);
-            let new_provider = EpisodesListProvider {
-                query: query.clone(),
-                actor: ctx.address(),
-            };
-            let future = wrap_future(
-                self.library_actor
-                    .send(EpisodesListMetadataRequest(query.clone())),
-            )
-            .then(|result, actor: &mut UI, ctx| {
-                let result = actor.handle_response_error(result, ctx).map(|metadata| {
-                    let range = actor.library.episodes.data().initial_range(
-                        metadata.items_count,
-                        actor.library.episodes.viewport().range(),
-                    );
-                    (metadata, range)
-                });
-                let library_actor = actor.library_actor.clone();
-                wrap_future(async move {
-                    match result {
-                        None => None,
-                        Some((metadata, None)) => Some((metadata, None)),
-                        Some((metadata, Some(range))) => {
-                            let episodes = library_actor
-                                .send(EpisodeSummariesRequest::new(query.clone(), range.clone()))
-                                .await;
-                            Some((metadata, Some((range, episodes))))
-                        }
+        let query = EpisodesQuery::from_feed_view(feed_id);
+        let new_provider = EpisodesListProvider {
+            query: query.clone(),
+            actor: ctx.address(),
+        };
+        let future = wrap_future(
+            self.library_actor
+                .send(EpisodesListMetadataRequest(query.clone())),
+        )
+        .then(|result, actor: &mut UI, ctx| {
+            let result = actor.handle_response_error(result, ctx).map(|metadata| {
+                let range = actor.library.episodes.data().initial_range(
+                    metadata.items_count,
+                    actor.library.episodes.viewport().range(),
+                );
+                (metadata, range)
+            });
+            let library_actor = actor.library_actor.clone();
+            wrap_future(async move {
+                match result {
+                    None => None,
+                    Some((metadata, None)) => Some((metadata, None)),
+                    Some((metadata, Some(range))) => {
+                        let episodes = library_actor
+                            .send(EpisodeSummariesRequest::new(query.clone(), range.clone()))
+                            .await;
+                        Some((metadata, Some((range, episodes))))
                     }
-                })
+                }
             })
-            .map(|result, actor: &mut UI, ctx| {
-                if let Some((metadata, episodes)) = result {
-                    let items_count = metadata.items_count;
-                    actor.library.episodes_list_metadata = Some(metadata);
-                    match episodes {
-                        Some((range, episodes)) => {
-                            if let Some(episodes) = actor.handle_response_error(episodes, ctx) {
-                                actor
-                                    .library
-                                    .episodes
-                                    .update_data::<selection::FindPrevious, _>(|data| {
-                                        data.set_provider(new_provider);
-                                        data.set_initial(items_count, episodes, range);
-                                    });
-                            }
-                        }
-                        None => {
+        })
+        .map(|result, actor: &mut UI, ctx| {
+            if let Some((metadata, episodes)) = result {
+                let items_count = metadata.items_count;
+                actor.library.episodes_list_metadata = Some(metadata);
+                match episodes {
+                    Some((range, episodes)) => {
+                        if let Some(episodes) = actor.handle_response_error(episodes, ctx) {
                             actor
                                 .library
                                 .episodes
                                 .update_data::<selection::FindPrevious, _>(|data| {
                                     data.set_provider(new_provider);
-                                    data.clear();
+                                    data.set_initial(items_count, episodes, range);
                                 });
                         }
                     }
-                    actor.invalidate(ctx);
+                    None => {
+                        actor
+                            .library
+                            .episodes
+                            .update_data::<selection::FindPrevious, _>(|data| {
+                                data.set_provider(new_provider);
+                                data.clear();
+                            });
+                    }
                 }
-            });
-            ctx.spawn(future);
+                actor.invalidate(ctx);
+            }
+        });
+        ctx.spawn(future);
+    }
+
+    fn update_current_feed(&mut self, ctx: &mut <UI as Actor>::Context) {
+        let selected_id = self.library.feeds.selection().map(|item| item.id());
+        if selected_id == self.selected_feed {
+            return;
+        }
+        self.selected_feed = selected_id;
+
+        if selected_id.is_some() {
+            self.refresh_episodes(ctx);
         } else {
             self.library
                 .episodes
@@ -579,8 +587,6 @@ impl UI {
                     data.clear_provider();
                 });
         }
-
-        self.selected_feed = selected_id;
         self.invalidate(ctx);
     }
 
@@ -963,7 +969,7 @@ impl Handler<FeedUpdateNotification> for UI {
                         }
                     });
                 if self.selected_feed == Some(FeedView::Feed(id)) {
-                    // self.library.episodes.invalidate();
+                    self.refresh_episodes(ctx);
                 }
             }
             FeedUpdateNotification::Error(error) => self.handle_error(error, ctx),

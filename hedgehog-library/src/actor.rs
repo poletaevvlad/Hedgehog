@@ -162,9 +162,8 @@ impl<D: DataProvider + 'static> Library<D> {
                     })(),
                     Err(err) => {
                         let new_status = FeedStatus::Error(err.as_feed_error());
-                        if let Err(db_error) = library
-                            .data_provider
-                            .set_feed_status(feed_id, new_status.clone())
+                        if let Err(db_error) =
+                            library.data_provider.set_feed_status(feed_id, new_status)
                         {
                             library.notify_update_listener(FeedUpdateNotification::Error(
                                 db_error.into(),

@@ -83,7 +83,7 @@ impl fmt::Display for FeedError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedStatus {
     Pending,
     Loaded,

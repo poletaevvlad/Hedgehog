@@ -48,14 +48,7 @@ impl<D> ScrollableList<D> {
 }
 
 impl<D: DataView> ScrollableList<D> {
-    pub(crate) fn new(data: D, window_size: usize) -> Self {
-        ScrollableList {
-            viewport: Viewport::new(window_size, data.size()),
-            data,
-        }
-    }
-
-    pub(crate) fn new_with_margins(data: D, window_size: usize, margins: usize) -> Self {
+    pub(crate) fn new(data: D, window_size: usize, margins: usize) -> Self {
         ScrollableList {
             viewport: Viewport::new(window_size, data.size()).with_scroll_margin(margins),
             data,
@@ -133,14 +126,14 @@ mod tests {
 
     #[test]
     fn empty() {
-        let list = ScrollableList::new(Vec::<usize>::new(), 3);
+        let list = ScrollableList::new(Vec::<usize>::new(), 3, 0);
         assert!(list.visible_iter().next().is_none());
         assert_eq!(list.selection(), None);
     }
 
     #[test]
     fn iter() {
-        let list = ScrollableList::new(vec![1, 2, 3, 4, 5], 3);
+        let list = ScrollableList::new(vec![1, 2, 3, 4, 5], 3, 0);
         assert!(list.visible_iter().eq([
             (&1, true),
             (&2, false),
@@ -154,7 +147,7 @@ mod tests {
 
     #[test]
     fn scroll() {
-        let mut list = ScrollableList::new(vec![1, 2, 3, 4, 5], 3);
+        let mut list = ScrollableList::new(vec![1, 2, 3, 4, 5], 3, 0);
 
         list.scroll(ScrollAction::Last);
         assert_eq!(list.selection(), Some(&5));
@@ -200,7 +193,7 @@ mod tests {
 
     fn make_update_list() -> ScrollableList<Vec<Item<char>>> {
         let items_before = vec![Item(0, 'a'), Item(1, 'b'), Item(2, 'c'), Item(3, 'd')];
-        let mut list = ScrollableList::new(items_before, 10);
+        let mut list = ScrollableList::new(items_before, 10, 0);
         list.scroll(ScrollAction::Next);
         list.scroll(ScrollAction::Next);
         assert_eq!(list.selection(), Some(&Item(2, 'c')));

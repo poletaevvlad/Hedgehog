@@ -19,11 +19,13 @@ impl<T> PaginatedData<T> {
         Self::default()
     }
 
+    #[allow(dead_code)]
     pub(crate) fn with_load_margins(mut self, margins: usize) -> Self {
         self.load_margins = margins;
         self
     }
 
+    #[allow(dead_code)]
     pub(crate) fn with_page_size(mut self, page_size: usize) -> Self {
         self.page_size = page_size;
         self

@@ -74,9 +74,9 @@ pub(crate) struct LibraryViewModel {
 impl LibraryViewModel {
     fn new(window_size: usize) -> Self {
         LibraryViewModel {
-            feeds: ScrollableList::new_with_margins(Vec::new(), window_size, 3),
+            feeds: ScrollableList::new(Vec::new(), window_size, 3),
             feeds_loaded: false,
-            episodes: ScrollableList::new_with_margins(PaginatedData::new(), window_size, 3),
+            episodes: ScrollableList::new(PaginatedData::new(), window_size, 3),
             episodes_list_metadata: None,
             search: SearchState::Loading,
             focus: FocusedPane::FeedsList,
@@ -584,7 +584,7 @@ impl UI {
             wrap_future(async move { client.perform(&query).await }).map(
                 move |result, actor: &mut UI, ctx| {
                     actor.library.search = match result {
-                        Ok(results) => SearchState::Loaded(ScrollableList::new_with_margins(
+                        Ok(results) => SearchState::Loaded(ScrollableList::new(
                             results,
                             actor.library.feeds.viewport().window_size() / 2,
                             1,

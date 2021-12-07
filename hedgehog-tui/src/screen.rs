@@ -218,11 +218,22 @@ impl UI {
         self.terminal.draw(draw).unwrap();
 
         let playing_episode = self.library.playing_episode.as_ref();
+        let mut title = String::new();
         let episode_title = playing_episode.and_then(|episode| episode.episode_title.as_deref());
-        let title = match episode_title {
-            Some(title) => format!("{} | hedgehog", title),
-            None => "hedgehog".to_string(),
-        };
+        if let Some(episode_title) = episode_title {
+            <String as std::fmt::Write>::write_fmt(
+                &mut title,
+                format_args!("{} | ", episode_title),
+            )
+            .unwrap();
+        }
+        let feed_title = playing_episode.and_then(|episode| episode.feed_title.as_deref());
+        if let Some(feed_title) = feed_title {
+            <String as std::fmt::Write>::write_fmt(&mut title, format_args!("{} | ", feed_title))
+                .unwrap();
+        }
+        <String as std::fmt::Write>::write_str(&mut title, "hedgehog").unwrap();
+
         let mut stdout = stdout();
         stdout.queue(terminal::SetTitle(title)).unwrap();
         stdout.flush().unwrap();
@@ -338,10 +349,6 @@ impl UI {
                     .send(EpisodePlaybackDataRequest(episode_id))
                     .into_actor(self)
                     .map(move |result, actor, ctx| {
-                        let requested_playback = actor.library.playing_episode.as_ref();
-                        if requested_playback.map(|episode| episode.id) != Some(episode_id) {
-                            return;
-                        }
                         if let Some(playback_data) = actor.handle_response_error(result, ctx) {
                             actor.library.playing_episode = Some(playback_data.clone());
                             actor.playback_state = PlaybackState::new_started(

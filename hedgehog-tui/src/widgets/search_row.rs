@@ -25,23 +25,34 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for SearchResultRowRenderer<'t> {
         let item_selector = theming::ListItem {
             selected,
             focused: true,
+            state: Some(theming::ListState::Search),
             ..Default::default()
         };
+
         let style = self.theme.get(theming::List::Item(item_selector));
         buf.set_style(area, style);
 
-        let paragraph = Paragraph::new(item.title.as_str());
+        let paragraph = Paragraph::new(item.title.as_str()).style(self.theme.get(
+            theming::List::Item(item_selector.with_column(theming::ListColumn::Title)),
+        ));
         paragraph.render(
             Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1),
             buf,
         );
 
         if area.height > 1 {
+            let genre_style = self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Genre),
+            ));
+            let author_style = self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Author),
+            ));
+
             let metadata = Paragraph::new(vec![Spans::from(vec![
-                Span::raw(&item.genre),
-                Span::raw(", "),
-                Span::raw("by "),
-                Span::raw(&item.author),
+                Span::styled(&item.genre, genre_style),
+                Span::styled(", ", genre_style),
+                Span::styled("by ", author_style),
+                Span::styled(&item.author, author_style),
             ])]);
             metadata.render(
                 Rect::new(
@@ -53,12 +64,15 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for SearchResultRowRenderer<'t> {
                 buf,
             );
 
+            let episodes_count_style = self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::EpisodesCount),
+            ));
             let episodes_count = format!("   {} ep. ", item.episodes_count);
             let episodes_count_width = episodes_count.width() as u16;
             buf.set_span(
                 area.right().saturating_sub(episodes_count_width),
                 area.y + 1,
-                &Span::raw(&episodes_count),
+                &Span::styled(&episodes_count, episodes_count_style),
                 episodes_count_width,
             );
         }

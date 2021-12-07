@@ -4,8 +4,10 @@ set statusbar.status.information fg:blue
 set statusbar.command.prompt fg:cyan
 set statusbar.confirmation fg:yellow
 
-set list.item:selected +reversed
 set list.item:feed-special +bold
+set list.item:search +dim
+set list.item:search.title -dim +bold
+set list.item:selected +reversed
 
 set player.title bg:darkgray
 set player.status.none bg:black

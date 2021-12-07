@@ -73,6 +73,9 @@ pub(crate) enum ListColumn {
     Duration,
     Date,
     Loading,
+    Author,
+    Genre,
+    EpisodesCount,
 }
 
 impl ListColumn {
@@ -84,6 +87,9 @@ impl ListColumn {
             ListColumn::Duration,
             ListColumn::Date,
             ListColumn::Loading,
+            ListColumn::Author,
+            ListColumn::Genre,
+            ListColumn::EpisodesCount,
         ]
     }
 }
@@ -100,6 +106,7 @@ pub(crate) enum ListState {
     EpisodeFinished,
     EpisodeNew,
     EpisodeStarted,
+    Search,
 }
 
 impl ListState {
@@ -117,6 +124,7 @@ impl ListState {
                 callback(Some(ListState::EpisodeNew));
                 callback(Some(ListState::EpisodeStarted));
                 callback(Some(ListState::EpisodeFinished));
+                callback(Some(ListState::Search));
             }
             Some(ListState::Feed) => {
                 callback(Some(ListState::FeedUpdating));
@@ -183,6 +191,7 @@ impl List {
                                 ":episode-playing" => ListState::EpisodePlaying,
                                 ":episode-new" => ListState::EpisodeNew,
                                 ":episode-started" => ListState::EpisodeStarted,
+                                ":search" => ListState::Search,
                                 _ => break,
                             };
                             if list_item.state.is_some() {
@@ -202,6 +211,9 @@ impl List {
                     [".duration"] => Some(ListColumn::Duration),
                     [".date"] => Some(ListColumn::Date),
                     [".loading"] => Some(ListColumn::Loading),
+                    [".author"] => Some(ListColumn::Author),
+                    [".genre"] => Some(ListColumn::Genre),
+                    [".episodes-count"] => Some(ListColumn::EpisodesCount),
                     _ => return Err(SelectorParsingError),
                 };
 

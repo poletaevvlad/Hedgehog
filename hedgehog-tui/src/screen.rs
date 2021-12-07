@@ -22,8 +22,8 @@ use crossterm::{terminal, QueueableCommand};
 use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
-    EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata, FeedId, FeedSummary,
-    FeedView, Identifiable,
+    EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata,
+    FeedId, FeedSummary, FeedView, Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
@@ -68,7 +68,7 @@ pub(crate) struct LibraryViewModel {
     pub(crate) search: SearchState,
     pub(crate) focus: FocusedPane,
     pub(crate) updating_feeds: HashSet<FeedId>,
-    pub(crate) playing_episode: Option<EpisodeSummary>,
+    pub(crate) playing_episode: Option<EpisodePlaybackData>,
 }
 
 impl LibraryViewModel {
@@ -218,7 +218,7 @@ impl UI {
         self.terminal.draw(draw).unwrap();
 
         let playing_episode = self.library.playing_episode.as_ref();
-        let episode_title = playing_episode.and_then(|episode| episode.title.as_deref());
+        let episode_title = playing_episode.and_then(|episode| episode.episode_title.as_deref());
         let title = match episode_title {
             Some(title) => format!("{} | hedgehog", title),
             None => "hedgehog".to_string(),
@@ -327,7 +327,6 @@ impl UI {
                     {
                         return;
                     }
-                    self.library.playing_episode = Some(current_episode.clone());
                     episode_id
                 } else {
                     return;
@@ -344,6 +343,7 @@ impl UI {
                             return;
                         }
                         if let Some(playback_data) = actor.handle_response_error(result, ctx) {
+                            actor.library.playing_episode = Some(playback_data.clone());
                             actor.playback_state = PlaybackState::new_started(
                                 playback_data.position,
                                 playback_data.duration,

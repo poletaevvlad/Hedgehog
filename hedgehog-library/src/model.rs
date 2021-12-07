@@ -262,6 +262,7 @@ pub struct Episode {
     pub media_url: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct EpisodePlaybackData {
     pub id: EpisodeId,
     pub media_url: String,

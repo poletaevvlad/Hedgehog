@@ -184,7 +184,7 @@ async fn get_episode_summaries(
             .unwrap();
         assert!(page.len() <= 2);
         episodes.extend(page);
-        offset += 1;
+        offset += 2;
     }
 
     let empty_page = library

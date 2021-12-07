@@ -61,15 +61,15 @@ impl<'a> LibraryWidget<'a> {
         .render(feeds_area, buf);
 
         if let Some(metadata) = self.data.episodes_list_metadata.as_ref() {
-            if self.data.episodes.data().size() == 0 {
-                let selected_feed_index = self.data.feeds.viewport().selected_index();
-                let state = self
-                    .data
-                    .feeds
-                    .data()
-                    .item_at(selected_feed_index)
-                    .map(|item| item.as_ref().map(|feed| feed.status));
+            let selected_feed_index = self.data.feeds.viewport().selected_index();
+            let state = self
+                .data
+                .feeds
+                .data()
+                .item_at(selected_feed_index)
+                .map(|item| item.as_ref().map(|feed| feed.status));
 
+            if self.data.episodes.data().size() == 0 {
                 match state {
                     Some(FeedView::All) => {}
                     Some(FeedView::Feed(FeedStatus::Pending)) => {
@@ -96,14 +96,17 @@ impl<'a> LibraryWidget<'a> {
                     None => {}
                 }
             } else {
-                let sizing =
-                    EpisodesListSizing::compute(self.options, metadata).with_width(layout[1].width);
+                let mut sizing = EpisodesListSizing::compute(self.options, metadata);
+                if state == Some(FeedView::All) {
+                    sizing.hide_episode_numbers();
+                }
+
                 List::new(
                     EpisodesListRowRenderer::new(
                         self.theme,
                         self.data.focus == FocusedPane::EpisodesList,
                         self.options,
-                        sizing,
+                        sizing.with_width(layout[1].width),
                     )
                     .with_playing_id(self.data.playing_episode.as_ref().map(|episode| episode.id)),
                     self.data.episodes.visible_iter_partial(),

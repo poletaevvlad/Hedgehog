@@ -109,6 +109,10 @@ impl EpisodesListSizing {
 
         self
     }
+
+    pub(crate) fn hide_episode_numbers(&mut self) {
+        self.episode_number_width = 0;
+    }
 }
 
 impl<'t> EpisodesListRowRenderer<'t> {

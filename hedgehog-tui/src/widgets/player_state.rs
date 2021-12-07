@@ -1,12 +1,13 @@
 use crate::options::Options;
 use crate::theming;
+use crate::widgets::layout::shrink_h;
 use crate::widgets::utils::PlaybackTimingFormatter;
 use hedgehog_library::model::EpisodePlaybackData;
 use hedgehog_player::state::{PlaybackState, PlaybackStatus};
 use tui::buffer::Buffer;
 use tui::layout::Rect;
-use tui::text::Span;
-use tui::widgets::Widget;
+use tui::text::{Span, Spans};
+use tui::widgets::{Paragraph, Widget};
 
 pub(crate) struct PlayerState<'a> {
     state: &'a PlaybackState,
@@ -74,13 +75,25 @@ impl<'a> Widget for PlayerState<'a> {
             subitem: Some(theming::PlayerItem::EpisodeTitle),
         });
         buf.set_style(area, title_style);
-        if let Some(title) = self.episode.and_then(|ep| ep.episode_title.as_deref()) {
-            buf.set_span(
-                area.x + 1,
-                area.y,
-                &Span::raw(title),
-                area.width.saturating_sub(2),
-            );
+
+        let mut text = Vec::new();
+        let episode_title = self.episode.and_then(|ep| ep.episode_title.as_deref());
+        if let Some(title) = episode_title {
+            text.push(Span::raw(title));
+        }
+        if let Some(title) = self.episode.and_then(|ep| ep.feed_title.as_deref()) {
+            let style = self.theme.get(theming::Player {
+                status: Some(status),
+                subitem: Some(theming::PlayerItem::FeedTitle),
+            });
+
+            if episode_title.is_some() {
+                text.push(Span::styled(" / ", style));
+            }
+            text.push(Span::styled(title, style));
+        }
+        if !text.is_empty() {
+            Paragraph::new(vec![Spans::from(text)]).render(shrink_h(area, 1), buf);
         }
     }
 }

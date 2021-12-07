@@ -34,14 +34,16 @@ impl<'a> PlayerState<'a> {
 impl<'a> Widget for PlayerState<'a> {
     fn render(self, mut area: Rect, buf: &mut Buffer) {
         let status = self.state.status();
-        let status_style = self.theme.get(theming::Player::Status(Some(status)));
+        let status_style = self.theme.get(theming::Player {
+            status: Some(status),
+            subitem: Some(theming::PlayerItem::Status),
+        });
         let status_label = match status {
             PlaybackStatus::None => &self.options.label_playback_status_none,
             PlaybackStatus::Buffering => &self.options.label_playback_status_buffering,
             PlaybackStatus::Playing => &self.options.label_playback_status_playing,
             PlaybackStatus::Paused => &self.options.label_playback_status_paused,
         };
-
         let (x, _) = buf.set_span(
             area.x,
             area.y,
@@ -53,7 +55,10 @@ impl<'a> Widget for PlayerState<'a> {
 
         if let Some(timing) = self.state.timing() {
             let formatted = format!(" {} ", PlaybackTimingFormatter(timing));
-            let style = self.theme.get(theming::Player::Timing);
+            let style = self.theme.get(theming::Player {
+                status: Some(status),
+                subitem: Some(theming::PlayerItem::Timing),
+            });
             let width = formatted.len() as u16; // PlaybackTiming's Display implementation produces ASCII characters only
             buf.set_span(
                 (area.x + area.width).saturating_sub(width),
@@ -64,7 +69,11 @@ impl<'a> Widget for PlayerState<'a> {
             area.width -= width;
         }
 
-        buf.set_style(area, self.theme.get(theming::Player::Title));
+        let title_style = self.theme.get(theming::Player {
+            status: Some(status),
+            subitem: Some(theming::PlayerItem::EpisodeTitle),
+        });
+        buf.set_style(area, title_style);
         if let Some(title) = self.episode.and_then(|ep| ep.title.as_deref()) {
             buf.set_span(
                 area.x + 1,

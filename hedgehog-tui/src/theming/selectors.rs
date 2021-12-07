@@ -313,33 +313,106 @@ impl StyleSelector for Empty {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum Player {
-    Title,
-    Status(Option<PlaybackStatus>),
+pub(crate) enum PlayerItem {
+    EpisodeTitle,
+    FeedTitle,
+    Status,
     Timing,
 }
 
+impl PlayerItem {
+    pub fn enumerate() -> impl IntoIterator<Item = Self> {
+        [
+            PlayerItem::EpisodeTitle,
+            PlayerItem::FeedTitle,
+            PlayerItem::Status,
+            PlayerItem::Timing,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub(crate) struct Player {
+    pub(crate) subitem: Option<PlayerItem>,
+    pub(crate) status: Option<PlaybackStatus>,
+}
+
 impl Player {
-    fn parse(input: &[&str]) -> Result<Player, SelectorParsingError> {
-        match input {
-            [".title"] => Ok(Player::Title),
-            [".timing"] => Ok(Player::Timing),
-            [".status"] => Ok(Player::Status(None)),
-            [".status", ".none"] => Ok(Player::Status(Some(PlaybackStatus::None))),
-            [".status", ".buffering"] => Ok(Player::Status(Some(PlaybackStatus::Buffering))),
-            [".status", ".playing"] => Ok(Player::Status(Some(PlaybackStatus::Playing))),
-            [".status", ".paused"] => Ok(Player::Status(Some(PlaybackStatus::Paused))),
-            _ => Err(SelectorParsingError),
+    fn parse(mut input: &[&str]) -> Result<Player, SelectorParsingError> {
+        let mut selector = Player::default();
+        while !input.is_empty() {
+            let item = input[0];
+            input = &input[1..];
+            let (status, subitem) = match item {
+                ":stopped" => (Some(PlaybackStatus::None), None),
+                ":playing" => (Some(PlaybackStatus::Playing), None),
+                ":paused" => (Some(PlaybackStatus::Paused), None),
+                ":buffering" => (Some(PlaybackStatus::Buffering), None),
+                ".status" => (None, Some(PlayerItem::Status)),
+                ".timing" => (None, Some(PlayerItem::Timing)),
+                ".episode" => (None, Some(PlayerItem::EpisodeTitle)),
+                ".feed" => (None, Some(PlayerItem::FeedTitle)),
+                _ => return Err(SelectorParsingError),
+            };
+            if status.is_some() && selector.status.is_some()
+                || subitem.is_some() && selector.subitem.is_some()
+            {
+                return Err(SelectorParsingError);
+            }
+
+            selector.subitem = selector.subitem.or(subitem);
+            selector.status = selector.status.or(status);
         }
+        Ok(selector)
     }
 }
 
 impl StyleSelector for Player {
     fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
-        if let Player::Status(None) = self {
-            for status in PlaybackStatus::enumerate() {
-                callback(Player::Status(Some(status)));
+        let mut callback = |selector| {
+            if &selector != self {
+                callback(selector);
             }
+        };
+
+        match (self.subitem, self.status) {
+            (None, None) => {
+                for subitem in PlayerItem::enumerate() {
+                    callback(Player {
+                        status: None,
+                        subitem: Some(subitem),
+                    });
+                    for status in PlaybackStatus::enumerate() {
+                        callback(Player {
+                            status: Some(status),
+                            subitem: Some(subitem),
+                        });
+                    }
+                }
+                for status in PlaybackStatus::enumerate() {
+                    callback(Player {
+                        status: Some(status),
+                        subitem: None,
+                    });
+                }
+            }
+            (None, Some(status)) => {
+                for subitem in PlayerItem::enumerate() {
+                    callback(Player {
+                        status: Some(status),
+                        subitem: Some(subitem),
+                    });
+                }
+            }
+            (Some(subitem), None) => {
+                for status in PlaybackStatus::enumerate() {
+                    callback(Player {
+                        status: Some(status),
+                        subitem: Some(subitem),
+                    });
+                }
+            }
+            (Some(_), Some(_)) => {}
         }
     }
 }
@@ -433,7 +506,7 @@ impl From<Player> for Selector {
 #[cfg(test)]
 mod tests {
     use super::{Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar};
-    use crate::status::Severity;
+    use crate::{status::Severity, theming::selectors::PlayerItem};
     use cmd_parser::CmdParsable;
     use hedgehog_player::state::PlaybackStatus;
 
@@ -458,17 +531,24 @@ mod tests {
         assert_eq!("empty.title".parse(), Ok(Selector::Empty(Empty::Title)));
         assert_eq!(
             "player.timing".parse(),
-            Ok(Selector::Player(Player::Timing))
+            Ok(Selector::Player(Player {
+                status: None,
+                subitem: Some(PlayerItem::Timing),
+            }))
         );
         assert_eq!(
-            "player.status".parse(),
-            Ok(Selector::Player(Player::Status(None)))
+            "player:paused".parse(),
+            Ok(Selector::Player(Player {
+                status: Some(PlaybackStatus::Paused),
+                subitem: None,
+            }))
         );
         assert_eq!(
-            "player.status.playing".parse(),
-            Ok(Selector::Player(Player::Status(Some(
-                PlaybackStatus::Playing
-            ))))
+            "player:buffering.status".parse(),
+            Ok(Selector::Player(Player {
+                status: Some(PlaybackStatus::Buffering),
+                subitem: Some(PlayerItem::Status),
+            }))
         );
     }
 

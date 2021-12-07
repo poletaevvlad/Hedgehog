@@ -9,11 +9,12 @@ set list.item:search +dim
 set list.item:search.title -dim +bold
 set list.item:selected +reversed
 
-set player.title bg:darkgray
-set player.status.none bg:black
-set player.status.playing bg:green fg:black
-set player.status.paused bg:blue fg:black
-set player.status.buffering bg:red fg:black
+set player.episode bg:darkgray
+set player:stopped.status bg:black
+set player:playing.status bg:green fg:black
+set player:paused.status bg:blue fg:black
+set player:buffering.status bg:red fg:black
+set player.status +bold
 set player.timing bg:blue fg:black
 
 set empty.title +bold

@@ -5,7 +5,7 @@ use crate::cmdreader::{self, CommandReader, FileResolver};
 use cmd_parser::CmdParsable;
 use selectors::StyleSelector;
 pub(crate) use selectors::{
-    Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar,
+    Empty, List, ListColumn, ListItem, ListState, Player, PlayerItem, Selector, StatusBar,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;

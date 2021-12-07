@@ -188,7 +188,15 @@ impl DataProvider for SqliteDataProvider {
         request: EpisodesQuery,
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
-        let mut sql = "SELECT id, feed_id, episode_number, season_number, title, status, duration, publication_date FROM episodes".to_string();
+        let feed_title_required = request.feed_title_required();
+        let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date".to_string();
+        if feed_title_required {
+            sql.push_str(", feeds.title");
+        }
+        sql.push_str(" FROM episodes AS ep");
+        if feed_title_required {
+            sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
+        }
         request.build_where_clause(&mut sql);
         sql.push_str(" ORDER BY publication_date DESC LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
@@ -210,6 +218,11 @@ impl DataProvider for SqliteDataProvider {
                 status: EpisodeSummaryStatus::from_db(row.get(5)?),
                 duration: row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
                 publication_date: row.get(7)?,
+                feed_title: if feed_title_required {
+                    row.get(8)?
+                } else {
+                    None
+                },
             })
         })?;
         Ok(collect_results(rows)?)
@@ -274,7 +287,9 @@ impl EpisodesQuery {
     fn build_where_clause(&self, query: &mut String) {
         match self {
             EpisodesQuery::Single(_) => query.push_str(" WHERE id = :id"),
-            EpisodesQuery::Multiple { feed_id: Some(_) } => {
+            EpisodesQuery::Multiple {
+                feed_id: Some(_), ..
+            } => {
                 query.push_str(" WHERE feed_id = :feed_id");
             }
             _ => {}
@@ -286,8 +301,18 @@ impl EpisodesQuery {
             EpisodesQuery::Single(id) => params.push((":id", id)),
             EpisodesQuery::Multiple {
                 feed_id: Some(feed_id),
+                ..
             } => params.push((":feed_id", feed_id)),
             _ => {}
+        }
+    }
+
+    fn feed_title_required(&self) -> bool {
+        match self {
+            EpisodesQuery::Single(_) => false,
+            EpisodesQuery::Multiple {
+                include_feed_title, ..
+            } => *include_feed_title,
         }
     }
 }
@@ -542,6 +567,7 @@ mod tests {
             .get_episode_summaries(
                 EpisodesQuery::Multiple {
                     feed_id: Some(feed_id),
+                    include_feed_title: false,
                 },
                 0..100,
             )
@@ -555,6 +581,7 @@ mod tests {
                 episode_number: Some(8),
                 season_number: None,
                 title: Some("title-upd".to_string()),
+                feed_title: None,
                 status: EpisodeSummaryStatus::New,
                 duration: Some(Duration::from_secs(300)),
                 publication_date: None,
@@ -568,6 +595,7 @@ mod tests {
                 episode_number: None,
                 season_number: None,
                 title: Some("second-title".to_string()),
+                feed_title: None,
                 status: EpisodeSummaryStatus::New,
                 duration: None,
                 publication_date: None,

@@ -19,15 +19,22 @@ pub type DbResult<T> = Result<T, QueryError>;
 #[derive(Debug, Clone)]
 pub enum EpisodesQuery {
     Single(EpisodeId),
-    Multiple { feed_id: Option<FeedId> },
+    Multiple {
+        feed_id: Option<FeedId>,
+        include_feed_title: bool,
+    },
 }
 
 impl EpisodesQuery {
     pub fn from_feed_view(feed_id: FeedView<FeedId>) -> Self {
         match feed_id {
-            FeedView::All => EpisodesQuery::Multiple { feed_id: None },
+            FeedView::All => EpisodesQuery::Multiple {
+                feed_id: None,
+                include_feed_title: true,
+            },
             FeedView::Feed(feed_id) => EpisodesQuery::Multiple {
                 feed_id: Some(feed_id),
+                include_feed_title: false,
             },
         }
     }

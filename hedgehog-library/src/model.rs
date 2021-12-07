@@ -235,6 +235,7 @@ pub struct EpisodeSummary {
     pub episode_number: Option<i64>,
     pub season_number: Option<i64>,
     pub title: Option<String>,
+    pub feed_title: Option<String>,
     pub status: EpisodeSummaryStatus,
     pub duration: Option<Duration>,
     pub publication_date: Option<DateTime<Utc>>,

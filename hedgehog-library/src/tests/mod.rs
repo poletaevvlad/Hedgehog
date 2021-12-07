@@ -222,6 +222,7 @@ async fn creates_episodes() {
 
     let query = EpisodesQuery::Multiple {
         feed_id: Some(feed_id),
+        include_feed_title: true,
     };
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
@@ -266,6 +267,7 @@ async fn updates_episodes_on_update() {
 
     let query = EpisodesQuery::Multiple {
         feed_id: Some(feed_id),
+        include_feed_title: true,
     };
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
@@ -309,6 +311,7 @@ async fn update_failure() {
 
     let query = EpisodesQuery::Multiple {
         feed_id: Some(feed_id),
+        include_feed_title: true,
     };
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));

@@ -231,6 +231,8 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
         }
 
         if let Some(item) = item {
+            let title_width = area.width * 6 / 10;
+
             let status = self.episode_status(item);
             let status_label = status.label(self.options);
             if !status_label.is_empty() {
@@ -247,6 +249,25 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
                     style,
                 );
                 area = rest;
+            }
+
+            if let Some(feed_title) = &item.feed_title {
+                if !feed_title.is_empty() && area.width > 60 {
+                    let (title_area, feed_area) = split_left(area, title_width);
+
+                    let style = self.theme.get(theming::List::Item(
+                        item_selector.with_column(theming::ListColumn::FeedTitle),
+                    ));
+                    buf.set_style(area, style);
+                    buf.set_span(
+                        feed_area.x + 1,
+                        feed_area.y,
+                        &Span::raw(feed_title),
+                        feed_area.width.saturating_sub(2),
+                    );
+
+                    area = title_area;
+                }
             }
 
             let style = self.theme.get(theming::List::Item(

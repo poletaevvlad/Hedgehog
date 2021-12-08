@@ -69,6 +69,7 @@ impl StyleSelector for StatusBar {
 pub(crate) enum ListColumn {
     StateIndicator,
     Title,
+    FeedTitle,
     EpisodeNumber,
     Duration,
     Date,
@@ -83,6 +84,7 @@ impl ListColumn {
         [
             ListColumn::StateIndicator,
             ListColumn::Title,
+            ListColumn::FeedTitle,
             ListColumn::EpisodeNumber,
             ListColumn::Duration,
             ListColumn::Date,
@@ -207,6 +209,7 @@ impl List {
                     [] => None,
                     [".state"] => Some(ListColumn::StateIndicator),
                     [".title"] => Some(ListColumn::Title),
+                    [".feed-title"] => Some(ListColumn::Title),
                     [".episode-number"] => Some(ListColumn::EpisodeNumber),
                     [".duration"] => Some(ListColumn::Duration),
                     [".date"] => Some(ListColumn::Date),

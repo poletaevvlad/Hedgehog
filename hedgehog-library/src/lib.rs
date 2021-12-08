@@ -11,8 +11,9 @@ mod tests;
 pub use actor::Library;
 pub use actor::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
-    FeedSummariesRequest, FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult,
+    FeedSummariesRequest, FeedUpdateError, FeedUpdateNotification, FeedUpdateRequest,
+    FeedUpdateResult,
 };
-pub use datasource::EpisodesQuery;
+pub use datasource::{EpisodesQuery, QueryError};
 pub use rss;
 pub use sqlite::SqliteDataProvider;

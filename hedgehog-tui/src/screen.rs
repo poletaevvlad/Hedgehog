@@ -5,7 +5,7 @@ use crate::keymap::{Key, KeyMapping};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
-use crate::status::{Severity, Status, StatusLog};
+use crate::status::{HedgehogError, Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
@@ -604,9 +604,12 @@ impl UI {
         );
     }
 
-    fn handle_error(&mut self, error: impl std::error::Error, ctx: &mut <UI as Actor>::Context) {
-        self.status
-            .push(Status::new_custom(error.to_string(), Severity::Error));
+    fn handle_error(
+        &mut self,
+        error: impl HedgehogError + 'static,
+        ctx: &mut <UI as Actor>::Context,
+    ) {
+        self.status.push(Status::error(error));
         self.invalidate(ctx);
     }
 
@@ -769,7 +772,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         self.command = None;
                         match Command::parse_cmd_full(&command_str) {
                             Ok(command) => self.handle_command(command, ctx),
-                            Err(error) => self.handle_error(error, ctx),
+                            Err(error) => self.handle_error(error.into_static(), ctx),
                         }
                         self.invalidate(ctx);
                     }

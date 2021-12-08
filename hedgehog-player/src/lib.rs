@@ -5,7 +5,8 @@ pub mod volume;
 
 use actix::prelude::*;
 use cmd_parser::CmdParsable;
-use gst_utils::{build_flags, get_property, set_property, GstError};
+pub use gst_utils::GstError;
+use gst_utils::{build_flags, get_property, set_property};
 use gstreamer_base::{gst, gst::prelude::*, BaseParse};
 use std::time::Duration;
 use volume::{Volume, VolumeCommand};

@@ -13,15 +13,15 @@ pub(crate) enum ErrorType {
     IO,
 }
 
-impl fmt::Display for ErrorType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl ErrorType {
+    fn as_str(&self) -> &'static str {
         match self {
-            ErrorType::Playback => f.write_str("Playback error"),
-            ErrorType::Database => f.write_str("Internal erorr (database)"),
-            ErrorType::Update => f.write_str("Update error"),
-            ErrorType::Actix => f.write_str("Internal error"),
-            ErrorType::Command => f.write_str("Invalid command"),
-            ErrorType::IO => f.write_str("I/O error"),
+            ErrorType::Playback => "Playback error",
+            ErrorType::Database => "Internal erorr (database)",
+            ErrorType::Update => "Update error",
+            ErrorType::Actix => "Internal error",
+            ErrorType::Command => "Invalid command",
+            ErrorType::IO => "I/O error",
         }
     }
 }
@@ -90,6 +90,13 @@ impl Status {
             Status::Error(_) => None,
             Status::Custom(_, _) => None,
             Status::VolumeChanged(_) => Some(Duration::from_secs(2)),
+        }
+    }
+
+    pub(crate) fn variant_label(&self) -> Option<&'static str> {
+        match self {
+            Status::Error(error) => Some(error.error_type().as_str()),
+            _ => None,
         }
     }
 }

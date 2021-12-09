@@ -19,7 +19,7 @@ impl<'a> Widget for StatusView<'a> {
             Some(status) => {
                 let style = self
                     .theme
-                    .get(theming::StatusBar::Status(Some(status.severity())));
+                    .get(theming::StatusBar::Status(Some(status.severity()), false));
                 let paragraph = Paragraph::new(status.to_string()).style(style);
                 paragraph.render(area, buf);
             }

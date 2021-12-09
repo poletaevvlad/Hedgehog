@@ -19,7 +19,7 @@ pub(crate) enum StatusBar {
     Command,
     CommandPrompt,
     Confirmation,
-    Status(Option<Severity>),
+    Status(Option<Severity>, bool),
 }
 
 fn split_selector_str(mut input: &str) -> Vec<&str> {
@@ -42,10 +42,14 @@ impl StatusBar {
             [".command"] => Ok(StatusBar::Command),
             [".command", ".prompt"] => Ok(StatusBar::CommandPrompt),
             [".confirmation"] => Ok(StatusBar::Confirmation),
-            [".status"] => Ok(StatusBar::Status(None)),
-            [".status", ".error"] => Ok(StatusBar::Status(Some(Severity::Error))),
-            [".status", ".warning"] => Ok(StatusBar::Status(Some(Severity::Warning))),
-            [".status", ".information"] => Ok(StatusBar::Status(Some(Severity::Information))),
+            [".status"] => Ok(StatusBar::Status(None, false)),
+            [".status", ".label"] => Ok(StatusBar::Status(None, true)),
+            [".status", ":error"] => Ok(StatusBar::Status(Some(Severity::Error), false)),
+            [".status", ":error", ".label"] => Ok(StatusBar::Status(Some(Severity::Error), true)),
+            [".status", ":warning"] => Ok(StatusBar::Status(Some(Severity::Warning), false)),
+            [".status", ":information"] => {
+                Ok(StatusBar::Status(Some(Severity::Information), false))
+            }
             _ => Err(SelectorParsingError),
         }
     }
@@ -55,10 +59,19 @@ impl StyleSelector for StatusBar {
     fn for_each_overrides(&self, mut callback: impl FnMut(Self)) {
         match self {
             StatusBar::Command => callback(StatusBar::CommandPrompt),
-            StatusBar::Status(None) => {
+            StatusBar::Status(None, is_label) => {
                 for severity in Severity::enumerate() {
-                    callback(StatusBar::Status(Some(severity)));
+                    callback(StatusBar::Status(Some(severity), *is_label));
+                    if !is_label {
+                        callback(StatusBar::Status(Some(severity), true));
+                    }
                 }
+                if !is_label {
+                    callback(StatusBar::Status(None, true));
+                }
+            }
+            StatusBar::Status(Some(severity), false) => {
+                callback(StatusBar::Status(Some(*severity), true));
             }
             _ => (),
         }
@@ -517,13 +530,14 @@ mod tests {
     fn parse_selectors() {
         assert_eq!(
             "statusbar.status".parse(),
-            Ok(Selector::StatusBar(StatusBar::Status(None)))
+            Ok(Selector::StatusBar(StatusBar::Status(None, false)))
         );
         assert_eq!(
-            "statusbar.status.warning".parse(),
-            Ok(Selector::StatusBar(StatusBar::Status(Some(
-                Severity::Warning
-            ))))
+            "statusbar.status:warning".parse(),
+            Ok(Selector::StatusBar(StatusBar::Status(
+                Some(Severity::Warning),
+                false
+            )))
         );
         assert_eq!("list.divider".parse(), Ok(Selector::List(List::Divider)));
         assert_eq!(
@@ -559,7 +573,7 @@ mod tests {
     fn parse_cmd_selector() {
         assert_eq!(
             Selector::parse_cmd("statusbar.status").unwrap(),
-            (Selector::StatusBar(StatusBar::Status(None)), "")
+            (Selector::StatusBar(StatusBar::Status(None, false)), "")
         );
     }
 

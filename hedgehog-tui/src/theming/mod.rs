@@ -122,17 +122,20 @@ mod tests {
     #[test]
     fn status_bar_status() {
         let mut theme = Theme::default();
-        theme.set(StatusBar::Status(None), Style::default().bg(Color::Red));
         theme.set(
-            StatusBar::Status(Some(Severity::Error)),
+            StatusBar::Status(None, false),
+            Style::default().bg(Color::Red),
+        );
+        theme.set(
+            StatusBar::Status(Some(Severity::Error), false),
             Style::default().fg(Color::White),
         );
         assert_eq!(
-            theme.get(StatusBar::Status(Some(Severity::Error))),
+            theme.get(StatusBar::Status(Some(Severity::Error), false)),
             Style::default().bg(Color::Red).fg(Color::White)
         );
         assert_eq!(
-            theme.get(StatusBar::Status(Some(Severity::Information))),
+            theme.get(StatusBar::Status(Some(Severity::Information), false)),
             Style::default().bg(Color::Red)
         );
     }

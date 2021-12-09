@@ -24,6 +24,17 @@ impl ErrorType {
             ErrorType::IO => "I/O error",
         }
     }
+
+    fn ttl(&self) -> Option<Duration> {
+        match self {
+            ErrorType::Playback => Some(Duration::from_secs(10)),
+            ErrorType::Database => None,
+            ErrorType::Update => Some(Duration::from_secs(10)),
+            ErrorType::Actix => None,
+            ErrorType::Command => Some(Duration::from_secs(3)),
+            ErrorType::IO => None,
+        }
+    }
 }
 
 pub(crate) trait HedgehogError: fmt::Display {
@@ -87,7 +98,7 @@ impl Status {
 
     pub(crate) fn ttl(&self) -> Option<Duration> {
         match self {
-            Status::Error(_) => None,
+            Status::Error(err) => err.error_type().ttl(),
             Status::Custom(_, _) => None,
             Status::VolumeChanged(_) => Some(Duration::from_secs(2)),
         }

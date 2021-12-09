@@ -3,7 +3,7 @@ use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
 use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
 use crate::options::Options;
-use crate::screen::{FocusedPane, LibraryViewModel, SearchState};
+use crate::screen::{FocusedPane, LibraryViewModel, SearchState, WidgetsLayout};
 use crate::scrolling::DataView;
 use crate::theming::{self, Theme};
 use crate::widgets::search_row::SearchResultRowRenderer;
@@ -15,14 +15,21 @@ pub(crate) struct LibraryWidget<'a> {
     theme: &'a Theme,
     options: &'a Options,
     data: &'a LibraryViewModel,
+    layout: &'a mut WidgetsLayout,
 }
 
 impl<'a> LibraryWidget<'a> {
-    pub(crate) fn new(data: &'a LibraryViewModel, options: &'a Options, theme: &'a Theme) -> Self {
+    pub(crate) fn new(
+        data: &'a LibraryViewModel,
+        options: &'a Options,
+        theme: &'a Theme,
+        layout: &'a mut WidgetsLayout,
+    ) -> Self {
         LibraryWidget {
             data,
             options,
             theme,
+            layout,
         }
     }
 
@@ -49,6 +56,7 @@ impl<'a> LibraryWidget<'a> {
         let feeds_area = feeds_border.inner(layout[0]);
         feeds_border.render(layout[0], buf);
 
+        self.layout.feeds_list = Some(feeds_area);
         List::new(
             FeedsListRowRenderer::new(
                 self.theme,
@@ -101,6 +109,7 @@ impl<'a> LibraryWidget<'a> {
                     sizing.hide_episode_numbers();
                 }
 
+                self.layout.episodes_list = Some(layout[1]);
                 List::new(
                     EpisodesListRowRenderer::new(
                         self.theme,

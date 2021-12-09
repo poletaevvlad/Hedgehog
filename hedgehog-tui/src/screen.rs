@@ -17,7 +17,7 @@ use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use cmd_parser::CmdParsable;
-use crossterm::event::Event;
+use crossterm::event::{Event, MouseEventKind};
 use crossterm::{terminal, QueueableCommand};
 use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
@@ -43,6 +43,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::Duration;
 use tui::backend::CrosstermBackend;
+use tui::layout::Rect;
 use tui::Terminal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
@@ -133,10 +134,44 @@ pub(crate) struct CommandConfirmation {
     pub(crate) default: bool,
 }
 
+#[derive(Default)]
+pub(crate) struct WidgetsLayout {
+    pub(crate) feeds_list: Option<Rect>,
+    pub(crate) episodes_list: Option<Rect>,
+}
+
+pub(crate) enum LayoutContainer {
+    FeedsList(usize),
+    EpisodesList(usize),
+}
+
+fn rect_contains(rect: &Rect, x: u16, y: u16) -> bool {
+    (rect.left()..rect.right()).contains(&x) && (rect.top()..rect.bottom()).contains(&y)
+}
+
+impl WidgetsLayout {
+    fn widget_at(&self, x: u16, y: u16) -> Option<LayoutContainer> {
+        if let Some(feeds_area) = self.feeds_list {
+            if rect_contains(&feeds_area, x, y) {
+                return Some(LayoutContainer::FeedsList((y - feeds_area.y) as usize));
+            }
+        }
+        if let Some(episodes_area) = self.episodes_list {
+            if rect_contains(&episodes_area, x, y) {
+                return Some(LayoutContainer::EpisodesList(
+                    (y - episodes_area.y) as usize,
+                ));
+            }
+        }
+        None
+    }
+}
+
 pub(crate) struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
     invalidation_request: Option<SpawnHandle>,
     status_clear_request: Option<SpawnHandle>,
+    layout: WidgetsLayout,
 
     library_actor: Addr<Library>,
     player_actor: Addr<Player>,
@@ -166,6 +201,7 @@ impl UI {
         UI {
             terminal,
             invalidation_request: None,
+            layout: WidgetsLayout::default(),
             status_clear_request: None,
             library_actor,
             player_actor,
@@ -186,12 +222,14 @@ impl UI {
     }
 
     fn render(&mut self) {
+        self.layout = WidgetsLayout::default();
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
             let (area, status_area) = split_bottom(area, 1);
             let (area, player_area) = split_bottom(area, 1);
 
-            let library_widget = LibraryWidget::new(&self.library, &self.options, &self.theme);
+            let library_widget =
+                LibraryWidget::new(&self.library, &self.options, &self.theme, &mut self.layout);
             f.render_widget(library_widget, area);
 
             let player_widget = PlayerState::new(
@@ -733,6 +771,31 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         .get(key_event.into(), Some(self.library.focus));
                     if let Some(command) = command.cloned() {
                         self.handle_command(command, ctx);
+                    }
+                }
+                crossterm::event::Event::Mouse(event) => {
+                    let widget = self.layout.widget_at(event.column, event.row);
+                    if let Some(widget) = widget {
+                        match event.kind {
+                            MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
+                                let offset = if event.kind == MouseEventKind::ScrollUp {
+                                    ScrollAction::Previous
+                                } else {
+                                    ScrollAction::Next
+                                };
+                                match widget {
+                                    LayoutContainer::FeedsList(_) => {
+                                        self.library.feeds.scroll(offset);
+                                        self.update_current_feed(ctx);
+                                    }
+                                    LayoutContainer::EpisodesList(_) => {
+                                        self.library.episodes.scroll(offset);
+                                    }
+                                }
+                                self.invalidate(ctx);
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 _ => (),

@@ -2,6 +2,7 @@ use crate::cmdreader::{CommandReader, FileResolver};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
+use crate::mouse::{MouseHitResult, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
@@ -43,7 +44,6 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::Duration;
 use tui::backend::CrosstermBackend;
-use tui::layout::Rect;
 use tui::Terminal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
@@ -134,44 +134,11 @@ pub(crate) struct CommandConfirmation {
     pub(crate) default: bool,
 }
 
-#[derive(Default)]
-pub(crate) struct WidgetsLayout {
-    pub(crate) feeds_list: Option<Rect>,
-    pub(crate) episodes_list: Option<Rect>,
-}
-
-pub(crate) enum LayoutContainer {
-    FeedsList(usize),
-    EpisodesList(usize),
-}
-
-fn rect_contains(rect: &Rect, x: u16, y: u16) -> bool {
-    (rect.left()..rect.right()).contains(&x) && (rect.top()..rect.bottom()).contains(&y)
-}
-
-impl WidgetsLayout {
-    fn widget_at(&self, x: u16, y: u16) -> Option<LayoutContainer> {
-        if let Some(feeds_area) = self.feeds_list {
-            if rect_contains(&feeds_area, x, y) {
-                return Some(LayoutContainer::FeedsList((y - feeds_area.y) as usize));
-            }
-        }
-        if let Some(episodes_area) = self.episodes_list {
-            if rect_contains(&episodes_area, x, y) {
-                return Some(LayoutContainer::EpisodesList(
-                    (y - episodes_area.y) as usize,
-                ));
-            }
-        }
-        None
-    }
-}
-
 pub(crate) struct UI {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
     invalidation_request: Option<SpawnHandle>,
     status_clear_request: Option<SpawnHandle>,
-    layout: WidgetsLayout,
+    layout: WidgetPositions,
 
     library_actor: Addr<Library>,
     player_actor: Addr<Player>,
@@ -201,7 +168,7 @@ impl UI {
         UI {
             terminal,
             invalidation_request: None,
-            layout: WidgetsLayout::default(),
+            layout: WidgetPositions::default(),
             status_clear_request: None,
             library_actor,
             player_actor,
@@ -222,7 +189,7 @@ impl UI {
     }
 
     fn render(&mut self) {
-        self.layout = WidgetsLayout::default();
+        self.layout = WidgetPositions::default();
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
             let (area, status_area) = split_bottom(area, 1);
@@ -774,7 +741,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     }
                 }
                 crossterm::event::Event::Mouse(event) => {
-                    let widget = self.layout.widget_at(event.column, event.row);
+                    let widget = self.layout.hit_test_at(event.row, event.column);
                     if let Some(widget) = widget {
                         match event.kind {
                             MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
@@ -784,12 +751,21 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                     ScrollAction::Next
                                 };
                                 match widget {
-                                    LayoutContainer::FeedsList(_) => {
+                                    MouseHitResult::FeedsRow(_) => {
                                         self.library.feeds.scroll(offset);
                                         self.update_current_feed(ctx);
+                                        self.library.focus = FocusedPane::FeedsList;
                                     }
-                                    LayoutContainer::EpisodesList(_) => {
+                                    MouseHitResult::EpisodesRow(_) => {
                                         self.library.episodes.scroll(offset);
+                                        self.library.focus = FocusedPane::EpisodesList;
+                                    }
+                                    MouseHitResult::SearchRow(_) => {
+                                        if let SearchState::Loaded(ref mut list) =
+                                            self.library.search
+                                        {
+                                            list.scroll(offset);
+                                        }
                                     }
                                 }
                                 self.invalidate(ctx);

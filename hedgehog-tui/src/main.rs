@@ -2,6 +2,7 @@ mod cmdreader;
 mod events;
 mod history;
 mod keymap;
+mod mouse;
 mod options;
 mod screen;
 mod scrolling;

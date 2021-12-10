@@ -2,8 +2,9 @@ use super::empty::EmptyView;
 use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
 use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
+use crate::mouse::WidgetPositions;
 use crate::options::Options;
-use crate::screen::{FocusedPane, LibraryViewModel, SearchState, WidgetsLayout};
+use crate::screen::{FocusedPane, LibraryViewModel, SearchState};
 use crate::scrolling::DataView;
 use crate::theming::{self, Theme};
 use crate::widgets::search_row::SearchResultRowRenderer;
@@ -15,7 +16,7 @@ pub(crate) struct LibraryWidget<'a> {
     theme: &'a Theme,
     options: &'a Options,
     data: &'a LibraryViewModel,
-    layout: &'a mut WidgetsLayout,
+    layout: &'a mut WidgetPositions,
 }
 
 impl<'a> LibraryWidget<'a> {
@@ -23,7 +24,7 @@ impl<'a> LibraryWidget<'a> {
         data: &'a LibraryViewModel,
         options: &'a Options,
         theme: &'a Theme,
-        layout: &'a mut WidgetsLayout,
+        layout: &'a mut WidgetPositions,
     ) -> Self {
         LibraryWidget {
             data,
@@ -56,7 +57,7 @@ impl<'a> LibraryWidget<'a> {
         let feeds_area = feeds_border.inner(layout[0]);
         feeds_border.render(layout[0], buf);
 
-        self.layout.feeds_list = Some(feeds_area);
+        self.layout.set_feeds_list(feeds_area);
         List::new(
             FeedsListRowRenderer::new(
                 self.theme,
@@ -109,7 +110,7 @@ impl<'a> LibraryWidget<'a> {
                     sizing.hide_episode_numbers();
                 }
 
-                self.layout.episodes_list = Some(layout[1]);
+                self.layout.set_episodes_list(layout[1]);
                 List::new(
                     EpisodesListRowRenderer::new(
                         self.theme,
@@ -131,12 +132,15 @@ impl<'a> LibraryWidget<'a> {
                 .title("Nothing is found")
                 .subtitle("Please make sure that your query is correct")
                 .render(area, buf),
-            SearchState::Loaded(list) => List::new(
-                SearchResultRowRenderer::new(self.theme),
-                list.visible_iter(),
-            )
-            .item_height(2)
-            .render(area, buf),
+            SearchState::Loaded(list) => {
+                self.layout.set_search_list(area);
+                List::new(
+                    SearchResultRowRenderer::new(self.theme),
+                    list.visible_iter(),
+                )
+                .item_height(2)
+                .render(area, buf);
+            }
             SearchState::Loading => EmptyView::new(self.theme)
                 .title("Searching...")
                 .render(area, buf),

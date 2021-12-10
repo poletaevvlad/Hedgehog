@@ -37,6 +37,7 @@ use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
 use hedgehog_player::{
     PlaybackCommand, PlaybackMetadata, Player, PlayerErrorNotification, PlayerNotification,
+    SeekDirection,
 };
 use std::collections::HashSet;
 use std::io::{stdout, Write};
@@ -777,7 +778,20 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                         list.scroll(offset);
                                     }
                                 }
-                                MouseHitResult::Player => {}
+                                MouseHitResult::Player => {
+                                    let seek_direction = if event.kind == MouseEventKind::ScrollUp {
+                                        SeekDirection::Forward
+                                    } else {
+                                        SeekDirection::Backward
+                                    };
+                                    self.handle_command(
+                                        Command::Playback(PlaybackCommand::SeekRelative(
+                                            Duration::from_secs(1),
+                                            seek_direction,
+                                        )),
+                                        ctx,
+                                    );
+                                }
                             }
                             self.invalidate(ctx);
                         }

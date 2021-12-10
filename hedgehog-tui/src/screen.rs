@@ -263,7 +263,9 @@ impl UI {
                         self.library.feeds.scroll(command);
                         self.update_current_feed(ctx);
                     }
-                    FocusedPane::EpisodesList => self.library.episodes.scroll(command),
+                    FocusedPane::EpisodesList => {
+                        self.library.episodes.scroll(command);
+                    }
                     FocusedPane::Search => {
                         if let SearchState::Loaded(list) = &mut self.library.search {
                             list.scroll(command);
@@ -777,7 +779,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                             }
                             self.invalidate(ctx);
                         }
-                        MouseEventKind::Click => {
+                        MouseEventKind::Click(is_double) => {
                             match widget {
                                 MouseHitResult::FeedsRow(row) => {
                                     self.library.focus = FocusedPane::FeedsList;
@@ -786,14 +788,21 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                 }
                                 MouseHitResult::EpisodesRow(row) => {
                                     self.library.focus = FocusedPane::EpisodesList;
-                                    self.library
+                                    let valid = self
+                                        .library
                                         .episodes
                                         .scroll(ScrollAction::MoveToVisible(row));
+                                    if valid && is_double {
+                                        self.handle_command(Command::PlayCurrent, ctx);
+                                    }
                                 }
                                 MouseHitResult::SearchRow(row) => {
                                     self.library.focus = FocusedPane::Search;
                                     if let SearchState::Loaded(ref mut list) = self.library.search {
-                                        list.scroll(ScrollAction::MoveToVisible(row));
+                                        let valid = list.scroll(ScrollAction::MoveToVisible(row));
+                                        if valid && is_double {
+                                            self.handle_command(Command::SearchAdd, ctx);
+                                        }
                                     }
                                 }
                             }

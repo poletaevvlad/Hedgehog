@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tui::layout::Rect;
 
 fn rect_contains(rect: &Rect, row: u16, column: u16) -> bool {
@@ -68,7 +68,7 @@ pub(crate) struct MouseState {
 pub(crate) enum MouseEventKind {
     ScrollUp,
     ScrollDown,
-    Click,
+    Click(bool),
 }
 
 pub(crate) struct MouseEvent {
@@ -95,24 +95,26 @@ impl MouseState {
                 None
             }
             crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::Left) => {
-                let _previous = std::mem::replace(
+                let previous = std::mem::replace(
                     &mut self.previous,
                     Some((event.row, event.column, Instant::now())),
                 );
                 if let Some((start_row, start_column)) = self.started {
                     if !self.dragging && start_row == event.row && start_column == event.column {
+                        let is_double_click = match previous {
+                            Some((prev_row, prev_column, prev_instant)) => {
+                                prev_row == event.row
+                                    && prev_column == event.column
+                                    && (Instant::now() - prev_instant) < Duration::from_millis(500)
+                            }
+                            None => false,
+                        };
                         return Some(MouseEvent::new(
-                            MouseEventKind::Click,
+                            MouseEventKind::Click(is_double_click),
                             event.row,
                             event.column,
                         ));
                     }
-                } else {
-                    return Some(MouseEvent::new(
-                        MouseEventKind::Click,
-                        event.row,
-                        event.column,
-                    ));
                 }
                 None
             }

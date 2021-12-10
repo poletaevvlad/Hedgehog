@@ -196,6 +196,7 @@ impl UI {
             let area = f.size();
             let (area, status_area) = split_bottom(area, 1);
             let (area, player_area) = split_bottom(area, 1);
+            self.layout.set_player_status(player_area);
 
             let library_widget =
                 LibraryWidget::new(&self.library, &self.options, &self.theme, &mut self.layout);
@@ -776,6 +777,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                         list.scroll(offset);
                                     }
                                 }
+                                MouseHitResult::Player => {}
                             }
                             self.invalidate(ctx);
                         }
@@ -804,6 +806,12 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                             self.handle_command(Command::SearchAdd, ctx);
                                         }
                                     }
+                                }
+                                MouseHitResult::Player => {
+                                    self.handle_command(
+                                        Command::Playback(PlaybackCommand::TogglePause),
+                                        ctx,
+                                    );
                                 }
                             }
                             self.invalidate(ctx);

@@ -10,13 +10,14 @@ pub(crate) struct WidgetPositions {
     episodes_list: Option<Rect>,
     feeds_list: Option<Rect>,
     search_list: Option<Rect>,
+    player_status: Option<Rect>,
 }
 
-#[allow(clippy::enum_variant_names)]
 pub(crate) enum MouseHitResult {
     FeedsRow(usize),
     EpisodesRow(usize),
     SearchRow(usize),
+    Player,
 }
 
 impl WidgetPositions {
@@ -40,7 +41,11 @@ impl WidgetPositions {
                 ));
             }
         }
-
+        if let Some(player_status) = self.player_status {
+            if rect_contains(&player_status, row, column) {
+                return Some(MouseHitResult::Player);
+            }
+        }
         None
     }
 
@@ -54,6 +59,10 @@ impl WidgetPositions {
 
     pub(crate) fn set_search_list(&mut self, rect: Rect) {
         self.search_list = Some(rect);
+    }
+
+    pub(crate) fn set_player_status(&mut self, rect: Rect) {
+        self.player_status = Some(rect);
     }
 }
 

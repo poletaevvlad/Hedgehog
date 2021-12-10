@@ -22,19 +22,21 @@ impl WidgetPositions {
     pub(crate) fn hit_test_at(&self, row: u16, column: u16) -> Option<MouseHitResult> {
         if let Some(feeds_list) = self.feeds_list {
             if rect_contains(&feeds_list, row, column) {
-                return Some(MouseHitResult::FeedsRow((column - feeds_list.y) as usize));
+                return Some(MouseHitResult::FeedsRow((row - feeds_list.y) as usize));
             }
         }
         if let Some(episodes_list) = self.episodes_list {
             if rect_contains(&episodes_list, row, column) {
                 return Some(MouseHitResult::EpisodesRow(
-                    (column - episodes_list.y) as usize,
+                    (row - episodes_list.y) as usize,
                 ));
             }
         }
         if let Some(search_list) = self.search_list {
             if rect_contains(&search_list, row, column) {
-                return Some(MouseHitResult::SearchRow((column - search_list.y) as usize));
+                return Some(MouseHitResult::SearchRow(
+                    (row - search_list.y) as usize / 2,
+                ));
             }
         }
 

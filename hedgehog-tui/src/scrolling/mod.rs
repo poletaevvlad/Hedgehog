@@ -93,6 +93,13 @@ impl<D: DataView> ScrollableList<D> {
     pub(crate) fn scroll(&mut self, action: ScrollAction) {
         match action {
             ScrollAction::MoveBy(offset) => self.viewport.offset_selection_by(offset),
+            ScrollAction::MoveToVisible(position) => {
+                if let Some(offset) = self.viewport.range().next() {
+                    if offset + position < self.viewport.items_count() {
+                        self.viewport.select(offset + position);
+                    }
+                }
+            }
             ScrollAction::PageUp => self
                 .viewport
                 .offset_selection_by(self.viewport.window_size() as isize),
@@ -111,6 +118,7 @@ impl<D: DataView> ScrollableList<D> {
 #[derive(Debug, Clone, Copy, PartialEq, CmdParsable)]
 pub(crate) enum ScrollAction {
     MoveBy(isize),
+    MoveToVisible(usize),
     PageUp,
     PageDown,
     First,

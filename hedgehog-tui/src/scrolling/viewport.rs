@@ -94,7 +94,7 @@ impl Viewport {
     }
 
     pub(crate) fn select(&mut self, selected_item: usize) {
-        self.selected_item = selected_item;
+        self.selected_item = selected_item.min(self.items_count.saturating_sub(1));
         self.ensure_visible();
     }
 }

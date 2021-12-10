@@ -770,6 +770,30 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                 }
                                 self.invalidate(ctx);
                             }
+                            MouseEventKind::Up(crossterm::event::MouseButton::Left) => {
+                                match widget {
+                                    MouseHitResult::FeedsRow(row) => {
+                                        self.library.focus = FocusedPane::FeedsList;
+                                        self.library.feeds.scroll(ScrollAction::MoveToVisible(row));
+                                        self.update_current_feed(ctx);
+                                    }
+                                    MouseHitResult::EpisodesRow(row) => {
+                                        self.library.focus = FocusedPane::EpisodesList;
+                                        self.library
+                                            .episodes
+                                            .scroll(ScrollAction::MoveToVisible(row));
+                                    }
+                                    MouseHitResult::SearchRow(row) => {
+                                        self.library.focus = FocusedPane::Search;
+                                        if let SearchState::Loaded(ref mut list) =
+                                            self.library.search
+                                        {
+                                            list.scroll(ScrollAction::MoveToVisible(row));
+                                        }
+                                    }
+                                }
+                                self.invalidate(ctx);
+                            }
                             _ => {}
                         }
                     }

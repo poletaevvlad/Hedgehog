@@ -2,7 +2,7 @@ use crate::cmdreader::{CommandReader, FileResolver};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
-use crate::mouse::{MouseHitResult, WidgetPositions};
+use crate::mouse::{MouseEventKind, MouseHitResult, MouseState, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
@@ -18,7 +18,7 @@ use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use cmd_parser::CmdParsable;
-use crossterm::event::{Event, MouseEventKind};
+use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use directories::BaseDirs;
 use hedgehog_library::datasource::QueryError;
@@ -139,6 +139,7 @@ pub(crate) struct UI {
     invalidation_request: Option<SpawnHandle>,
     status_clear_request: Option<SpawnHandle>,
     layout: WidgetPositions,
+    mouse_state: MouseState,
 
     library_actor: Addr<Library>,
     player_actor: Addr<Player>,
@@ -169,6 +170,7 @@ impl UI {
             terminal,
             invalidation_request: None,
             layout: WidgetPositions::default(),
+            mouse_state: MouseState::default(),
             status_clear_request: None,
             library_actor,
             player_actor,
@@ -741,60 +743,61 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     }
                 }
                 crossterm::event::Event::Mouse(event) => {
-                    let widget = self.layout.hit_test_at(event.row, event.column);
-                    if let Some(widget) = widget {
-                        match event.kind {
-                            MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
-                                let offset = if event.kind == MouseEventKind::ScrollUp {
-                                    ScrollAction::MoveBy(-3)
-                                } else {
-                                    ScrollAction::MoveBy(3)
-                                };
-                                match widget {
-                                    MouseHitResult::FeedsRow(_) => {
-                                        self.library.feeds.scroll(offset);
-                                        self.update_current_feed(ctx);
-                                        self.library.focus = FocusedPane::FeedsList;
-                                    }
-                                    MouseHitResult::EpisodesRow(_) => {
-                                        self.library.episodes.scroll(offset);
-                                        self.library.focus = FocusedPane::EpisodesList;
-                                    }
-                                    MouseHitResult::SearchRow(_) => {
-                                        if let SearchState::Loaded(ref mut list) =
-                                            self.library.search
-                                        {
-                                            list.scroll(offset);
-                                        }
+                    let event = match self.mouse_state.handle_event(event) {
+                        Some(event) => event,
+                        None => return,
+                    };
+                    let widget = match self.layout.hit_test_at(event.row, event.column) {
+                        Some(widget) => widget,
+                        None => return,
+                    };
+
+                    match event.kind {
+                        MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
+                            let offset = if event.kind == MouseEventKind::ScrollUp {
+                                ScrollAction::MoveBy(-3)
+                            } else {
+                                ScrollAction::MoveBy(3)
+                            };
+                            match widget {
+                                MouseHitResult::FeedsRow(_) => {
+                                    self.library.feeds.scroll(offset);
+                                    self.update_current_feed(ctx);
+                                    self.library.focus = FocusedPane::FeedsList;
+                                }
+                                MouseHitResult::EpisodesRow(_) => {
+                                    self.library.episodes.scroll(offset);
+                                    self.library.focus = FocusedPane::EpisodesList;
+                                }
+                                MouseHitResult::SearchRow(_) => {
+                                    if let SearchState::Loaded(ref mut list) = self.library.search {
+                                        list.scroll(offset);
                                     }
                                 }
-                                self.invalidate(ctx);
                             }
-                            MouseEventKind::Up(crossterm::event::MouseButton::Left) => {
-                                match widget {
-                                    MouseHitResult::FeedsRow(row) => {
-                                        self.library.focus = FocusedPane::FeedsList;
-                                        self.library.feeds.scroll(ScrollAction::MoveToVisible(row));
-                                        self.update_current_feed(ctx);
-                                    }
-                                    MouseHitResult::EpisodesRow(row) => {
-                                        self.library.focus = FocusedPane::EpisodesList;
-                                        self.library
-                                            .episodes
-                                            .scroll(ScrollAction::MoveToVisible(row));
-                                    }
-                                    MouseHitResult::SearchRow(row) => {
-                                        self.library.focus = FocusedPane::Search;
-                                        if let SearchState::Loaded(ref mut list) =
-                                            self.library.search
-                                        {
-                                            list.scroll(ScrollAction::MoveToVisible(row));
-                                        }
+                            self.invalidate(ctx);
+                        }
+                        MouseEventKind::Click => {
+                            match widget {
+                                MouseHitResult::FeedsRow(row) => {
+                                    self.library.focus = FocusedPane::FeedsList;
+                                    self.library.feeds.scroll(ScrollAction::MoveToVisible(row));
+                                    self.update_current_feed(ctx);
+                                }
+                                MouseHitResult::EpisodesRow(row) => {
+                                    self.library.focus = FocusedPane::EpisodesList;
+                                    self.library
+                                        .episodes
+                                        .scroll(ScrollAction::MoveToVisible(row));
+                                }
+                                MouseHitResult::SearchRow(row) => {
+                                    self.library.focus = FocusedPane::Search;
+                                    if let SearchState::Loaded(ref mut list) = self.library.search {
+                                        list.scroll(ScrollAction::MoveToVisible(row));
                                     }
                                 }
-                                self.invalidate(ctx);
                             }
-                            _ => {}
+                            self.invalidate(ctx);
                         }
                     }
                 }

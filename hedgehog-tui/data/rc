@@ -1,9 +1,9 @@
 theme load default
 
-map Up line previous
-map k line previous
-map Down line next
-map j line next
+map Up line move-by -1
+map k line move-by -1
+map Down line move-by 1
+map j line move-by 1
 map Home line first
 map End line last
 map PageUp line page-up

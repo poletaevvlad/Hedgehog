@@ -746,9 +746,9 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         match event.kind {
                             MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
                                 let offset = if event.kind == MouseEventKind::ScrollUp {
-                                    ScrollAction::Previous
+                                    ScrollAction::MoveBy(-3)
                                 } else {
-                                    ScrollAction::Next
+                                    ScrollAction::MoveBy(3)
                                 };
                                 match widget {
                                     MouseHitResult::FeedsRow(_) => {

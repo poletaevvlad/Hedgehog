@@ -92,8 +92,7 @@ impl<D: DataView> ScrollableList<D> {
 
     pub(crate) fn scroll(&mut self, action: ScrollAction) {
         match action {
-            ScrollAction::Next => self.viewport.offset_selection_by(1),
-            ScrollAction::Previous => self.viewport.offset_selection_by(-1),
+            ScrollAction::MoveBy(offset) => self.viewport.offset_selection_by(offset),
             ScrollAction::PageUp => self
                 .viewport
                 .offset_selection_by(self.viewport.window_size() as isize),
@@ -111,8 +110,7 @@ impl<D: DataView> ScrollableList<D> {
 
 #[derive(Debug, Clone, Copy, PartialEq, CmdParsable)]
 pub(crate) enum ScrollAction {
-    Next,
-    Previous,
+    MoveBy(isize),
     PageUp,
     PageDown,
     First,
@@ -156,16 +154,16 @@ mod tests {
             .map(|x| x.0)
             .eq([&3, &4, &5].into_iter()));
 
-        list.scroll(ScrollAction::Previous);
-        list.scroll(ScrollAction::Previous);
-        list.scroll(ScrollAction::Previous);
+        list.scroll(ScrollAction::MoveBy(-1));
+        list.scroll(ScrollAction::MoveBy(-1));
+        list.scroll(ScrollAction::MoveBy(-1));
         assert_eq!(list.selection(), Some(&2));
         assert!(list
             .visible_iter()
             .map(|x| x.0)
             .eq([&2, &3, &4, &5].into_iter()));
 
-        list.scroll(ScrollAction::Next);
+        list.scroll(ScrollAction::MoveBy(1));
         assert_eq!(list.selection(), Some(&3));
         assert!(list
             .visible_iter()
@@ -194,8 +192,8 @@ mod tests {
     fn make_update_list() -> ScrollableList<Vec<Item<char>>> {
         let items_before = vec![Item(0, 'a'), Item(1, 'b'), Item(2, 'c'), Item(3, 'd')];
         let mut list = ScrollableList::new(items_before, 10, 0);
-        list.scroll(ScrollAction::Next);
-        list.scroll(ScrollAction::Next);
+        list.scroll(ScrollAction::MoveBy(1));
+        list.scroll(ScrollAction::MoveBy(1));
         assert_eq!(list.selection(), Some(&Item(2, 'c')));
         list
     }

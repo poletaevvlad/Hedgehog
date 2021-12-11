@@ -164,14 +164,12 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata> {
-        let mut sql = "SELECT COUNT(id), MAX(season_number), MAX(episode_number), MAX(duration), SUM(CASE WHEN publication_date IS NOT NULL THEN 1 ELSE 0 END)  FROM episodes".to_string();
-        query.build_where_clause(&mut sql);
+        let mut sql = "SELECT COUNT(ep.id), MAX(ep.season_number), MAX(ep.episode_number), MAX(ep.duration), SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END)  FROM episodes AS ep".to_string();
+        let where_params = query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 
-        let mut params = Vec::new();
-        query.build_params(&mut params);
         statement
-            .query_row(&*params, |row| {
+            .query_row(&*where_params.as_sql_params(), |row| {
                 Ok(EpisodesListMetadata {
                     items_count: row.get(0)?,
                     max_season_number: row.get(1)?,
@@ -197,17 +195,15 @@ impl DataProvider for SqliteDataProvider {
         if feed_title_required {
             sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
         }
-        request.build_where_clause(&mut sql);
-        sql.push_str(" ORDER BY publication_date DESC LIMIT :limit OFFSET :offset");
+        let where_params = request.build_where_clause(&mut sql);
+        sql.push_str(" ORDER BY ep.publication_date DESC LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
 
+        let mut params = where_params.as_sql_params();
         let offset = range.start;
         let limit = range.end - range.start;
-        let mut params = vec![
-            (":limit", &limit as &dyn rusqlite::ToSql),
-            (":offset", &offset as &dyn rusqlite::ToSql),
-        ];
-        request.build_params(&mut params);
+        params.push((":limit", &limit as &dyn rusqlite::ToSql));
+        params.push((":offset", &offset as &dyn rusqlite::ToSql));
         let rows = statement.query_map(&*params, |row| {
             Ok(EpisodeSummary {
                 id: row.get(0)?,
@@ -229,17 +225,16 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()> {
-        let mut sql = "UPDATE episodes SET status = :status, position = :position ".to_string();
-        query.build_where_clause(&mut sql);
+        let mut sql =
+            "UPDATE episodes AS ep SET status = :status, position = :position ".to_string();
+        let where_params = query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 
         let (status, position) = status.db_view();
         let position = position.as_nanos() as u64;
-        let mut params = vec![
-            (":status", &status as &dyn rusqlite::ToSql),
-            (":position", &position as &dyn rusqlite::ToSql),
-        ];
-        query.build_params(&mut params);
+        let mut params = where_params.as_sql_params();
+        params.push((":status", &status as &dyn rusqlite::ToSql));
+        params.push((":position", &position as &dyn rusqlite::ToSql));
 
         statement.execute(&*params)?;
         Ok(())
@@ -284,27 +279,29 @@ impl DataProvider for SqliteDataProvider {
 }
 
 impl EpisodesQuery {
-    fn build_where_clause(&self, query: &mut String) {
+    fn build_where_clause(&self, query: &mut String) -> EpisodeQueryParams {
+        let mut params = EpisodeQueryParams::default();
         match self {
-            EpisodesQuery::Single(_) => query.push_str(" WHERE id = :id"),
-            EpisodesQuery::Multiple {
-                feed_id: Some(_), ..
-            } => {
-                query.push_str(" WHERE feed_id = :feed_id");
+            EpisodesQuery::Single(id) => {
+                query.push_str(" WHERE id = :id");
+                params.id = Some(*id);
             }
-            _ => {}
-        }
-    }
-
-    fn build_params<'a>(&'a self, params: &mut Vec<(&'static str, &'a dyn rusqlite::ToSql)>) {
-        match self {
-            EpisodesQuery::Single(id) => params.push((":id", id)),
             EpisodesQuery::Multiple {
-                feed_id: Some(feed_id),
-                ..
-            } => params.push((":feed_id", feed_id)),
-            _ => {}
+                feed_id, status, ..
+            } => {
+                params.feed_id = *feed_id;
+                params.status = status.as_ref().map(|status| status.db_view());
+                match (feed_id, status) {
+                    (None, None) => {}
+                    (None, Some(_)) => query.push_str(" WHERE ep.status = :status"),
+                    (Some(_), None) => query.push_str(" WHERE ep.feed_id = :feed_id"),
+                    (Some(_), Some(_)) => {
+                        query.push_str(" WHERE ep.status = :status && ep.feed_id = :feed_id");
+                    }
+                }
+            }
         }
+        params
     }
 
     fn feed_title_required(&self) -> bool {
@@ -316,6 +313,30 @@ impl EpisodesQuery {
         }
     }
 }
+
+#[derive(Default)]
+struct EpisodeQueryParams {
+    id: Option<EpisodeId>,
+    feed_id: Option<FeedId>,
+    status: Option<usize>,
+}
+
+impl EpisodeQueryParams {
+    fn as_sql_params<'a>(&'a self) -> Vec<(&'static str, &'a dyn rusqlite::ToSql)> {
+        let mut params: Vec<(&'static str, &'a dyn rusqlite::ToSql)> = Vec::new();
+        if let Some(id) = self.id.as_ref() {
+            params.push((":id", id));
+        }
+        if let Some(feed_id) = self.feed_id.as_ref() {
+            params.push((":feed_id", feed_id));
+        }
+        if let Some(status) = self.status.as_ref() {
+            params.push((":status", status));
+        }
+        params
+    }
+}
+
 fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Result<Vec<T>, E> {
     let iter = items.into_iter();
     let mut result = Vec::with_capacity(iter.size_hint().0);

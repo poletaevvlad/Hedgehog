@@ -226,6 +226,16 @@ impl EpisodeSummaryStatus {
             _ => EpisodeSummaryStatus::New,
         }
     }
+
+    pub(crate) fn db_view(&self) -> usize {
+        match self {
+            EpisodeSummaryStatus::New => 0,
+            EpisodeSummaryStatus::NotStarted => 1,
+            EpisodeSummaryStatus::Finished => 2,
+            EpisodeSummaryStatus::Started => 3,
+            EpisodeSummaryStatus::Error => 4,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

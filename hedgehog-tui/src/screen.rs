@@ -1046,7 +1046,7 @@ impl Handler<FeedUpdateNotification> for UI {
                         }
                     });
                 if self.selected_feed == Some(FeedView::Feed(id))
-                    || self.selected_feed == Some(FeedView::All)
+                    || self.selected_feed.map(|view| view.as_feed().is_none()) == Some(true)
                 {
                     self.refresh_episodes(ctx, false);
                 }

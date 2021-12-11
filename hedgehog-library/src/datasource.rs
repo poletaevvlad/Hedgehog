@@ -1,7 +1,7 @@
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
-    Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata,
-    Feed, FeedId, FeedStatus, FeedSummary, FeedView,
+    Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, FeedView,
 };
 use std::marker::Unpin;
 use std::ops::Range;
@@ -21,6 +21,7 @@ pub enum EpisodesQuery {
     Single(EpisodeId),
     Multiple {
         feed_id: Option<FeedId>,
+        status: Option<EpisodeSummaryStatus>,
         include_feed_title: bool,
     },
 }
@@ -31,10 +32,17 @@ impl EpisodesQuery {
             FeedView::All => EpisodesQuery::Multiple {
                 feed_id: None,
                 include_feed_title: true,
+                status: None,
+            },
+            FeedView::New => EpisodesQuery::Multiple {
+                feed_id: None,
+                include_feed_title: true,
+                status: Some(EpisodeSummaryStatus::New),
             },
             FeedView::Feed(feed_id) => EpisodesQuery::Multiple {
                 feed_id: Some(feed_id),
                 include_feed_title: false,
+                status: None,
             },
         }
     }

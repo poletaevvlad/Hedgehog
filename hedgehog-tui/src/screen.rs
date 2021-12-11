@@ -659,8 +659,9 @@ impl UI {
                             .library
                             .feeds
                             .update_data::<selection::FindPrevious, _>(|current_feeds| {
-                                let mut feeds = Vec::with_capacity(data.len() + 1);
+                                let mut feeds = Vec::with_capacity(data.len() + 2);
                                 feeds.push(FeedView::All);
+                                feeds.push(FeedView::New);
                                 feeds.extend(data.into_iter().map(FeedView::Feed));
                                 *current_feeds = feeds;
                             });

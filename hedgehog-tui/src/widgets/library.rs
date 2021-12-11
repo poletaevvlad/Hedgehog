@@ -35,7 +35,7 @@ impl<'a> LibraryWidget<'a> {
     }
 
     fn render_library(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        if self.data.feeds.data().size() == 1 && self.data.feeds_loaded {
+        if self.data.feeds.data().size() == 2 && self.data.feeds_loaded {
             EmptyView::new(self.theme)
                 .title("Hedgehog Podcast Player")
                 .subtitle(
@@ -81,6 +81,12 @@ impl<'a> LibraryWidget<'a> {
             if self.data.episodes.data().size() == 0 {
                 match state {
                     Some(FeedView::All) => {}
+                    Some(FeedView::New) => {
+                        EmptyView::new(self.theme)
+                            .title("There are no new episodes.")
+                            .subtitle("New episodes will appear here automatically. You can mark an episode as new by typing :mark new<Enter>")
+                            .render(layout[1], buf);
+                    }
                     Some(FeedView::Feed(FeedStatus::Pending)) => {
                         EmptyView::new(self.theme)
                             .title("This feed's episodes aren't loaded yet")

@@ -568,6 +568,7 @@ mod tests {
                 EpisodesQuery::Multiple {
                     feed_id: Some(feed_id),
                     include_feed_title: false,
+                    status: None,
                 },
                 0..100,
             )

@@ -2,8 +2,6 @@
 
 mod data;
 
-use std::collections::HashSet;
-
 use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus};
 use crate::sqlite::SqliteDataProvider;
 use crate::{
@@ -12,6 +10,7 @@ use crate::{
 };
 use actix::prelude::*;
 use reqwest::StatusCode;
+use std::collections::HashSet;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 struct NotificationListener {
@@ -223,6 +222,7 @@ async fn creates_episodes() {
     let query = EpisodesQuery::Multiple {
         feed_id: Some(feed_id),
         include_feed_title: true,
+        status: None,
     };
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
@@ -268,6 +268,7 @@ async fn updates_episodes_on_update() {
     let query = EpisodesQuery::Multiple {
         feed_id: Some(feed_id),
         include_feed_title: true,
+        status: None,
     };
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
@@ -312,6 +313,7 @@ async fn update_failure() {
     let query = EpisodesQuery::Multiple {
         feed_id: Some(feed_id),
         include_feed_title: true,
+        status: None,
     };
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));

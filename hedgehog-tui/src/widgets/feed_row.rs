@@ -62,7 +62,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
         let (item, selected) = item;
 
         match item {
-            FeedView::All => {
+            FeedView::All | FeedView::New => {
                 let item_selector = theming::ListItem {
                     selected,
                     focused: self.focused,
@@ -73,7 +73,11 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 let style = self.theme.get(theming::List::Item(item_selector));
                 buf.set_style(area, style);
 
-                let paragraph = Paragraph::new("All episodes");
+                let paragraph = Paragraph::new(match item {
+                    FeedView::All => "All episodes",
+                    FeedView::New => "New",
+                    FeedView::Feed(_) => unreachable!(),
+                });
                 paragraph.render(
                     Rect::new(
                         area.x + 1,

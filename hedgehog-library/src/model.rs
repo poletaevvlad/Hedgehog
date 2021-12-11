@@ -285,27 +285,29 @@ pub struct EpisodesListMetadata {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum FeedView<T> {
     All,
+    New,
     Feed(T),
 }
 
 impl<T> FeedView<T> {
     pub fn as_feed(&self) -> Option<&T> {
         match self {
-            FeedView::All => None,
             FeedView::Feed(feed) => Some(feed),
+            _ => None,
         }
     }
 
     pub fn as_mut(&mut self) -> Option<&mut T> {
         match self {
-            FeedView::All => None,
             FeedView::Feed(feed) => Some(feed),
+            _ => None,
         }
     }
 
     pub fn map<R>(self, f: impl FnOnce(T) -> R) -> FeedView<R> {
         match self {
             FeedView::All => FeedView::All,
+            FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(f(feed)),
         }
     }
@@ -313,6 +315,7 @@ impl<T> FeedView<T> {
     pub fn as_ref(&self) -> FeedView<&T> {
         match self {
             FeedView::All => FeedView::All,
+            FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(feed),
         }
     }
@@ -324,6 +327,7 @@ impl<T: Identifiable> Identifiable for FeedView<T> {
     fn id(&self) -> Self::Id {
         match self {
             FeedView::All => FeedView::All,
+            FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(feed.id()),
         }
     }

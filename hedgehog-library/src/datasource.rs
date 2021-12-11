@@ -17,34 +17,44 @@ pub enum QueryError {
 
 pub type DbResult<T> = Result<T, QueryError>;
 
-#[derive(Debug, Clone)]
-pub enum EpisodesQuery {
-    Single(EpisodeId),
-    Multiple {
-        feed_id: Option<FeedId>,
-        status: Option<EpisodeSummaryStatus>,
-        include_feed_title: bool,
-    },
+#[derive(Default, Debug, Clone)]
+pub struct EpisodesQuery {
+    pub(crate) episode_id: Option<EpisodeId>,
+    pub(crate) feed_id: Option<FeedId>,
+    pub(crate) status: Option<EpisodeSummaryStatus>,
+    pub(crate) include_feed_title: bool,
 }
 
 impl EpisodesQuery {
+    pub fn id(mut self, episode_id: EpisodeId) -> Self {
+        self.episode_id = Some(episode_id);
+        self
+    }
+
+    pub fn feed_id(mut self, feed_id: FeedId) -> Self {
+        self.feed_id = Some(feed_id);
+        self
+    }
+
+    pub fn status(mut self, status: EpisodeSummaryStatus) -> Self {
+        self.status = Some(status);
+        self
+    }
+
+    pub fn include_feed_title(mut self) -> Self {
+        self.include_feed_title = true;
+        self
+    }
+
     pub fn from_feed_view(feed_id: FeedView<FeedId>) -> Self {
         match feed_id {
-            FeedView::All => EpisodesQuery::Multiple {
-                feed_id: None,
-                include_feed_title: true,
-                status: None,
-            },
-            FeedView::New => EpisodesQuery::Multiple {
-                feed_id: None,
-                include_feed_title: true,
-                status: Some(EpisodeSummaryStatus::New),
-            },
-            FeedView::Feed(feed_id) => EpisodesQuery::Multiple {
-                feed_id: Some(feed_id),
-                include_feed_title: false,
-                status: None,
-            },
+            FeedView::All => EpisodesQuery::default().include_feed_title(),
+            FeedView::New => EpisodesQuery::default()
+                .status(EpisodeSummaryStatus::New)
+                .include_feed_title(),
+            FeedView::Feed(feed_id) => EpisodesQuery::default()
+                .feed_id(feed_id)
+                .include_feed_title(),
         }
     }
 }

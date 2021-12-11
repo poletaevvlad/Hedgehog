@@ -156,11 +156,9 @@ impl<D: DataProvider + 'static> Library<D> {
                         }
                         writer.close()?;
 
-                        let new_episodes_query = EpisodesQuery::Multiple {
-                            feed_id: Some(feed_id),
-                            status: Some(EpisodeSummaryStatus::New),
-                            include_feed_title: false,
-                        };
+                        let new_episodes_query = EpisodesQuery::default()
+                            .feed_id(feed_id)
+                            .status(EpisodeSummaryStatus::New);
                         feed_summary.new_count =
                             library.data_provider.count_episodes(new_episodes_query)?;
                         library.notify_update_listener(FeedUpdateNotification::UpdateFinished(

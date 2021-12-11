@@ -199,11 +199,13 @@ impl DataProvider for SqliteDataProvider {
 
     fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata> {
         let mut sql = "SELECT COUNT(ep.id), MAX(ep.season_number), MAX(ep.episode_number), MAX(ep.duration), SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END)  FROM episodes AS ep".to_string();
-        let where_params = query.build_where_clause(&mut sql);
+        query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 
+        let where_params = EpisodeQueryParams::from_query(query);
+        let params = where_params.as_sql_params();
         statement
-            .query_row(&*where_params.as_sql_params(), |row| {
+            .query_row(&*params, |row| {
                 Ok(EpisodesListMetadata {
                     items_count: row.get(0)?,
                     max_season_number: row.get(1)?,
@@ -220,19 +222,20 @@ impl DataProvider for SqliteDataProvider {
         request: EpisodesQuery,
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
-        let feed_title_required = request.feed_title_required();
+        let feed_title_required = request.include_feed_title;
         let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date".to_string();
-        if feed_title_required {
+        if request.include_feed_title {
             sql.push_str(", feeds.title");
         }
         sql.push_str(" FROM episodes AS ep");
-        if feed_title_required {
+        if request.include_feed_title {
             sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
         }
-        let where_params = request.build_where_clause(&mut sql);
+        request.build_where_clause(&mut sql);
         sql.push_str(" ORDER BY ep.publication_date DESC LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
 
+        let where_params = EpisodeQueryParams::from_query(request);
         let mut params = where_params.as_sql_params();
         let offset = range.start;
         let limit = range.end - range.start;
@@ -260,8 +263,10 @@ impl DataProvider for SqliteDataProvider {
 
     fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize> {
         let mut sql = "SELECT COUNT(id) FROM episodes AS ep".to_string();
-        let where_params = query.build_where_clause(&mut sql);
+        query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
+
+        let where_params = EpisodeQueryParams::from_query(query);
         let count = statement.query_row(&*where_params.as_sql_params(), |row| row.get(0))?;
         Ok(count)
     }
@@ -316,12 +321,13 @@ impl DataProvider for SqliteDataProvider {
     ) -> DbResult<HashSet<FeedId>> {
         let mut sql =
             "UPDATE episodes AS ep SET status = :status, position = :position ".to_string();
-        let where_params = query.build_where_clause(&mut sql);
+        query.build_where_clause(&mut sql);
         sql.push_str(" RETURNING episodes.feed_id");
         let mut statement = self.connection.prepare(&sql)?;
 
         let (status, position) = status.db_view();
         let position = position.as_nanos() as u64;
+        let where_params = EpisodeQueryParams::from_query(query);
         let mut params = where_params.as_sql_params();
         params.push((":status", &status as &dyn rusqlite::ToSql));
         params.push((":position", &position as &dyn rusqlite::ToSql));
@@ -336,37 +342,25 @@ impl DataProvider for SqliteDataProvider {
 }
 
 impl EpisodesQuery {
-    fn build_where_clause(&self, query: &mut String) -> EpisodeQueryParams {
-        let mut params = EpisodeQueryParams::default();
-        match self {
-            EpisodesQuery::Single(id) => {
-                query.push_str(" WHERE id = :id");
-                params.id = Some(*id);
-            }
-            EpisodesQuery::Multiple {
-                feed_id, status, ..
-            } => {
-                params.feed_id = *feed_id;
-                params.status = status.as_ref().map(|status| status.db_view());
-                match (feed_id, status) {
-                    (None, None) => {}
-                    (None, Some(_)) => query.push_str(" WHERE ep.status = :status"),
-                    (Some(_), None) => query.push_str(" WHERE ep.feed_id = :feed_id"),
-                    (Some(_), Some(_)) => {
-                        query.push_str(" WHERE ep.status = :status AND ep.feed_id = :feed_id");
-                    }
-                }
-            }
+    fn build_where_clause(&self, query: &mut String) {
+        let mut clauses = Vec::new();
+        if self.episode_id.is_some() {
+            clauses.push("ep.id = :id");
         }
-        params
-    }
-
-    fn feed_title_required(&self) -> bool {
-        match self {
-            EpisodesQuery::Single(_) => false,
-            EpisodesQuery::Multiple {
-                include_feed_title, ..
-            } => *include_feed_title,
+        if self.feed_id.is_some() {
+            clauses.push("ep.feed_id = :feed_id");
+        }
+        if self.status.is_some() {
+            clauses.push("ep.status = :status");
+        }
+        if !clauses.is_empty() {
+            query.push_str(" WHERE ");
+            for (index, clause) in clauses.into_iter().enumerate() {
+                if index > 0 {
+                    query.push_str(" AND ");
+                }
+                query.push_str(clause);
+            }
         }
     }
 }
@@ -379,6 +373,14 @@ struct EpisodeQueryParams {
 }
 
 impl EpisodeQueryParams {
+    fn from_query(query: EpisodesQuery) -> Self {
+        EpisodeQueryParams {
+            id: query.episode_id,
+            feed_id: query.feed_id,
+            status: query.status.map(|status| status.db_view()),
+        }
+    }
+
     fn as_sql_params<'a>(&'a self) -> Vec<(&'static str, &'a dyn rusqlite::ToSql)> {
         let mut params: Vec<(&'static str, &'a dyn rusqlite::ToSql)> = Vec::new();
         if let Some(id) = self.id.as_ref() {
@@ -642,14 +644,7 @@ mod tests {
         writer.close().unwrap();
 
         let mut episodes = provider
-            .get_episode_summaries(
-                EpisodesQuery::Multiple {
-                    feed_id: Some(feed_id),
-                    include_feed_title: false,
-                    status: None,
-                },
-                0..100,
-            )
+            .get_episode_summaries(EpisodesQuery::default().feed_id(feed_id), 0..100)
             .unwrap();
         episodes.sort_by_key(|episode| episode.id.0);
         assert_eq!(

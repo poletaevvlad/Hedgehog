@@ -25,23 +25,26 @@ pub enum StatusWriterCommand {
 
 impl StatusWriterCommand {
     pub fn set(episode_id: EpisodeId, status: EpisodeStatus) -> Self {
-        StatusWriterCommand::Set(EpisodesQuery::Single(episode_id), status)
+        StatusWriterCommand::Set(EpisodesQuery::default().id(episode_id), status)
     }
 
     pub fn set_finished(episode_id: EpisodeId) -> Self {
-        StatusWriterCommand::Set(EpisodesQuery::Single(episode_id), EpisodeStatus::Finished)
+        StatusWriterCommand::Set(
+            EpisodesQuery::default().id(episode_id),
+            EpisodeStatus::Finished,
+        )
     }
 
     pub fn set_position(episode_id: EpisodeId, position: Duration) -> Self {
         StatusWriterCommand::Set(
-            EpisodesQuery::Single(episode_id),
+            EpisodesQuery::default().id(episode_id),
             EpisodeStatus::Started(position),
         )
     }
 
     pub fn set_error(episode_id: EpisodeId, position: Duration) -> Self {
         StatusWriterCommand::Set(
-            EpisodesQuery::Single(episode_id),
+            EpisodesQuery::default().id(episode_id),
             EpisodeStatus::Error(position),
         )
     }

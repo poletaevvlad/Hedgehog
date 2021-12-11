@@ -219,11 +219,9 @@ async fn creates_episodes() {
     let mock_server = httpmock::MockServer::start();
     let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
 
-    let query = EpisodesQuery::Multiple {
-        feed_id: Some(feed_id),
-        include_feed_title: true,
-        status: None,
-    };
+    let query = EpisodesQuery::default()
+        .feed_id(feed_id)
+        .include_feed_title();
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
     let expected = [
@@ -265,11 +263,9 @@ async fn updates_episodes_on_update() {
     assert_eq!(summary.id, feed_id);
     assert_eq!(&summary.title, "Sample Podcast");
 
-    let query = EpisodesQuery::Multiple {
-        feed_id: Some(feed_id),
-        include_feed_title: true,
-        status: None,
-    };
+    let query = EpisodesQuery::default()
+        .feed_id(feed_id)
+        .include_feed_title();
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
     let expected = [
@@ -310,11 +306,9 @@ async fn update_failure() {
         FeedStatus::Error(FeedError::HttpError(StatusCode::from_u16(500).unwrap()))
     );
 
-    let query = EpisodesQuery::Multiple {
-        feed_id: Some(feed_id),
-        include_feed_title: true,
-        status: None,
-    };
+    let query = EpisodesQuery::default()
+        .feed_id(feed_id)
+        .include_feed_title();
     let episodes = get_episode_summaries(library, query).await;
     assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
     let expected = [

@@ -1,7 +1,7 @@
 use crate::datasource::{DataProvider, DbResult, EpisodeWriter, QueryError, WritableDataProvider};
 use crate::model::{
-    EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata, FeedError,
-    FeedId, FeedStatus, FeedSummary,
+    EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
+    EpisodesListMetadata, FeedError, FeedId, FeedStatus, FeedSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::sqlite::SqliteDataProvider;
@@ -148,12 +148,21 @@ impl<D: DataProvider + 'static> Library<D> {
                     Ok(mut feed) => (|| {
                         let mut writer = library.data_provider.writer(feed_id)?;
                         let feed_metadata = feed.feed_metadata();
-                        let feed_summary = FeedSummary::from_metadata(feed_id, &feed_metadata, 0);
+                        let mut feed_summary =
+                            FeedSummary::from_metadata(feed_id, &feed_metadata, 0);
                         writer.set_feed_metadata(&feed_metadata)?;
                         while let Some(episode_metadata) = feed.next_episode_metadata() {
                             writer.set_episode_metadata(&episode_metadata)?;
                         }
                         writer.close()?;
+
+                        let new_episodes_query = EpisodesQuery::Multiple {
+                            feed_id: Some(feed_id),
+                            status: Some(EpisodeSummaryStatus::New),
+                            include_feed_title: false,
+                        };
+                        feed_summary.new_count =
+                            library.data_provider.count_episodes(new_episodes_query)?;
                         library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
                             feed_id,
                             FeedUpdateResult::Updated(feed_summary),

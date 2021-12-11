@@ -61,6 +61,7 @@ pub trait DataProvider: Unpin {
         query: EpisodesQuery,
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>>;
+    fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize>;
 
     fn create_feed_pending(&self, source: &str) -> DbResult<FeedId>;
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;

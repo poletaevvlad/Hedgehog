@@ -284,6 +284,14 @@ impl DataProvider for SqliteDataProvider {
             })
             .map_err(QueryError::from)
     }
+
+    fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize> {
+        let mut sql = "SELECT COUNT(id) FROM episodes AS ep".to_string();
+        let where_params = query.build_where_clause(&mut sql);
+        let mut statement = self.connection.prepare(&sql)?;
+        let count = statement.query_row(&*where_params.as_sql_params(), |row| row.get(0))?;
+        Ok(count)
+    }
 }
 
 impl EpisodesQuery {
@@ -304,7 +312,7 @@ impl EpisodesQuery {
                     (None, Some(_)) => query.push_str(" WHERE ep.status = :status"),
                     (Some(_), None) => query.push_str(" WHERE ep.feed_id = :feed_id"),
                     (Some(_), Some(_)) => {
-                        query.push_str(" WHERE ep.status = :status && ep.feed_id = :feed_id");
+                        query.push_str(" WHERE ep.status = :status AND ep.feed_id = :feed_id");
                     }
                 }
             }

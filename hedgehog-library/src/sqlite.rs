@@ -91,13 +91,21 @@ impl DataProvider for SqliteDataProvider {
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>> {
         let mut select = self
             .connection
-            .prepare("SELECT id, CASE WHEN title IS NOT NULL THEN title ELSE source END, title IS NOT NULL, status, error_code FROM feeds ORDER BY title, source")?;
+            .prepare(
+                "SELECT feeds.id, CASE WHEN feeds.title IS NOT NULL THEN feeds.title ELSE feeds.source END, 
+                        feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id)
+                FROM feeds 
+                LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
+                GROUP BY feeds.id
+                ORDER BY feeds.title, feeds.source"
+            )?;
         let rows = select.query_map([], |row| {
             Ok(FeedSummary {
                 id: row.get(0)?,
                 title: row.get(1)?,
                 has_title: row.get(2)?,
                 status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
+                new_count: row.get(5)?,
             })
         })?;
         Ok(collect_results(rows)?)

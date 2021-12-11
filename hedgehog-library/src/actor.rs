@@ -148,7 +148,7 @@ impl<D: DataProvider + 'static> Library<D> {
                     Ok(mut feed) => (|| {
                         let mut writer = library.data_provider.writer(feed_id)?;
                         let feed_metadata = feed.feed_metadata();
-                        let feed_summary = FeedSummary::from_metadata(feed_id, &feed_metadata);
+                        let feed_summary = FeedSummary::from_metadata(feed_id, &feed_metadata, 0);
                         writer.set_feed_metadata(&feed_metadata)?;
                         while let Some(episode_metadata) = feed.next_episode_metadata() {
                             writer.set_episode_metadata(&episode_metadata)?;

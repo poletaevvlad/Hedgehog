@@ -119,6 +119,7 @@ pub struct FeedSummary {
     pub title: String,
     pub has_title: bool,
     pub status: FeedStatus,
+    pub new_count: usize,
 }
 
 impl FeedSummary {
@@ -128,15 +129,21 @@ impl FeedSummary {
             title: source,
             has_title: false,
             status: FeedStatus::Pending,
+            new_count: 0,
         }
     }
 
-    pub(crate) fn from_metadata(feed_id: FeedId, metadata: &FeedMetadata) -> Self {
+    pub(crate) fn from_metadata(
+        feed_id: FeedId,
+        metadata: &FeedMetadata,
+        new_episodes_count: usize,
+    ) -> Self {
         FeedSummary {
             id: feed_id,
             title: metadata.title.to_string(),
             has_title: true,
             status: FeedStatus::Loaded,
+            new_count: new_episodes_count,
         }
     }
 }

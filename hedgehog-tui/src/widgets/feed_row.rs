@@ -113,11 +113,21 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     buf.set_string(indicator_area.x, indicator_area.y, label, style);
                 }
 
+                if item.new_count > 0 {
+                    let formatted = format!(" {} ", item.new_count);
+                    let width = formatted.width();
+                    let (title_area, count_area) = split_right(area, width as u16);
+                    let style = self.theme.get(theming::List::Item(
+                        item_selector.with_column(theming::ListColumn::NewCount),
+                    ));
+                    buf.set_string(count_area.x, count_area.y, formatted, style);
+                    area = title_area;
+                }
+
                 let style = self.theme.get(theming::List::Item(
                     item_selector.with_column(theming::ListColumn::Title),
                 ));
                 buf.set_style(area, style);
-
                 let paragraph = Paragraph::new(item.title.as_str());
                 paragraph.render(
                     Rect::new(

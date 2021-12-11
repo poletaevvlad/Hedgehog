@@ -9,6 +9,7 @@ set list.item:feed-special +bold
 set list.item:search +dim
 set list.item:search.title -dim +bold
 set list.item:selected +reversed
+set list.item.new-count fg:yellow
 
 set player.episode bg:darkgray
 set player:stopped.status bg:black

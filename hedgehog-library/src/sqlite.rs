@@ -8,6 +8,8 @@ use crate::model::{
 };
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
+use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 use std::ops::Range;
 use std::path::Path;
 use std::time::Duration;
@@ -111,6 +113,44 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
+    fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, source FROM feeds WHERE enabled")?;
+        let rows = statement.query_map(named_params! {}, |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(collect_results(rows)?)
+    }
+
+    fn get_new_episodes_count(
+        &self,
+        feed_ids: impl IntoIterator<Item = FeedId>,
+    ) -> DbResult<HashMap<FeedId, usize>> {
+        let mut sql = "
+            SELECT feeds.id, COUNT(episodes.id)
+            FROM feeds 
+            LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
+            WHERE feeds.id IN ("
+            .to_string();
+        for (index, feed_id) in feed_ids.into_iter().enumerate() {
+            if index == 0 {
+                sql.write_fmt(format_args!("{}", feed_id.0)).unwrap();
+            } else {
+                sql.write_fmt(format_args!(", {}", feed_id.0)).unwrap();
+            }
+        }
+        sql.push_str(") GROUP BY feeds.id");
+
+        let mut select = self.connection.prepare(&sql)?;
+        let rows = select.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+
+        let mut results = HashMap::with_capacity(rows.size_hint().0);
+        for row in rows {
+            let (feed_id, count) = row?;
+            results.insert(feed_id, count);
+        }
+        Ok(results)
+    }
+
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
             self.connection.prepare("SELECT feed_id, episode_number, season_number, title, description, link, status, position, duration, publication_date, media_url FROM episodes WHERE id = :id")?;
@@ -136,38 +176,24 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn create_feed_pending(&self, source: &str) -> DbResult<FeedId> {
+    fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData> {
         let mut statement = self
             .connection
-            .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
+            .prepare(
+                "SELECT episodes.media_url, episodes.position, episodes.duration, episodes.title, feeds.title
+                FROM episodes JOIN feeds ON feeds.id = episodes.feed_id
+                WHERE episodes.id = :id LIMIT 1")?;
         statement
-            .insert(named_params! {":source": source})
-            .map(FeedId)
-            .map_err(Into::into)
-    }
-
-    fn delete_feed(&self, id: FeedId) -> DbResult<()> {
-        let mut statement = self
-            .connection
-            .prepare("DELETE FROM feeds WHERE id = :id")?;
-        statement.execute(named_params! {":id": id})?;
-        Ok(())
-    }
-
-    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()> {
-        let (status, error) = status.db_view();
-        self.connection
-            .prepare("UPDATE feeds SET status = :status, error_code = :error_code WHERE id = :id")?
-            .execute(named_params! {":status": status, ":error_code": error, ":id": feed_id})?;
-        Ok(())
-    }
-
-    fn get_feed_source(&self, id: FeedId) -> DbResult<String> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT source FROM feeds WHERE id = :id LIMIT 1")?;
-        statement
-            .query_row(named_params! {":id": id}, |row| row.get(0))
+            .query_row(named_params! {":id": episode_id}, |row| {
+                Ok(EpisodePlaybackData {
+                    id: episode_id,
+                    media_url: row.get(0)?,
+                    position: Duration::from_nanos(row.get(1)?),
+                    duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
+                    episode_title: row.get(3)?,
+                    feed_title: row.get(4)?,
+                })
+            })
             .map_err(QueryError::from)
     }
 
@@ -232,28 +258,38 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()> {
-        let mut sql =
-            "UPDATE episodes AS ep SET status = :status, position = :position ".to_string();
+    fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize> {
+        let mut sql = "SELECT COUNT(id) FROM episodes AS ep".to_string();
         let where_params = query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
+        let count = statement.query_row(&*where_params.as_sql_params(), |row| row.get(0))?;
+        Ok(count)
+    }
 
-        let (status, position) = status.db_view();
-        let position = position.as_nanos() as u64;
-        let mut params = where_params.as_sql_params();
-        params.push((":status", &status as &dyn rusqlite::ToSql));
-        params.push((":position", &position as &dyn rusqlite::ToSql));
+    fn create_feed_pending(&self, source: &str) -> DbResult<FeedId> {
+        let mut statement = self
+            .connection
+            .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
+        statement
+            .insert(named_params! {":source": source})
+            .map(FeedId)
+            .map_err(Into::into)
+    }
 
-        statement.execute(&*params)?;
+    fn delete_feed(&self, id: FeedId) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("DELETE FROM feeds WHERE id = :id")?;
+        statement.execute(named_params! {":id": id})?;
         Ok(())
     }
 
-    fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT id, source FROM feeds WHERE enabled")?;
-        let rows = statement.query_map(named_params! {}, |row| Ok((row.get(0)?, row.get(1)?)))?;
-        Ok(collect_results(rows)?)
+    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()> {
+        let (status, error) = status.db_view();
+        self.connection
+            .prepare("UPDATE feeds SET status = :status, error_code = :error_code WHERE id = :id")?
+            .execute(named_params! {":status": status, ":error_code": error, ":id": feed_id})?;
+        Ok(())
     }
 
     fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()> {
@@ -264,33 +300,38 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
-    fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData> {
+    fn get_feed_source(&self, id: FeedId) -> DbResult<String> {
         let mut statement = self
             .connection
-            .prepare(
-                "SELECT episodes.media_url, episodes.position, episodes.duration, episodes.title, feeds.title
-                FROM episodes JOIN feeds ON feeds.id = episodes.feed_id
-                WHERE episodes.id = :id LIMIT 1")?;
+            .prepare("SELECT source FROM feeds WHERE id = :id LIMIT 1")?;
         statement
-            .query_row(named_params! {":id": episode_id}, |row| {
-                Ok(EpisodePlaybackData {
-                    id: episode_id,
-                    media_url: row.get(0)?,
-                    position: Duration::from_nanos(row.get(1)?),
-                    duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
-                    episode_title: row.get(3)?,
-                    feed_title: row.get(4)?,
-                })
-            })
+            .query_row(named_params! {":id": id}, |row| row.get(0))
             .map_err(QueryError::from)
     }
 
-    fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize> {
-        let mut sql = "SELECT COUNT(id) FROM episodes AS ep".to_string();
+    fn set_episode_status(
+        &self,
+        query: EpisodesQuery,
+        status: EpisodeStatus,
+    ) -> DbResult<HashSet<FeedId>> {
+        let mut sql =
+            "UPDATE episodes AS ep SET status = :status, position = :position ".to_string();
         let where_params = query.build_where_clause(&mut sql);
+        sql.push_str(" RETURNING episodes.feed_id");
         let mut statement = self.connection.prepare(&sql)?;
-        let count = statement.query_row(&*where_params.as_sql_params(), |row| row.get(0))?;
-        Ok(count)
+
+        let (status, position) = status.db_view();
+        let position = position.as_nanos() as u64;
+        let mut params = where_params.as_sql_params();
+        params.push((":status", &status as &dyn rusqlite::ToSql));
+        params.push((":position", &position as &dyn rusqlite::ToSql));
+
+        let feed_ids = statement.query_map(&*params, |row| row.get(0))?;
+        let mut feed_ids_set = HashSet::new();
+        for feed_id in feed_ids {
+            feed_ids_set.insert(feed_id?);
+        }
+        Ok(feed_ids_set)
     }
 }
 

@@ -8,7 +8,7 @@ use crate::sqlite::SqliteDataProvider;
 use crate::EpisodesQuery;
 use actix::fut::wrap_future;
 use actix::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -227,6 +227,7 @@ pub enum FeedUpdateNotification {
     Error(FeedUpdateError),
     FeedAdded(FeedSummary),
     FeedDeleted(FeedId),
+    NewCountUpdated(HashMap<FeedId, usize>),
 }
 
 #[derive(Debug, Message)]
@@ -291,7 +292,16 @@ where
                 }
             }
             FeedUpdateRequest::SetStatus(query, status) => {
-                if let Err(error) = self.data_provider.set_episode_status(query, status) {
+                let result: Result<(), QueryError> = (|| {
+                    let updated_feeds = self.data_provider.set_episode_status(query, status)?;
+                    let new_episodes_count =
+                        self.data_provider.get_new_episodes_count(updated_feeds)?;
+                    self.notify_update_listener(FeedUpdateNotification::NewCountUpdated(
+                        new_episodes_count,
+                    ));
+                    Ok(())
+                })();
+                if let Err(error) = result {
                     self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             }

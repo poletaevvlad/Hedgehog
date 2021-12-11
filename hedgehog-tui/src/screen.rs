@@ -1074,6 +1074,19 @@ impl Handler<FeedUpdateNotification> for UI {
                     });
                 self.update_current_feed(ctx);
             }
+            FeedUpdateNotification::NewCountUpdated(new_count) => {
+                self.library
+                    .feeds
+                    .update_data::<selection::DoNotUpdate, _>(|feeds| {
+                        for feed in feeds {
+                            if let Some(feed) = feed.as_mut() {
+                                if let Some(new) = new_count.get(&feed.id) {
+                                    feed.new_count = *new;
+                                }
+                            }
+                        }
+                    });
+            }
         }
         self.invalidate(ctx);
     }

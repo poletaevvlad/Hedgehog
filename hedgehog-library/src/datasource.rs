@@ -3,6 +3,7 @@ use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, FeedView,
 };
+use std::collections::{HashMap, HashSet};
 use std::marker::Unpin;
 use std::ops::Range;
 use thiserror::Error;
@@ -52,6 +53,10 @@ pub trait DataProvider: Unpin {
     fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
     fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>>;
+    fn get_new_episodes_count(
+        &self,
+        feed_ids: impl IntoIterator<Item = FeedId>,
+    ) -> DbResult<HashMap<FeedId, usize>>;
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData>;
@@ -69,7 +74,11 @@ pub trait DataProvider: Unpin {
     fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;
     fn get_feed_source(&self, id: FeedId) -> DbResult<String>;
 
-    fn set_episode_status(&self, query: EpisodesQuery, status: EpisodeStatus) -> DbResult<()>;
+    fn set_episode_status(
+        &self,
+        query: EpisodesQuery,
+        status: EpisodeStatus,
+    ) -> DbResult<HashSet<FeedId>>;
 }
 
 pub trait WritableDataProvider {

@@ -124,13 +124,10 @@ impl CommandReader {
                 return Ok(None);
             }
 
-            if self.buffer.trim().is_empty() {
-                continue;
-            }
-
             self.line_no += 1;
-            return match C::parse_cmd_full(&self.buffer) {
-                Ok(command) => Ok(Some(command)),
+            return match <Option<C>>::parse_cmd_full(&self.buffer) {
+                Ok(Some(command)) => Ok(Some(command)),
+                Ok(None) => continue,
                 Err(error) => Err(Error::Parsing(error.into_static(), self.line_no)),
             };
         }
@@ -153,13 +150,15 @@ mod tests {
     }
 
     #[test]
-    fn read_file() {
+    fn read_file_with_comments() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("cmdrc");
 
         let mut file = File::create(&path).unwrap();
+        writeln!(file, "# commend").unwrap();
         writeln!(file, "first 4").unwrap();
         writeln!(file).unwrap();
+        writeln!(file, "# commend").unwrap();
         writeln!(file, "second four").unwrap();
         drop(file);
 

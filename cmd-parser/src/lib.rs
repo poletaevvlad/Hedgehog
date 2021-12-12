@@ -422,6 +422,43 @@ pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
     }
 }
 
+fn skip_token(mut input: &str) -> &str {
+    if input.starts_with(')') {
+        return input;
+    }
+
+    if input.starts_with('"') || input.starts_with('\'') {
+        let mut chars = input.chars();
+        let quote_ch = chars.next().unwrap();
+        let mut escaped = false;
+        for ch in &mut chars {
+            if !escaped {
+                match ch {
+                    ch if ch == quote_ch => break,
+                    '\\' => escaped = true,
+                    _ => {}
+                }
+            } else {
+                escaped = false;
+            }
+        }
+        skip_ws(chars.as_str())
+    } else {
+        loop {
+            let mut chars = input.chars();
+            match chars.next() {
+                Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' => {
+                    input = chars.as_str();
+                }
+                _ => break,
+            }
+        }
+        skip_ws(input)
+    }
+}
+
+// pub fn string_parse_all(input: &str) -> (String, &str) {}
+
 #[cfg(test)]
 mod tests {
     use super::{take_token, CmdParsable};
@@ -552,26 +589,31 @@ mod tests {
 
     mod take_token_tests {
         use super::*;
+        use crate::skip_token;
         use std::borrow::Cow;
 
         #[test]
         fn empty_string() {
             assert_eq!(take_token(""), (None, ""));
+            assert_eq!(skip_token(""), "");
         }
 
         #[test]
         fn whitespace_only() {
             assert_eq!(take_token("   "), (None, ""));
+            assert_eq!(skip_token("   "), "");
         }
 
         #[test]
         fn takes_entire_string() {
             assert_eq!(take_token("abcdef"), (Some(Cow::Borrowed("abcdef")), ""));
+            assert_eq!(skip_token("abcdef"), "");
         }
 
         #[test]
         fn takes_entire_string_with_whitespaces() {
             assert_eq!(take_token("abcdef  "), (Some(Cow::Borrowed("abcdef")), ""));
+            assert_eq!(skip_token("abcdef  "), "");
         }
 
         #[test]
@@ -580,6 +622,8 @@ mod tests {
             let mut tokens = Vec::new();
             loop {
                 let (token, remaining) = take_token(input);
+                let remaining2 = skip_token(input);
+                assert_eq!(remaining, remaining2);
                 if let Some(token) = token {
                     tokens.push(token);
                 } else {
@@ -591,12 +635,14 @@ mod tests {
         }
 
         #[test]
-        fn empry_quoted_string() {
+        fn empty_quoted_string() {
             assert_eq!(take_token("''  a"), (Some(Cow::Owned(String::new())), "a"));
+            assert_eq!(skip_token("''  a"), "a");
             assert_eq!(
                 take_token("\"\"  a"),
                 (Some(Cow::Owned(String::new())), "a")
             );
+            assert_eq!(skip_token("\"\"  a"), "a");
         }
 
         #[test]
@@ -605,10 +651,13 @@ mod tests {
                 take_token("'abc \"def'  a"),
                 (Some(Cow::Owned("abc \"def".to_string())), "a")
             );
+            assert_eq!(skip_token("'abc \"def'  a"), "a");
+
             assert_eq!(
                 take_token("\"abc 'def\"  a"),
                 (Some(Cow::Owned("abc 'def".to_string())), "a")
             );
+            assert_eq!(skip_token("\"abc 'def\"  a"), "a");
         }
 
         #[test]
@@ -617,10 +666,12 @@ mod tests {
                 take_token(r#"'"\'\\\a'  a"#),
                 (Some(Cow::Owned(r#""'\a"#.to_string())), "a")
             );
+            assert_eq!(skip_token(r#"'"\'\\\a'  a"#), "a");
             assert_eq!(
                 take_token(r#""\"'\\\a"  a"#),
                 (Some(Cow::Owned(r#""'\a"#.to_string())), "a")
             );
+            assert_eq!(skip_token(r#""\"'\\\a"  a"#), "a");
         }
 
         #[test]
@@ -629,10 +680,12 @@ mod tests {
                 take_token("abc\"def\""),
                 (Some(Cow::Borrowed("abc")), "\"def\"")
             );
+            assert_eq!(skip_token("abc\"def\""), "\"def\"");
             assert_eq!(
                 take_token("abc'def'"),
                 (Some(Cow::Borrowed("abc")), "'def'")
             );
+            assert_eq!(skip_token("abc'def'"), "'def'");
         }
     }
 

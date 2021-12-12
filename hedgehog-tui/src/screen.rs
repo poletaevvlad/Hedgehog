@@ -1094,6 +1094,9 @@ impl Handler<FeedUpdateNotification> for UI {
                 self.update_current_feed(ctx);
             }
             FeedUpdateNotification::NewCountUpdated(new_count) => {
+                if self.selected_feed == Some(FeedView::New) {
+                    self.refresh_episodes(ctx, false);
+                }
                 self.library
                     .feeds
                     .update_data::<selection::DoNotUpdate, _>(|feeds| {

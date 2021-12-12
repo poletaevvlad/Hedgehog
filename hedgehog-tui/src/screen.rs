@@ -120,6 +120,8 @@ pub(crate) enum Command {
         status: EpisodeStatus,
         #[cmd(attr(all = "true"))]
         update_all: bool,
+        #[cmd(attr(condition))]
+        condition: Option<EpisodeSummaryStatus>,
     },
     Search(String),
     SearchAdd,
@@ -424,17 +426,27 @@ impl UI {
                         .do_send(FeedUpdateRequest::SetFeedEnabled(selected_feed, enabled));
                 }
             }
-            Command::Mark { status, update_all } => {
+            Command::Mark {
+                status,
+                update_all,
+                condition,
+            } => {
                 if update_all {
                     if let Some(feed) = self.selected_feed {
                         self.library
                             .episodes
                             .update_data::<selection::DoNotUpdate, _>(|data| {
                                 for episode in data.iter_mut() {
-                                    episode.status = status.clone().into();
+                                    if condition.is_none() || condition == Some(episode.status) {
+                                        episode.status = (&status).into();
+                                    }
                                 }
                             });
-                        let query = EpisodesQuery::from_feed_view(feed);
+
+                        let mut query = EpisodesQuery::from_feed_view(feed);
+                        if let Some(condition) = condition {
+                            query = query.status(condition);
+                        }
                         self.status_writer_actor
                             .do_send(StatusWriterCommand::Set(query, status));
                     }
@@ -446,11 +458,18 @@ impl UI {
                         .episodes
                         .update_data::<selection::DoNotUpdate, _>(|data| {
                             if let Some(selected) = data.item_at_mut(selected_index) {
-                                selected.status = status.clone().into();
+                                if condition.is_none() || condition == Some(selected.status) {
+                                    selected.status = (&status).into();
+                                }
                             }
                         });
+
+                    let mut query = EpisodesQuery::default().id(selected_id);
+                    if let Some(condition) = condition {
+                        query = query.status(condition);
+                    }
                     self.status_writer_actor
-                        .do_send(StatusWriterCommand::set(selected_id, status));
+                        .do_send(StatusWriterCommand::Set(query, status));
                 }
                 self.invalidate(ctx);
             }

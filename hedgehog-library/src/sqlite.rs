@@ -320,7 +320,7 @@ impl DataProvider for SqliteDataProvider {
         status: EpisodeStatus,
     ) -> DbResult<HashSet<FeedId>> {
         let mut sql =
-            "UPDATE episodes AS ep SET status = :status, position = :position ".to_string();
+            "UPDATE episodes AS ep SET status = :new_status, position = :position ".to_string();
         query.build_where_clause(&mut sql);
         sql.push_str(" RETURNING episodes.feed_id");
         let mut statement = self.connection.prepare(&sql)?;
@@ -329,7 +329,7 @@ impl DataProvider for SqliteDataProvider {
         let position = position.as_nanos() as u64;
         let where_params = EpisodeQueryParams::from_query(query);
         let mut params = where_params.as_sql_params();
-        params.push((":status", &status as &dyn rusqlite::ToSql));
+        params.push((":new_status", &status as &dyn rusqlite::ToSql));
         params.push((":position", &position as &dyn rusqlite::ToSql));
 
         let feed_ids = statement.query_map(&*params, |row| row.get(0))?;

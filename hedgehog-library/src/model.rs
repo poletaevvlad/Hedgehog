@@ -202,17 +202,21 @@ impl EpisodeStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, CmdParsable)]
 pub enum EpisodeSummaryStatus {
     New,
+    #[cmd(rename = "seen")]
     NotStarted,
+    #[cmd(rename = "done")]
     Finished,
+    #[cmd(ignore)]
     Started,
+    #[cmd(ignore)]
     Error,
 }
 
-impl From<EpisodeStatus> for EpisodeSummaryStatus {
-    fn from(status: EpisodeStatus) -> Self {
+impl From<&EpisodeStatus> for EpisodeSummaryStatus {
+    fn from(status: &EpisodeStatus) -> Self {
         match status {
             EpisodeStatus::New => EpisodeSummaryStatus::New,
             EpisodeStatus::NotStarted => EpisodeSummaryStatus::NotStarted,

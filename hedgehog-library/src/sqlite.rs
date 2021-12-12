@@ -224,11 +224,11 @@ impl DataProvider for SqliteDataProvider {
     ) -> DbResult<Vec<EpisodeSummary>> {
         let feed_title_required = request.include_feed_title;
         let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date".to_string();
-        if request.include_feed_title {
+        if feed_title_required {
             sql.push_str(", feeds.title");
         }
         sql.push_str(" FROM episodes AS ep");
-        if request.include_feed_title {
+        if feed_title_required {
             sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
         }
         request.build_where_clause(&mut sql);

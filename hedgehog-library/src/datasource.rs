@@ -52,9 +52,7 @@ impl EpisodesQuery {
             FeedView::New => EpisodesQuery::default()
                 .status(EpisodeSummaryStatus::New)
                 .include_feed_title(),
-            FeedView::Feed(feed_id) => EpisodesQuery::default()
-                .feed_id(feed_id)
-                .include_feed_title(),
+            FeedView::Feed(feed_id) => EpisodesQuery::default().feed_id(feed_id),
         }
     }
 }

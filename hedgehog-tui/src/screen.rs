@@ -895,8 +895,9 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                             self.handle_error(error, ctx);
                         }
                         self.command = None;
-                        match Command::parse_cmd_full(&command_str) {
-                            Ok(command) => self.handle_command(command, ctx),
+                        match <Option<Command>>::parse_cmd_full(&command_str) {
+                            Ok(Some(command)) => self.handle_command(command, ctx),
+                            Ok(None) => {}
                             Err(error) => self.handle_error(error.into_static(), ctx),
                         }
                         self.invalidate(ctx);

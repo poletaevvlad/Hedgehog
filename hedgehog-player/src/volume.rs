@@ -62,6 +62,11 @@ impl CmdParsable for Volume {
     }
 }
 
+fn parse_volume_delta(input: &str) -> Result<(f64, &str), cmd_parser::ParseError<'_>> {
+    let (delta, remaining) = f64::parse_cmd_raw(input)?;
+    Ok((delta / 100.0, remaining))
+}
+
 #[derive(Debug, Copy, Clone, Message, PartialEq, CmdParsable)]
 #[rtype(result = "()")]
 pub enum VolumeCommand {
@@ -71,7 +76,7 @@ pub enum VolumeCommand {
     #[cmd(rename = "vol-set")]
     SetVolume(Volume),
     #[cmd(rename = "vol-adjust")]
-    AdjustVolume(f64),
+    AdjustVolume(#[cmd(parse_with = "parse_volume_delta")] f64),
 }
 
 #[cfg(test)]

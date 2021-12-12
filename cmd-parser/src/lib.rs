@@ -376,11 +376,11 @@ pub fn skip_ws(mut input: &str) -> &str {
 }
 
 pub fn has_tokens(input: &str) -> bool {
-    !input.is_empty() && !input.starts_with(')')
+    !input.is_empty() && !input.starts_with(')') && !input.starts_with('#')
 }
 
 pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
-    if input.starts_with(')') {
+    if input.starts_with(')') || input.starts_with('#') {
         return (None, input);
     }
 
@@ -407,7 +407,9 @@ pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
         loop {
             let mut chars = input.chars();
             match chars.next() {
-                Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' => {
+                Some(ch)
+                    if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' && ch != '#' =>
+                {
                     input = chars.as_str();
                 }
                 _ => break,
@@ -423,7 +425,7 @@ pub fn take_token(mut input: &str) -> (Option<Cow<'_, str>>, &str) {
 }
 
 fn skip_token(mut input: &str) -> &str {
-    if input.starts_with(')') {
+    if input.starts_with(')') || input.starts_with('#') {
         return input;
     }
 
@@ -447,7 +449,9 @@ fn skip_token(mut input: &str) -> &str {
         loop {
             let mut chars = input.chars();
             match chars.next() {
-                Some(ch) if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' => {
+                Some(ch)
+                    if !ch.is_whitespace() && ch != '"' && ch != '\'' && ch != ')' && ch != '#' =>
+                {
                     input = chars.as_str();
                 }
                 _ => break,
@@ -616,9 +620,24 @@ mod tests {
         }
 
         #[test]
+        fn comment() {
+            assert_eq!(take_token("#comment"), (None, "#comment"));
+            assert_eq!(skip_token("#comment"), "#comment");
+        }
+
+        #[test]
         fn takes_entire_string() {
             assert_eq!(take_token("abcdef"), (Some(Cow::Borrowed("abcdef")), ""));
             assert_eq!(skip_token("abcdef"), "");
+        }
+
+        #[test]
+        fn takes_until_comment() {
+            assert_eq!(
+                take_token("abcdef#comment"),
+                (Some(Cow::Borrowed("abcdef")), "#comment")
+            );
+            assert_eq!(skip_token("abcdef#comment"), "#comment");
         }
 
         #[test]

@@ -26,7 +26,7 @@ fn parse_modifier(input: &str) -> Result<Modifier, ParseError> {
 fn parse_color_rgb(input: &str) -> Result<Color, ParseError> {
     if input.len() != 6 || input.chars().any(|ch| !ch.is_ascii_hexdigit()) {
         return Err(ParseError {
-            kind: ParseErrorKind::TokenParse(format!("#{}", input).into(), None),
+            kind: ParseErrorKind::TokenParse(format!("%{}", input).into(), None),
             expected: "color".into(),
         });
     }
@@ -75,7 +75,7 @@ fn parse_color_named(input: &str) -> Result<Color, ParseError> {
 }
 
 fn parse_color(input: &str) -> Result<Color, ParseError> {
-    if let Some(color) = input.strip_prefix('#') {
+    if let Some(color) = input.strip_prefix('%') {
         parse_color_rgb(color)
     } else if let Some(color) = input.strip_prefix('$') {
         parse_color_xterm(color)
@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn parse_color_rgb_indexed() {
         assert_eq!(
-            parse_cmd("bg: #5982af fg:$45 -bold").unwrap().0,
+            parse_cmd("bg: %5982af fg:$45 -bold").unwrap().0,
             Style {
                 fg: Some(Color::Indexed(45)),
                 bg: Some(Color::Rgb(0x59, 0x82, 0xAF)),
@@ -189,8 +189,8 @@ mod tests {
     #[test]
     fn invalid_color_rgb() {
         assert_eq!(
-            &parse_cmd("fg: #0011").unwrap_err().to_string(),
-            "invalid color \"#0011\""
+            &parse_cmd("fg: %0011").unwrap_err().to_string(),
+            "invalid color \"%0011\""
         );
     }
 

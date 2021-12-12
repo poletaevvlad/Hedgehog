@@ -107,7 +107,8 @@ pub(crate) enum Command {
     PlayCurrent,
     #[cmd(transparent)]
     Playback(PlaybackCommand),
-    SetFeedEnabled(bool),
+    #[cmd(alias = "enable", alias = "disable")]
+    SetFeedEnabled(#[cmd(alias_override(enable = "true", disable = "false"))] bool),
     #[cmd(alias = "q")]
     Quit,
     SetFocus(FocusedPane),

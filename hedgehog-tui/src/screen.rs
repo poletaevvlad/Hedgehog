@@ -104,6 +104,7 @@ pub(crate) enum Command {
     Confirm(Box<CommandConfirmation>),
     Volume(VolumeCommand),
     PlayCurrent,
+    #[cmd(transparent)]
     Playback(PlaybackCommand),
     SetFeedEnabled(bool),
     #[cmd(alias = "q")]
@@ -806,8 +807,8 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                     };
                                     self.handle_command(
                                         Command::Playback(PlaybackCommand::SeekRelative(
-                                            Duration::from_secs(1),
                                             seek_direction,
+                                            Duration::from_secs(1),
                                         )),
                                         ctx,
                                     );

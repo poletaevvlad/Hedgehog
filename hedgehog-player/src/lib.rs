@@ -147,10 +147,28 @@ impl Handler<ActorCommand> for Player {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, CmdParsable)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SeekDirection {
     Forward,
     Backward,
+}
+
+impl CmdParsable for SeekDirection {
+    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
+        let mut chars = input.chars();
+        match chars.next() {
+            Some('+') => Ok((SeekDirection::Forward, chars.as_str())),
+            Some('-') => Ok((SeekDirection::Backward, chars.as_str())),
+            Some(ch) => Err(cmd_parser::ParseError {
+                kind: cmd_parser::ParseErrorKind::UnknownVariant(ch.to_string().into()),
+                expected: "seek direction (+/-)".into(),
+            }),
+            None => Err(cmd_parser::ParseError {
+                kind: cmd_parser::ParseErrorKind::TokenRequired,
+                expected: "seek direction (+/-)".into(),
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -169,8 +187,10 @@ pub enum PlaybackCommand {
     Pause,
     Resume,
     TogglePause,
+    #[cmd(transparent)]
     Seek(Duration),
-    SeekRelative(Duration, SeekDirection),
+    #[cmd(rename = "seek")]
+    SeekRelative(SeekDirection, Duration),
 }
 
 impl Handler<PlaybackCommand> for Player {
@@ -263,7 +283,7 @@ impl Handler<PlaybackCommand> for Player {
                         });
                     }
                 }
-                PlaybackCommand::SeekRelative(duration, direction) => {
+                PlaybackCommand::SeekRelative(direction, duration) => {
                     if self.state.map(|state| state.is_started) == Some(true) {
                         let current_position =
                             self.element.query_position::<gst::ClockTime>().or_else(|| {

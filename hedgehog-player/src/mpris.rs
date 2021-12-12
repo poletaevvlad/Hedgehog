@@ -215,7 +215,7 @@ fn build_player_interface(
             };
             mpris_ctx
                 .player
-                .do_send(PlaybackCommand::SeekRelative(duration, seek_direction));
+                .do_send(PlaybackCommand::SeekRelative(seek_direction, duration));
             Ok(())
         },
     );

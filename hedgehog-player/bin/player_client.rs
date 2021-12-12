@@ -92,12 +92,12 @@ async fn main() {
                         "{:?}",
                         player_addr
                             .send(PlaybackCommand::SeekRelative(
-                                duration,
                                 if command == "seek_fwd" {
                                     SeekDirection::Forward
                                 } else {
                                     SeekDirection::Backward
-                                }
+                                },
+                                duration
                             ))
                             .await
                     ),

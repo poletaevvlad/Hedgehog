@@ -102,6 +102,7 @@ pub(crate) enum Command {
     Theme(ThemeCommand),
     Exec(PathBuf),
     Confirm(Box<CommandConfirmation>),
+    #[cmd(transparent)]
     Volume(VolumeCommand),
     PlayCurrent,
     #[cmd(transparent)]

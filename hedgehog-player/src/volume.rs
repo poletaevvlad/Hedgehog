@@ -65,12 +65,12 @@ impl CmdParsable for Volume {
 #[derive(Debug, Copy, Clone, Message, PartialEq, CmdParsable)]
 #[rtype(result = "()")]
 pub enum VolumeCommand {
-    Mute,
-    Unmute,
+    #[cmd(ignore, alias = "mute", alias = "unmute")]
+    SetMuted(#[cmd(alias_override(mute = "true", unmute = "false"))] bool),
     ToggleMute,
-    #[cmd(rename = "set")]
+    #[cmd(rename = "vol-set")]
     SetVolume(Volume),
-    #[cmd(rename = "adjust")]
+    #[cmd(rename = "vol-adjust")]
     AdjustVolume(f64),
 }
 

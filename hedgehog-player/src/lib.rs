@@ -331,8 +331,7 @@ impl Handler<VolumeCommand> for Player {
             return;
         }
         let result = match msg {
-            VolumeCommand::Mute => set_property(&mut self.element, "mute", true),
-            VolumeCommand::Unmute => set_property(&mut self.element, "mute", false),
+            VolumeCommand::SetMuted(muted) => set_property(&mut self.element, "mute", muted),
             VolumeCommand::ToggleMute => get_property(&self.element, "mute")
                 .and_then(|muted: bool| set_property(&mut self.element, "mute", !muted)),
             VolumeCommand::SetVolume(new_volume) => {

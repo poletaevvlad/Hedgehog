@@ -21,8 +21,8 @@ map C-r refresh
 map Right seek +5
 map Left seek -5
 map c toggle-pause
-map m volume toggle-mute
-map Minus volume adjust -0.10
-map = volume adjust +0.10
-map S-+ volume adjust +0.10
-map + volume adjust +0.10
+map m toggle-mute
+map Minus vol-adjust -0.10
+map = vol-adjust +0.10
+map S-+ vol-adjust +0.10
+map + vol-adjust +0.10

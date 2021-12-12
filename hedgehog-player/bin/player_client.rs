@@ -76,8 +76,14 @@ async fn main() {
             ("stop", _) => print!("{:?}", player_addr.send(PlaybackCommand::Stop).await),
             ("pause", _) => print!("{:?}", player_addr.send(PlaybackCommand::Pause).await),
             ("resume", _) => print!("{:?}", player_addr.send(PlaybackCommand::Resume).await),
-            ("mute", _) => print!("{:?}", player_addr.send(VolumeCommand::Mute).await),
-            ("unmute", _) => print!("{:?}", player_addr.send(VolumeCommand::Unmute).await),
+            ("mute", _) => print!(
+                "{:?}",
+                player_addr.send(VolumeCommand::SetMuted(true)).await
+            ),
+            ("unmute", _) => print!(
+                "{:?}",
+                player_addr.send(VolumeCommand::SetMuted(false)).await
+            ),
             ("toggle_mute", _) => print!("{:?}", player_addr.send(VolumeCommand::ToggleMute).await),
             ("seek", duration) => match duration.parse().map(Duration::from_secs) {
                 Ok(duration) => print!(

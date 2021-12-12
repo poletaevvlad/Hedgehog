@@ -110,12 +110,12 @@ impl<D: DataView> ScrollableList<D> {
             }
             ScrollAction::PageUp => {
                 self.viewport
-                    .offset_selection_by(self.viewport.window_size() as isize);
+                    .offset_selection_by(-(self.viewport.window_size() as isize));
                 self.viewport.items_count() > 0
             }
             ScrollAction::PageDown => {
                 self.viewport
-                    .offset_selection_by(-(self.viewport.window_size() as isize));
+                    .offset_selection_by(self.viewport.window_size() as isize);
                 self.viewport.items_count() > 0
             }
             ScrollAction::First => {

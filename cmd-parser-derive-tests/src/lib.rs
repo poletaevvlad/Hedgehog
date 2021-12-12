@@ -1,4 +1,4 @@
-#![cfg(test)]
+// #![cfg(test)]
 
 mod simple_struct {
     use cmd_parser::CmdParsable;
@@ -294,5 +294,55 @@ mod named_attribure {
             &Enum::parse_cmd_full("tuple").unwrap_err().to_string(),
             "expected integer"
         );
+    }
+}
+
+mod alias_overrides {
+    use cmd_parser::CmdParsable;
+
+    #[derive(Debug, PartialEq, Eq, CmdParsable)]
+    enum Enum {
+        #[cmd(alias = "one", alias = "two")]
+        AllOverriden(#[cmd(alias_override(one = "1", two = "2"))] u8),
+
+        #[cmd(alias = "three", alias = "four")]
+        SomeOverriden(#[cmd(alias_override(three = "3", four = "4"))] u8, u8),
+
+        #[cmd(alias = "five")]
+        Struct {
+            #[cmd(alias_override(five = "5"))]
+            val: u8,
+        },
+    }
+
+    #[test]
+    fn all_overriden() {
+        assert_eq!(Enum::parse_cmd("one").unwrap().0, Enum::AllOverriden(1));
+        assert_eq!(Enum::parse_cmd("two").unwrap().0, Enum::AllOverriden(2));
+        assert_eq!(
+            Enum::parse_cmd("all-overriden 3").unwrap().0,
+            Enum::AllOverriden(3)
+        );
+    }
+
+    #[test]
+    fn some_overriden() {
+        assert_eq!(
+            Enum::parse_cmd("three 10").unwrap().0,
+            Enum::SomeOverriden(3, 10)
+        );
+        assert_eq!(
+            Enum::parse_cmd("four 11").unwrap().0,
+            Enum::SomeOverriden(4, 11)
+        );
+        assert_eq!(
+            Enum::parse_cmd("some-overriden 5 12").unwrap().0,
+            Enum::SomeOverriden(5, 12)
+        );
+    }
+
+    #[test]
+    fn parse_struct() {
+        assert_eq!(Enum::parse_cmd("five").unwrap().0, Enum::Struct { val: 5 });
     }
 }

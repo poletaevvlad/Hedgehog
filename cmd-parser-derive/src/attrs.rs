@@ -89,6 +89,7 @@ impl BuildableAttributes for VariantAttributes {
 pub(crate) struct FieldAttributes {
     pub(crate) parse_with: Option<String>,
     pub(crate) attr_names: HashMap<String, Option<String>>,
+    pub(crate) alias_overrides: HashMap<String, String>,
 }
 
 impl FieldAttributes {
@@ -130,6 +131,30 @@ impl BuildableAttributes for FieldAttributes {
                             name_value.path.segments[0].ident.to_string(),
                             Some(get_name_value_string(name_value)?),
                         );
+                    }
+                    NestedMeta::Meta(Meta::List(list)) => {
+                        return Err(Error::new(list.span(), "Unexpected argument"));
+                    }
+                    NestedMeta::Lit(lit) => {
+                        return Err(Error::new(lit.span(), "Unexpected literal"));
+                    }
+                }
+            }
+            Ok(())
+        } else if compare_path(&list.path, "alias_override") {
+            for item in list.nested.iter() {
+                match item {
+                    NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                        if name_value.path.segments.len() > 1 {
+                            return Err(Error::new(name_value.path.span(), "Path is not allowed"));
+                        }
+                        self.alias_overrides.insert(
+                            name_value.path.segments[0].ident.to_string(),
+                            get_name_value_string(name_value)?,
+                        );
+                    }
+                    NestedMeta::Meta(Meta::Path(path)) => {
+                        return Err(Error::new(path.span(), "Unexpected path"));
                     }
                     NestedMeta::Meta(Meta::List(list)) => {
                         return Err(Error::new(list.span(), "Unexpected argument"));

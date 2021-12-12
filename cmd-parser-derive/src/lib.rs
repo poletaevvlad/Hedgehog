@@ -25,6 +25,7 @@ pub(crate) fn field_to_kebab_case(ident: &str) -> String {
 fn derive_fields(
     name: impl ToTokens,
     fields: &Fields,
+    variant: Option<&str>,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
     let fields_data = match fields {
         Fields::Named(fields) => &fields.named,
@@ -59,44 +60,55 @@ fn derive_fields(
                 quote! { <#field_type as ::cmd_parser::CmdParsable>::parse_cmd(input) }
             });
 
-        if attr.is_required() {
-            parse_required.push(quote! {
-                #required_count => {
-                    let (value, remaining) = #parse_expr?;
-                    input = remaining;
-                    #ident = Some(value);
-                }
-            });
-            required_count += 1;
-        } else {
-            for (label, value) in &attr.attr_names {
-                let label = format!("--{}", field_to_kebab_case(label));
-                if let Some(value) = value {
-                    let value = proc_macro2::TokenStream::from_str(value).unwrap();
-                    parse_optional.push(quote! {
-                        #label => { #ident = Some(#value) }
-                    });
-                } else {
-                    parse_optional.push(quote! {
-                        #label => {
-                            let (value, remaining) = #parse_expr?;
-                            input = remaining;
-                            #ident = Some(value);
-                        }
-                    });
+        let value_override = variant.and_then(|variant| attr.alias_overrides.get(variant));
+
+        if value_override.is_none() {
+            if attr.is_required() {
+                parse_required.push(quote! {
+                    #required_count => {
+                        let (value, remaining) = #parse_expr?;
+                        input = remaining;
+                        #ident = Some(value);
+                    }
+                });
+                required_count += 1;
+            } else {
+                for (label, value) in &attr.attr_names {
+                    let label = format!("--{}", field_to_kebab_case(label));
+                    if let Some(value) = value {
+                        let value = proc_macro2::TokenStream::from_str(value).unwrap();
+                        parse_optional.push(quote! {
+                            #label => { #ident = Some(#value) }
+                        });
+                    } else {
+                        parse_optional.push(quote! {
+                            #label => {
+                                let (value, remaining) = #parse_expr?;
+                                input = remaining;
+                                #ident = Some(value);
+                            }
+                        });
+                    }
                 }
             }
         }
 
-        let unwrap = if attr.is_required() {
-            quote! {.unwrap()}
-        } else {
-            quote! {.unwrap_or_default()}
+        let value = match value_override {
+            Some(value) => proc_macro2::TokenStream::from_str(value).unwrap(),
+            None => {
+                let unwrap = if attr.is_required() {
+                    quote! {.unwrap()}
+                } else {
+                    quote! {.unwrap_or_default()}
+                };
+                quote! { #ident #unwrap }
+            }
         };
+
         if let Some(field_ident) = field.ident.as_ref() {
-            field_construct.push(quote! {#field_ident: #ident #unwrap});
+            field_construct.push(quote! {#field_ident: #value});
         } else {
-            field_construct.push(quote! {#ident #unwrap});
+            field_construct.push(value);
         }
     }
 
@@ -144,10 +156,10 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
     for variant in data.variants.iter() {
         let variant_ident = &variant.ident;
         let variant_path = quote! { #name::#variant_ident };
-        let parse_fields = derive_fields(variant_path, &variant.fields)?;
 
         let attrs = VariantAttributes::from_attributes(variant.attrs.iter())?;
         if attrs.transparent {
+            let parse_fields = derive_fields(variant_path, &variant.fields, None)?;
             transparent_parse.push(quote! {
                 let parsed: ::std::result::Result<(#name ,&str), ::cmd_parser::ParseError> = (||{ #parse_fields })();
                 if let Ok((result, remaining)) = parsed{
@@ -160,20 +172,12 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
                 let label = variant_to_kebab_case(&variant.ident.to_string());
                 discriminators.push(label);
             }
-            if discriminators.is_empty() {
-                continue;
-            }
 
-            let pattern = discriminators.iter().enumerate().map(|(index, value)| {
-                if index == 0 {
-                    quote! { #value }
-                } else {
-                    quote! { | #value }
-                }
-            });
-            variant_parse.push(quote! {
-                #(#pattern)* => { #parse_fields }
-            });
+            for discriminator in discriminators.iter() {
+                let parse_fields =
+                    derive_fields(variant_path.clone(), &variant.fields, Some(discriminator))?;
+                variant_parse.push(quote! { #discriminator => { #parse_fields } });
+            }
         }
     }
     Ok(quote! {
@@ -206,7 +210,7 @@ fn derive_enum(name: Ident, data: DataEnum) -> Result<proc_macro2::TokenStream, 
 }
 
 fn derive_struct(name: Ident, data: DataStruct) -> Result<proc_macro2::TokenStream, syn::Error> {
-    let struct_create = derive_fields(&name, &data.fields)?;
+    let struct_create = derive_fields(&name, &data.fields, None)?;
 
     Ok(quote! {
         impl cmd_parser::CmdParsable for #name {

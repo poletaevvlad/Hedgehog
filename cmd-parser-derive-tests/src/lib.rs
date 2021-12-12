@@ -1,4 +1,4 @@
-// #![cfg(test)]
+#![cfg(test)]
 
 mod simple_struct {
     use cmd_parser::CmdParsable;

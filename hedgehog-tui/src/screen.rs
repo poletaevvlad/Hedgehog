@@ -120,10 +120,10 @@ pub(crate) enum Command {
         status: EpisodeStatus,
         #[cmd(attr(all = "true"))]
         update_all: bool,
-        #[cmd(attr(condition))]
+        #[cmd(attr(if))]
         condition: Option<EpisodeSummaryStatus>,
     },
-    Search(String),
+    Search(#[cmd(parse_with = "cmd_parser::string_parse_all")] String),
     SearchAdd,
 
     Refresh,

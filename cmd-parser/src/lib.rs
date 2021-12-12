@@ -457,7 +457,18 @@ fn skip_token(mut input: &str) -> &str {
     }
 }
 
-// pub fn string_parse_all(input: &str) -> (String, &str) {}
+pub fn string_parse_all(input: &str) -> Result<(String, &str), ParseError<'_>> {
+    let mut remaining = input;
+    loop {
+        remaining = skip_token(remaining);
+        if remaining.is_empty() || remaining.starts_with(')') {
+            break;
+        }
+    }
+    let length = input.len() - remaining.len();
+    let result = input[..length].trim_end().to_string();
+    Ok((result, remaining))
+}
 
 #[cfg(test)]
 mod tests {
@@ -802,6 +813,44 @@ mod tests {
         #[test]
         fn invalid_symbol() {
             Duration::parse_cmd("1s4:10").unwrap_err();
+        }
+    }
+
+    mod parse_sting_all {
+        use crate::string_parse_all;
+
+        #[test]
+        fn empty_string() {
+            let (result, _) = string_parse_all("").unwrap();
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn single_token() {
+            let (result, remaining) = string_parse_all("abc  ").unwrap();
+            assert_eq!(&result, "abc");
+            assert_eq!(remaining, "");
+        }
+
+        #[test]
+        fn multiple_token() {
+            let (result, remaining) = string_parse_all("abc def ghi  ").unwrap();
+            assert_eq!(&result, "abc def ghi");
+            assert_eq!(remaining, "");
+        }
+
+        #[test]
+        fn with_quotes() {
+            let (result, remaining) = string_parse_all("abc \"))\" ghi  ").unwrap();
+            assert_eq!(&result, "abc \"))\" ghi");
+            assert_eq!(remaining, "");
+        }
+
+        #[test]
+        fn stops_at_paren() {
+            let (result, remaining) = string_parse_all("abc ) ghi").unwrap();
+            assert_eq!(&result, "abc");
+            assert_eq!(remaining, ") ghi");
         }
     }
 }

@@ -111,10 +111,14 @@ pub(crate) enum Command {
     SetFeedEnabled(#[cmd(alias_override(enable = "true", disable = "false"))] bool),
     #[cmd(alias = "q")]
     Quit,
+    #[cmd(rename = "focus")]
     SetFocus(FocusedPane),
+    #[cmd(rename = "set")]
     SetOption(OptionsUpdate),
+    #[cmd(rename = "add")]
     AddFeed(String),
     DeleteFeed,
+    #[cmd(alias = "u")]
     Update {
         #[cmd(attr(this = "true"))]
         current_only: bool,
@@ -126,6 +130,7 @@ pub(crate) enum Command {
         #[cmd(attr(if))]
         condition: Option<EpisodeSummaryStatus>,
     },
+    #[cmd(alias = "s")]
     Search(#[cmd(parse_with = "cmd_parser::string_parse_all")] String),
     SearchAdd,
 

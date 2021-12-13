@@ -283,6 +283,44 @@ async fn updates_episodes_on_update() {
 }
 
 #[actix::test]
+async fn removes_blocked_episodes() {
+    let (library, mut reciever) = create_library().await;
+    let feed = include_str!("../test_data/feed1.xml");
+    let mock_server = httpmock::MockServer::start();
+    let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
+    mock_server.mock(|when, then| {
+        when.method(httpmock::Method::GET).path("/feed.xml");
+        then.status(200)
+            .body(include_str!("../test_data/feed1_blocked_episode.xml"));
+    });
+
+    let msg = FeedUpdateRequest::UpdateSingle(feed_id);
+    library.send(msg).await.unwrap();
+
+    let update_started = reciever.recv().await.unwrap();
+    let_assert!(let FeedUpdateNotification::UpdateStarted(_ids) = update_started);
+    let update_finished = reciever.recv().await.unwrap();
+    let_assert!(let FeedUpdateNotification::UpdateFinished(_id, update) = update_finished);
+    let_assert!(let FeedUpdateResult::Updated(_summary) = update);
+
+    let query = EpisodesQuery::default()
+        .feed_id(feed_id)
+        .include_feed_title();
+    let episodes = get_episode_summaries(library, query).await;
+    assert!(episodes.iter().all(|ep| ep.feed_id == feed_id));
+    let expected = [
+        data::feed1::EPISODE_5,
+        data::feed1::EPISODE_4,
+        data::feed1::EPISODE_3,
+        data::feed1::EPISODE_1,
+    ];
+    assert_eq!(episodes.len(), expected.len());
+    for (expected, actual) in expected.iter().zip(episodes.iter()) {
+        expected.assert_equals(actual);
+    }
+}
+
+#[actix::test]
 async fn update_failure() {
     let (library, mut reciever) = create_library().await;
     let feed = include_str!("../test_data/feed1.xml");

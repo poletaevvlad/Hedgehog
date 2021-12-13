@@ -98,5 +98,6 @@ pub trait WritableDataProvider {
 pub trait EpisodeWriter {
     fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> DbResult<()>;
     fn set_episode_metadata(&mut self, metadata: &EpisodeMetadata) -> DbResult<EpisodeId>;
+    fn delete_episode(&mut self, guid: &str) -> DbResult<()>;
     fn close(self) -> DbResult<()>;
 }

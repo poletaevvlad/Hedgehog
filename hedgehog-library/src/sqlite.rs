@@ -476,6 +476,14 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
     fn close(self) -> DbResult<()> {
         self.transaction.commit().map_err(QueryError::from)
     }
+
+    fn delete_episode(&mut self, guid: &str) -> DbResult<()> {
+        let mut statement = self
+            .transaction
+            .prepare("DELETE FROM episodes WHERE feed_id = :feed_id AND guid = :guid")?;
+        statement.execute(named_params! { ":feed_id": self.feed_id, ":guid": guid })?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

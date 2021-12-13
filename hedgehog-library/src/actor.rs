@@ -152,7 +152,11 @@ impl<D: DataProvider + 'static> Library<D> {
                             FeedSummary::from_metadata(feed_id, &feed_metadata, 0);
                         writer.set_feed_metadata(&feed_metadata)?;
                         while let Some(episode_metadata) = feed.next_episode_metadata() {
-                            writer.set_episode_metadata(&episode_metadata)?;
+                            if episode_metadata.block {
+                                writer.delete_episode(episode_metadata.guid)?;
+                            } else {
+                                writer.set_episode_metadata(&episode_metadata)?;
+                            }
                         }
                         writer.close()?;
 

@@ -7,15 +7,6 @@
     <itunes:author>John Smith</itunes:author>
     <language>en-UK</language>
     <item>
-      <title>Episode #6</title>
-      <description>Maecenas turpis nisi, tempus ut arcu non, cursus molestie elit.</description>
-      <link>https://example.com/episode-6.html</link>
-      <guid isPermaLink="false">bdd92623-1d7f-4894-954d-b3ce66a148af</guid>
-      <pubDate>Thu, 23 Dec 2021 12:00:00 GMT</pubDate>
-      <enclosure url="https://example.com/episode6.mp3" length="1000" type="audio/mpeg"/>
-      <itunes:duration>140</itunes:duration>
-    </item>
-    <item>
       <title>Episode #5</title>
       <description>Aenean commodo elit id lorem luctus, at euismod sapien sagittis. Aenean ultricies odio non erat dignissim, sed mattis augue pharetra.</description>
       <link>https://example.com/episode-5.html</link>
@@ -35,7 +26,7 @@
       <itunes:season>1</itunes:season>
     </item>
     <item>
-      <title>Episode #3 (updated)</title>
+      <title>Episode #3</title>
       <description>Fusce eu urna felis. Vivamus vitae iaculis dui. Aliquam libero nunc, suscipit feugiat elementum sed, bibendum vel diam.</description>
       <link>https://example.com/episode-3.html</link>
       <guid isPermaLink="false">a13f8ee9-3cfc-451d-a080-57883991ea34</guid>
@@ -54,6 +45,14 @@
       <itunes:duration>0:03:00</itunes:duration>
       <itunes:season>1</itunes:season>
       <itunes:episode>2</itunes:episode>
+      <itunes:block>yes</itunes:block>
+    </item>
+    <item>
+      <title>Episode #1</title>
+      <link>https://example.com/episode-1.html</link>
+      <guid isPermaLink="false">e81636fd-5cb2-4a4b-82a4-ea858b0c2e27</guid>
+      <pubDate>Sat, 18 Dec 2021 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode1.mp3" length="1000" type="audio/mpeg"/>
     </item>
   </channel>
 </rss>

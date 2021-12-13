@@ -36,6 +36,7 @@ pub struct EpisodeMetadata<'a> {
     pub(crate) episode_number: Option<i64>,
     pub(crate) season_number: Option<i64>,
     pub(crate) media_url: &'a str,
+    pub(crate) block: bool,
 }
 
 impl<'a> EpisodeMetadata<'a> {
@@ -68,6 +69,12 @@ impl<'a> EpisodeMetadata<'a> {
             .as_ref()
             .and_then(|ext| ext.season.as_ref())
             .and_then(|season| season.parse().ok());
+        let block = item
+            .itunes_ext()
+            .as_ref()
+            .and_then(|ext| ext.block())
+            .map(|val| val.eq_ignore_ascii_case("Yes"))
+            .unwrap_or(false);
 
         Some(Self {
             title: item.title.as_deref(),
@@ -79,6 +86,7 @@ impl<'a> EpisodeMetadata<'a> {
             episode_number,
             media_url,
             season_number,
+            block,
         })
     }
 }
@@ -153,6 +161,7 @@ mod tests {
                 duration: Some("30:00".to_string()),
                 episode: Some("4".to_string()),
                 season: Some("2".to_string()),
+                block: Some("Yes".to_string()),
                 ..Default::default()
             }),
             dublin_core_ext: None,
@@ -171,6 +180,7 @@ mod tests {
                 episode_number: Some(4),
                 season_number: Some(2),
                 media_url: "http://example.com/episode.mp3",
+                block: true,
             }
         );
     }
@@ -199,6 +209,7 @@ mod tests {
                 episode_number: None,
                 season_number: None,
                 media_url: "http://example.com/episode.mp3",
+                block: false,
             }
         );
     }

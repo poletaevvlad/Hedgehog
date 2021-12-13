@@ -580,6 +580,7 @@ mod tests {
                 episode_number: Some(3),
                 season_number: Some(4),
                 media_url: "http://example.com/feed.xml",
+                block: false,
             })
             .unwrap();
         writer.close().unwrap();
@@ -609,6 +610,7 @@ mod tests {
                 episode_number: Some(8),
                 season_number: None,
                 media_url: "http://example.com/feed2.xml",
+                block: false,
             })
             .unwrap();
         assert_eq!(episode_id, episode_id_1);
@@ -639,6 +641,7 @@ mod tests {
                 episode_number: None,
                 season_number: None,
                 media_url: "http://example.com/feed3.xml",
+                block: false,
             })
             .unwrap();
         writer.close().unwrap();

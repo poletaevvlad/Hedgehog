@@ -1,0 +1,34 @@
+set list.item bg:%f9f5d7 fg:%665c54
+set list.item:focused bg:%fbf1c7 fg:%504945
+set list.item.title fg:%282828
+set list.item:feed-special +bold bg:%f2e5bc
+set list.divider bg:%bdae93 fg:%bdae93 
+set list.item:selected bg:%d5c4a1
+set list.item:selected:focused bg:%bdae93
+set list.item.new-count fg:%d65d0e
+set list.item:selected.new-count fg:%af3a03
+set empty bg:%f9f5d7 fg:%3c3836
+set empty.title +bold fg:%282828
+
+set list.item:episode-playing fg:%98971a
+set list.item:selected:episode-playing fg:%79740e
+
+set player bg:%ebdbb2
+set player.status bg:%d5c4a1 +bold fg:%d5c4a1
+set player:playing.status bg:%79740e
+set player:paused.status bg:%076678
+set player:buffering.status bg:%9d0006
+set player.episode fg:%3c3836
+set player.feed fg:%665c54
+set player.timing bg:%d5c4a1 fg:%3c3836
+
+set statusbar.command bg:%f9f5d7 fg:%282828
+set statusbar.command.prompt fg:%665c54
+set statusbar.empty bg:%f9f5d7
+set statusbar.status bg:%f9f5d7
+set statusbar.status.label +bold
+set statusbar.status:error fg:%9d0006
+set statusbar.status:warning fg:%b57614
+set statusbar.status:information fg:%076678
+set statusbar.confirmation fg:%af3a03
+

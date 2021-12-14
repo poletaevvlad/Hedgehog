@@ -208,6 +208,7 @@ impl List {
                                 ":episode-playing" => ListState::EpisodePlaying,
                                 ":episode-new" => ListState::EpisodeNew,
                                 ":episode-started" => ListState::EpisodeStarted,
+                                ":episode-finished" => ListState::EpisodeFinished,
                                 ":search" => ListState::Search,
                                 _ => break,
                             };

@@ -295,6 +295,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
     fn render_empty(&self, area: Rect, buf: &mut Buffer) {
         let item_selector = theming::ListItem {
             state: Some(theming::ListState::Episode),
+            focused: self.focused,
             ..Default::default()
         };
 

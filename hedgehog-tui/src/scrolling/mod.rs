@@ -137,6 +137,20 @@ pub(crate) enum ScrollAction {
     Last,
 }
 
+impl ScrollAction {
+    pub(crate) fn with_amount_abs(self, new_amount: u32) -> ScrollAction {
+        match self {
+            ScrollAction::MoveBy(amount) => {
+                ScrollAction::MoveBy(new_amount as isize * amount.signum())
+            }
+            ScrollAction::ScrollBy(amount) => {
+                ScrollAction::ScrollBy(new_amount as isize * amount.signum())
+            }
+            other => other,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{selection, ScrollAction, ScrollableList};

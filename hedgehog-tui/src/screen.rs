@@ -802,7 +802,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                 }
                                 MouseHitResult::SearchRow(_) => {
                                     if let SearchState::Loaded(ref mut list) = self.library.search {
-                                        list.scroll(offset);
+                                        list.scroll(offset.with_amount_abs(1));
                                     }
                                 }
                                 MouseHitResult::Player => {

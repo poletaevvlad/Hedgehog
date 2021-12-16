@@ -91,6 +91,7 @@ pub(crate) enum ListColumn {
     Genre,
     EpisodesCount,
     NewCount,
+    Details,
 }
 
 impl ListColumn {
@@ -107,6 +108,7 @@ impl ListColumn {
             ListColumn::Genre,
             ListColumn::EpisodesCount,
             ListColumn::NewCount,
+            ListColumn::Details,
         ]
     }
 }
@@ -237,6 +239,7 @@ impl List {
                     [".genre"] => Some(ListColumn::Genre),
                     [".episodes-count"] => Some(ListColumn::EpisodesCount),
                     [".new-count"] => Some(ListColumn::NewCount),
+                    [".details"] => Some(ListColumn::Details),
                     _ => return Err(SelectorParsingError),
                 };
 

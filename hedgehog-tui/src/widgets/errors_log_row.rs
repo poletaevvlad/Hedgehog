@@ -3,10 +3,7 @@ use super::{
     list::ListItemRenderingDelegate,
 };
 use crate::{status::StatusLogEntry, theming};
-use tui::{
-    style::Style,
-    widgets::{Paragraph, Widget, Wrap},
-};
+use tui::widgets::{Paragraph, Widget, Wrap};
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct ErrorLogRowRenderer<'t> {
@@ -52,7 +49,9 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for ErrorLogRowRenderer<'t> {
             area.y,
             label,
             area.width.saturating_sub(2) as usize,
-            Style::default(),
+            self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Title),
+            )),
         );
 
         let time = item.timestamp().format("  %X").to_string();
@@ -62,14 +61,20 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for ErrorLogRowRenderer<'t> {
             area.y,
             time,
             time_width,
-            Style::default(),
+            self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Date),
+            )),
         );
 
         if area.height == 1 {
             return;
         }
 
-        let paragraph = Paragraph::new(status.to_string()).wrap(Wrap { trim: true });
+        let paragraph = Paragraph::new(status.to_string())
+            .wrap(Wrap { trim: true })
+            .style(self.theme.get(theming::List::Item(
+                item_selector.with_column(theming::ListColumn::Details),
+            )));
         paragraph.render(split_left(shrink_h(split_top(area, 1).1, 1), 2).1, buf);
     }
 

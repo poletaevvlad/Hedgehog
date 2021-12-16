@@ -4,10 +4,9 @@ use super::feed_row::FeedsListRowRenderer;
 use super::list::List;
 use crate::mouse::WidgetPositions;
 use crate::options::Options;
-use crate::screen::{FocusedPane, LibraryViewModel, SearchState};
+use crate::screen::{FocusedPane, LibraryViewModel};
 use crate::scrolling::DataView;
 use crate::theming::{self, Theme};
-use crate::widgets::search_row::SearchResultRowRenderer;
 use hedgehog_library::model::{FeedStatus, FeedView};
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, Widget};
@@ -33,8 +32,10 @@ impl<'a> LibraryWidget<'a> {
             layout,
         }
     }
+}
 
-    fn render_library(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+impl<'a> Widget for LibraryWidget<'a> {
+    fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         if self.data.feeds.data().size() == 2 && self.data.feeds_loaded {
             EmptyView::new(self.theme)
                 .title("Hedgehog Podcast Player")
@@ -129,42 +130,6 @@ impl<'a> LibraryWidget<'a> {
                 )
                 .render(layout[1], buf);
             }
-        }
-    }
-
-    fn render_search(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        match &self.data.search {
-            SearchState::Loaded(list) if list.data().is_empty() => EmptyView::new(self.theme)
-                .title("Nothing is found")
-                .subtitle("Please make sure that your query is correct")
-                .render(area, buf),
-            SearchState::Loaded(list) => {
-                self.layout.set_search_list(area);
-                List::new(
-                    SearchResultRowRenderer::new(self.theme),
-                    list.visible_iter(),
-                )
-                .item_height(2)
-                .render(area, buf);
-            }
-            SearchState::Loading => EmptyView::new(self.theme)
-                .title("Searching...")
-                .render(area, buf),
-            SearchState::Error(err) => EmptyView::new(self.theme)
-                .title("Search request failed")
-                .subtitle(&err.to_string())
-                .render(area, buf),
-        }
-    }
-}
-
-impl<'a> Widget for LibraryWidget<'a> {
-    fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        match &self.data.focus {
-            FocusedPane::FeedsList | FocusedPane::EpisodesList => {
-                self.render_library(area, buf);
-            }
-            FocusedPane::Search => self.render_search(area, buf),
         }
     }
 }

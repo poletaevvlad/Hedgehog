@@ -12,6 +12,7 @@ use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
 use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
+use crate::widgets::search_results::SearchResults;
 use crate::widgets::split_bottom;
 use crate::widgets::status::StatusView;
 use actix::clock::sleep;
@@ -209,9 +210,22 @@ impl UI {
             let (area, player_area) = split_bottom(area, 1);
             self.layout.set_player_status(player_area);
 
-            let library_widget =
-                LibraryWidget::new(&self.library, &self.options, &self.theme, &mut self.layout);
-            f.render_widget(library_widget, area);
+            match self.library.focus {
+                FocusedPane::FeedsList | FocusedPane::EpisodesList => {
+                    let library_widget = LibraryWidget::new(
+                        &self.library,
+                        &self.options,
+                        &self.theme,
+                        &mut self.layout,
+                    );
+                    f.render_widget(library_widget, area);
+                }
+                FocusedPane::Search => {
+                    self.layout.set_search_list(area);
+                    let library_widget = SearchResults::new(&self.library.search, &self.theme);
+                    f.render_widget(library_widget, area);
+                }
+            }
 
             let player_widget = PlayerState::new(
                 &self.playback_state,

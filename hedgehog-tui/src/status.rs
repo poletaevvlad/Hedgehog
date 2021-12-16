@@ -37,6 +37,17 @@ impl ErrorType {
             ErrorType::IO => None,
         }
     }
+
+    fn store_in_log(&self) -> bool {
+        match self {
+            ErrorType::Playback => true,
+            ErrorType::Database => true,
+            ErrorType::Update => true,
+            ErrorType::Actix => true,
+            ErrorType::Command => false,
+            ErrorType::IO => true,
+        }
+    }
 }
 
 pub(crate) trait HedgehogError: fmt::Display {
@@ -112,6 +123,15 @@ impl Status {
             _ => None,
         }
     }
+
+    fn store_in_log(&self) -> bool {
+        match self {
+            Status::Error(error) => error.error_type().store_in_log(),
+            Status::Custom(_, Severity::Error) => true,
+            Status::Custom(_, _) => false,
+            Status::VolumeChanged(_) => false,
+        }
+    }
 }
 
 impl fmt::Display for Status {
@@ -160,7 +180,12 @@ pub(crate) struct StatusLog {
 
 impl StatusLog {
     pub(crate) fn push(&mut self, status: Status) {
-        self.display_status = StatusDisplay::DisplayOnly(status);
+        self.display_status = if status.store_in_log() {
+            StatusDisplay::DisplayOnly(status)
+        } else {
+            self.log.push(status);
+            StatusDisplay::LastLog
+        }
     }
 
     pub(crate) fn display_status(&self) -> Option<&Status> {

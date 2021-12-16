@@ -831,20 +831,25 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                 }
                                 MouseHitResult::EpisodesRow(row) => {
                                     self.library.focus = FocusedPane::EpisodesList;
-                                    let valid = self
-                                        .library
-                                        .episodes
-                                        .scroll(ScrollAction::MoveToVisible(row));
-                                    if valid && is_double {
-                                        self.handle_command(Command::PlayCurrent, ctx);
+                                    let item_clicked =
+                                        self.library.episodes.has_item_at_window_row(row);
+                                    if item_clicked {
+                                        self.library
+                                            .episodes
+                                            .scroll(ScrollAction::MoveToVisible(row));
+                                        if is_double {
+                                            self.handle_command(Command::PlayCurrent, ctx);
+                                        }
                                     }
                                 }
                                 MouseHitResult::SearchRow(row) => {
                                     self.library.focus = FocusedPane::Search;
                                     if let SearchState::Loaded(ref mut list) = self.library.search {
-                                        let valid = list.scroll(ScrollAction::MoveToVisible(row));
-                                        if valid && is_double {
-                                            self.handle_command(Command::SearchAdd, ctx);
+                                        if list.has_item_at_window_row(row) {
+                                            list.scroll(ScrollAction::MoveToVisible(row));
+                                            if is_double {
+                                                self.handle_command(Command::SearchAdd, ctx);
+                                            }
                                         }
                                     }
                                 }

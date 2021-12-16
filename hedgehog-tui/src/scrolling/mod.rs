@@ -90,50 +90,39 @@ impl<D: DataView> ScrollableList<D> {
         self.data.item_at(self.viewport.selected_index())
     }
 
-    pub(crate) fn scroll(&mut self, action: ScrollAction) -> bool {
-        let is_valid = match action {
-            ScrollAction::MoveBy(offset) => {
-                self.viewport.offset_selection_by(offset);
-                self.viewport.items_count() > 0
-            }
+    pub(crate) fn has_item_at_window_row(&self, index: usize) -> bool {
+        let offset = self.viewport.range().next();
+        offset
+            .map(|offset| offset + index < self.viewport.items_count())
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn scroll(&mut self, action: ScrollAction) {
+        match action {
+            ScrollAction::MoveBy(offset) => self.viewport.offset_selection_by(offset),
             ScrollAction::MoveToVisible(position) => {
                 if let Some(offset) = self.viewport.range().next() {
                     if offset + position < self.viewport.items_count() {
                         self.viewport.select(offset + position);
-                        true
-                    } else {
-                        false
                     }
-                } else {
-                    false
                 }
             }
-            ScrollAction::ScrollBy(offset) => {
-                self.viewport.scroll_by(offset);
-                self.viewport.items_count() > 0
-            }
+            ScrollAction::ScrollBy(offset) => self.viewport.scroll_by(offset),
             ScrollAction::PageUp => {
                 self.viewport
                     .offset_selection_by(-(self.viewport.window_size() as isize));
-                self.viewport.items_count() > 0
             }
             ScrollAction::PageDown => {
                 self.viewport
                     .offset_selection_by(self.viewport.window_size() as isize);
-                self.viewport.items_count() > 0
             }
-            ScrollAction::First => {
-                self.viewport.select(0);
-                self.viewport.items_count() > 0
-            }
+            ScrollAction::First => self.viewport.select(0),
             ScrollAction::Last => {
                 self.viewport
                     .select(self.viewport.items_count().saturating_sub(1));
-                self.viewport.items_count() > 0
             }
         };
         self.data.prepare(self.viewport.range());
-        is_valid
     }
 }
 

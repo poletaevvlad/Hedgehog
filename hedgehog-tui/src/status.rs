@@ -1,4 +1,4 @@
-use actix::clock::Instant;
+use chrono::{DateTime, Local};
 use hedgehog_player::volume::Volume;
 use std::borrow::Cow;
 use std::fmt;
@@ -175,12 +175,16 @@ impl Default for StatusDisplay {
 
 pub(crate) struct StatusLogEntry {
     status: Status,
-    time: Instant,
+    timestamp: DateTime<Local>,
 }
 
 impl StatusLogEntry {
     pub(crate) fn status(&self) -> &Status {
         &self.status
+    }
+
+    pub(crate) fn timestamp(&self) -> DateTime<Local> {
+        self.timestamp
     }
 }
 
@@ -195,7 +199,7 @@ impl StatusLog {
         self.display_status = if status.store_in_log() {
             self.log.push(StatusLogEntry {
                 status,
-                time: Instant::now(),
+                timestamp: Local::now(),
             });
             StatusDisplay::LastLog
         } else {

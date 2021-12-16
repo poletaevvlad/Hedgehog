@@ -2,6 +2,8 @@ pub(crate) mod command;
 pub(crate) mod confirmation;
 pub(crate) mod empty;
 pub(crate) mod episode_row;
+pub(crate) mod errors_log;
+pub(crate) mod errors_log_row;
 pub(crate) mod feed_row;
 mod layout;
 pub(crate) mod library;

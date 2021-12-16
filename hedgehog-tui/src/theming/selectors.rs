@@ -124,6 +124,7 @@ pub(crate) enum ListState {
     EpisodeNew,
     EpisodeStarted,
     Search,
+    LogEntry,
 }
 
 impl ListState {
@@ -142,6 +143,7 @@ impl ListState {
                 callback(Some(ListState::EpisodeStarted));
                 callback(Some(ListState::EpisodeFinished));
                 callback(Some(ListState::Search));
+                callback(Some(ListState::LogEntry));
             }
             Some(ListState::Feed) => {
                 callback(Some(ListState::FeedUpdating));
@@ -210,6 +212,7 @@ impl List {
                                 ":episode-started" => ListState::EpisodeStarted,
                                 ":episode-finished" => ListState::EpisodeFinished,
                                 ":search" => ListState::Search,
+                                ":log-entry" => ListState::LogEntry,
                                 _ => break,
                             };
                             if list_item.state.is_some() {

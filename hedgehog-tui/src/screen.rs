@@ -10,6 +10,7 @@ use crate::status::{HedgehogError, Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
+use crate::widgets::errors_log::ErrorsLogWidget;
 use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
 use crate::widgets::search_results::SearchResults;
@@ -55,6 +56,8 @@ pub(crate) enum FocusedPane {
     #[cmd(rename = "episodes")]
     EpisodesList,
     Search,
+    #[cmd(rename = "log")]
+    ErrorsLog,
 }
 
 pub(crate) enum SearchState {
@@ -112,8 +115,8 @@ pub(crate) enum Command {
     SetFeedEnabled(#[cmd(alias_override(enable = "true", disable = "false"))] bool),
     #[cmd(alias = "q")]
     Quit,
-    #[cmd(rename = "focus")]
-    SetFocus(FocusedPane),
+    #[cmd(rename = "focus", alias = "log")]
+    SetFocus(#[cmd(alias_override(log = "FocusedPane::ErrorsLog"))] FocusedPane),
     #[cmd(rename = "set")]
     SetOption(OptionsUpdate),
     #[cmd(rename = "add")]
@@ -195,7 +198,11 @@ impl UI {
             selected_feed: None,
             playback_state: PlaybackState::default(),
 
-            status: ScrollableList::new(StatusLog::default(), size.1.saturating_sub(1) as usize, 1),
+            status: ScrollableList::new(
+                StatusLog::default(),
+                size.1.saturating_sub(2) as usize / 3,
+                1,
+            ),
             command: None,
             commands_history: CommandsHistory::new(),
             confirmation: None,
@@ -222,8 +229,12 @@ impl UI {
                 }
                 FocusedPane::Search => {
                     self.layout.set_search_list(area);
-                    let library_widget = SearchResults::new(&self.library.search, &self.theme);
-                    f.render_widget(library_widget, area);
+                    let widget = SearchResults::new(&self.library.search, &self.theme);
+                    f.render_widget(widget, area);
+                }
+                FocusedPane::ErrorsLog => {
+                    let widget = ErrorsLogWidget::new(&self.status, &self.theme);
+                    f.render_widget(widget, area);
                 }
             }
 
@@ -289,14 +300,13 @@ impl UI {
                         self.library.feeds.scroll(command);
                         self.update_current_feed(ctx);
                     }
-                    FocusedPane::EpisodesList => {
-                        self.library.episodes.scroll(command);
-                    }
+                    FocusedPane::EpisodesList => self.library.episodes.scroll(command),
                     FocusedPane::Search => {
                         if let SearchState::Loaded(list) = &mut self.library.search {
                             list.scroll(command);
                         }
                     }
+                    FocusedPane::ErrorsLog => self.status.scroll(command),
                 }
                 self.invalidate(ctx);
             }
@@ -766,8 +776,9 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
     ) {
         let event = match item {
             Ok(Event::Resize(_, height)) => {
-                self.library
-                    .set_window_size(height.saturating_sub(2) as usize);
+                let lib_height = height.saturating_sub(2) as usize;
+                self.library.set_window_size(lib_height);
+                self.status.set_window_size(lib_height / 3);
                 self.invalidate(ctx);
                 return;
             }

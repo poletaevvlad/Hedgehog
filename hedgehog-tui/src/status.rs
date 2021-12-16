@@ -1,3 +1,4 @@
+use actix::clock::Instant;
 use hedgehog_player::volume::Volume;
 use std::borrow::Cow;
 use std::fmt;
@@ -44,7 +45,7 @@ impl ErrorType {
             ErrorType::Database => true,
             ErrorType::Update => true,
             ErrorType::Actix => true,
-            ErrorType::Command => false,
+            ErrorType::Command => true,
             ErrorType::IO => true,
         }
     }
@@ -172,25 +173,39 @@ impl Default for StatusDisplay {
     }
 }
 
+pub(crate) struct StatusLogEntry {
+    status: Status,
+    time: Instant,
+}
+
+impl StatusLogEntry {
+    pub(crate) fn status(&self) -> &Status {
+        &self.status
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct StatusLog {
-    log: Vec<Status>,
+    log: Vec<StatusLogEntry>,
     display_status: StatusDisplay,
 }
 
 impl StatusLog {
     pub(crate) fn push(&mut self, status: Status) {
         self.display_status = if status.store_in_log() {
-            StatusDisplay::DisplayOnly(status)
-        } else {
-            self.log.push(status);
+            self.log.push(StatusLogEntry {
+                status,
+                time: Instant::now(),
+            });
             StatusDisplay::LastLog
+        } else {
+            StatusDisplay::DisplayOnly(status)
         }
     }
 
     pub(crate) fn display_status(&self) -> Option<&Status> {
         match self.display_status {
-            StatusDisplay::LastLog => self.log.last(),
+            StatusDisplay::LastLog => self.log.last().map(|entry| &entry.status),
             StatusDisplay::DisplayOnly(ref status) => Some(status),
             StatusDisplay::None => None,
         }
@@ -208,14 +223,14 @@ impl StatusLog {
 }
 
 impl DataView for StatusLog {
-    type Item = Status;
+    type Item = StatusLogEntry;
 
     fn size(&self) -> usize {
         self.log.len()
     }
 
     fn item_at(&self, index: usize) -> Option<&Self::Item> {
-        self.log.get(index)
+        self.log.get(self.log.size().saturating_sub(index + 1))
     }
 
     fn find(&self, p: impl Fn(&Self::Item) -> bool) -> Option<usize> {

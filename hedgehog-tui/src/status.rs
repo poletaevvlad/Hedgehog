@@ -3,6 +3,8 @@ use std::borrow::Cow;
 use std::fmt;
 use std::time::Duration;
 
+use crate::scrolling::DataView;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ErrorType {
     Playback,
@@ -138,28 +140,64 @@ impl Severity {
     }
 }
 
+enum StatusDisplay {
+    LastLog,
+    DisplayOnly(Status),
+    None,
+}
+
+impl Default for StatusDisplay {
+    fn default() -> Self {
+        StatusDisplay::None
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct StatusLog {
-    display_status: Option<Status>,
+    log: Vec<Status>,
+    display_status: StatusDisplay,
 }
 
 impl StatusLog {
     pub(crate) fn push(&mut self, status: Status) {
-        self.display_status = Some(status);
+        self.display_status = StatusDisplay::DisplayOnly(status);
     }
 
     pub(crate) fn display_status(&self) -> Option<&Status> {
-        self.display_status.as_ref()
+        match self.display_status {
+            StatusDisplay::LastLog => self.log.last(),
+            StatusDisplay::DisplayOnly(ref status) => Some(status),
+            StatusDisplay::None => None,
+        }
     }
 
     pub(crate) fn clear_display(&mut self) {
-        self.display_status = None;
+        self.display_status = StatusDisplay::None;
     }
 
     pub(crate) fn has_errors(&self) -> bool {
-        self.display_status
-            .as_ref()
+        self.display_status()
             .map(|status| status.severity() == Severity::Error)
             .unwrap_or(false)
+    }
+}
+
+impl DataView for StatusLog {
+    type Item = Status;
+
+    fn size(&self) -> usize {
+        self.log.len()
+    }
+
+    fn item_at(&self, index: usize) -> Option<&Self::Item> {
+        self.log.get(index)
+    }
+
+    fn find(&self, p: impl Fn(&Self::Item) -> bool) -> Option<usize> {
+        self.log
+            .iter()
+            .enumerate()
+            .find(|(_, item)| p(item))
+            .map(|(index, _)| index)
     }
 }

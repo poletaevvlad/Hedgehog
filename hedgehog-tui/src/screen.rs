@@ -163,7 +163,7 @@ pub(crate) struct UI {
     selected_feed: Option<FeedView<FeedId>>,
     playback_state: PlaybackState,
 
-    status: StatusLog,
+    status: ScrollableList<StatusLog>,
     command: Option<CommandState>,
     commands_history: CommandsHistory,
     confirmation: Option<CommandConfirmation>,
@@ -194,7 +194,7 @@ impl UI {
             selected_feed: None,
             playback_state: PlaybackState::default(),
 
-            status: StatusLog::default(),
+            status: ScrollableList::new(StatusLog::default(), size.1.saturating_sub(1) as usize, 1),
             command: None,
             commands_history: CommandsHistory::new(),
             confirmation: None,
@@ -230,7 +230,7 @@ impl UI {
                 let confirmation = ConfirmationView::new(confirmation, &self.theme);
                 f.render_widget(confirmation, status_area);
             } else {
-                let status = StatusView::new(self.status.display_status(), &self.theme);
+                let status = StatusView::new(self.status.data().display_status(), &self.theme);
                 f.render_widget(status, status_area);
             }
         };
@@ -332,7 +332,7 @@ impl UI {
                         Ok(None) => break,
                         Ok(Some(command)) => {
                             self.handle_command(command, ctx);
-                            if self.status.has_errors() {
+                            if self.status.data().has_errors() {
                                 return;
                             }
                         }
@@ -514,7 +514,7 @@ impl UI {
         let resolver = FileResolver::new();
         resolver.visit_all("rc", |path| {
             self.handle_command(Command::Exec(path.to_path_buf()), ctx);
-            self.status.has_errors()
+            self.status.data().has_errors()
         });
     }
 
@@ -647,7 +647,8 @@ impl UI {
         error: impl HedgehogError + 'static,
         ctx: &mut <UI as Actor>::Context,
     ) {
-        self.status.push(Status::error(error));
+        self.status
+            .update_data::<selection::Keep, _>(|log| log.push(Status::error(error)));
         self.invalidate(ctx);
     }
 
@@ -659,17 +660,21 @@ impl UI {
             self.status_clear_request = Some(ctx.spawn(wrap_future(sleep(duration)).map(
                 |_, actor: &mut UI, ctx| {
                     actor.status_clear_request = None;
-                    actor.status.clear_display();
+                    actor
+                        .status
+                        .update_data::<selection::DoNotUpdate, _>(StatusLog::clear_display);
                     actor.invalidate(ctx);
                 },
             )));
         }
-        self.status.push(status);
+        self.status
+            .update_data::<selection::Keep, _>(|log| log.push(status));
         self.invalidate(ctx);
     }
 
     fn clear_status(&mut self, ctx: &mut <UI as Actor>::Context) {
-        self.status.clear_display();
+        self.status
+            .update_data::<selection::Reset, _>(StatusLog::clear_display);
         if let Some(handle) = self.status_clear_request.take() {
             ctx.cancel_future(handle);
         }

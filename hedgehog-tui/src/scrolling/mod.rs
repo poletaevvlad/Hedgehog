@@ -108,6 +108,10 @@ impl<D: DataView> ScrollableList<D> {
                     false
                 }
             }
+            ScrollAction::ScrollBy(offset) => {
+                self.viewport.scroll_by(offset);
+                self.viewport.items_count() > 0
+            }
             ScrollAction::PageUp => {
                 self.viewport
                     .offset_selection_by(-(self.viewport.window_size() as isize));
@@ -137,6 +141,7 @@ impl<D: DataView> ScrollableList<D> {
 pub(crate) enum ScrollAction {
     MoveBy(isize),
     MoveToVisible(usize),
+    ScrollBy(isize),
     PageUp,
     PageDown,
     First,

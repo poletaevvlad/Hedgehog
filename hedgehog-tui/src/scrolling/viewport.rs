@@ -97,13 +97,36 @@ impl Viewport {
         self.selected_item = selected_item.min(self.items_count.saturating_sub(1));
         self.ensure_visible();
     }
+
+    pub(crate) fn scroll_by(&mut self, offset: isize) {
+        if self.items_count < self.window_size {
+            return;
+        }
+        if offset > 0 {
+            self.offset += offset as usize;
+            if self.offset + self.window_size > self.items_count {
+                self.offset = self.items_count.saturating_sub(self.window_size);
+            }
+        } else {
+            self.offset = self.offset.saturating_sub((-offset) as usize);
+        }
+
+        let margin = self.effective_scroll_margin();
+        if self.selected_item < self.offset + margin {
+            self.selected_item = self.offset + margin;
+        }
+        let max_selected = (self.offset + self.window_size).saturating_sub(margin + 1);
+        if self.selected_item > max_selected {
+            self.selected_item = max_selected;
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Viewport;
 
-    macro_rules! assert_scrolling {
+    macro_rules! assert_move_selection {
         ($viewport:ident; $($offset:expr => ($start:literal..$end:literal, $selection:literal)),* $(,)?) => {{
             let step = 0;
             $(
@@ -116,10 +139,23 @@ mod tests {
         }}
     }
 
+    macro_rules! assert_scrolling {
+        ($viewport:ident; $($offset:expr => ($start:literal..$end:literal, $selection:literal)),* $(,)?) => {{
+            let step = 0;
+            $(
+                $viewport.scroll_by($offset);
+                assert_eq!($viewport.selected_index(), $selection, "step {}", step);
+                assert_eq!($viewport.range(), $start..$end, "step {}", step);
+                let step = step + 1;
+            )*
+            let _ = step;
+        }}
+    }
+
     #[test]
     fn all_items_visible() {
         let mut viewport = Viewport::new(10, 5);
-        assert_scrolling! {
+        assert_move_selection! {
             viewport;
             0 => (0..10, 0),
             1 => (0..10, 1),
@@ -136,9 +172,9 @@ mod tests {
     }
 
     #[test]
-    fn scrolling() {
+    fn moving_selection() {
         let mut viewport = Viewport::new(4, 6);
-        assert_scrolling! {
+        assert_move_selection! {
             viewport;
             0 => (0..4, 0),
             1 => (0..4, 1),
@@ -157,9 +193,9 @@ mod tests {
     }
 
     #[test]
-    fn scrolling_with_margins() {
+    fn moving_seleciton_with_margins() {
         let mut viewport = Viewport::new(4, 6).with_scroll_margin(1);
-        assert_scrolling! {
+        assert_move_selection! {
             viewport;
             0 => (0..4, 0),
             1 => (0..4, 1),
@@ -178,9 +214,9 @@ mod tests {
     }
 
     #[test]
-    fn scrolling_margins_height_1() {
+    fn moving_selection_margins_height_1() {
         let mut viewport = Viewport::new(1, 4).with_scroll_margin(2);
-        assert_scrolling! {
+        assert_move_selection! {
             viewport;
             0 => (0..1, 0),
             1 => (1..2, 1),
@@ -195,9 +231,9 @@ mod tests {
     }
 
     #[test]
-    fn scrolling_margins_height_2() {
+    fn moving_selection_margins_height_2() {
         let mut viewport = Viewport::new(2, 5).with_scroll_margin(2);
-        assert_scrolling! {
+        assert_move_selection! {
             viewport;
             0 => (0..2, 0),
             1 => (0..2, 1),
@@ -214,9 +250,9 @@ mod tests {
     }
 
     #[test]
-    fn scrolling_margins_height_3() {
+    fn moving_selection_margins_height_3() {
         let mut viewport = Viewport::new(3, 6).with_scroll_margin(2);
-        assert_scrolling! {
+        assert_move_selection! {
             viewport;
             0 => (0..3, 0),
             1 => (0..3, 1),
@@ -269,6 +305,28 @@ mod tests {
         let mut viewport = Viewport::new(10, 0);
         assert_eq!(viewport.selected_index(), 0);
         assert_eq!(viewport.items_count(), 0);
-        assert_scrolling!(viewport; 0 => (0..10, 0), 1 => (0..10, 0), -1 => (0..10, 0));
+        assert_move_selection!(viewport; 0 => (0..10, 0), 1 => (0..10, 0), -1 => (0..10, 0));
+    }
+
+    #[test]
+    fn scrolling() {
+        let mut viewport = Viewport::new(4, 10);
+        assert_scrolling!(viewport;
+            0 => (0..4, 0),
+            1 => (1..5, 1),
+            1 => (2..6, 2),
+            1 => (3..7, 3),
+            1 => (4..8, 4),
+            1 => (5..9, 5),
+            1 => (6..10, 6),
+            1 => (6..10, 6),
+            -1 => (5..9, 6),
+            -1 => (4..8, 6),
+            -1 => (3..7, 6),
+            -1 => (2..6, 5),
+            -1 => (1..5, 4),
+            -1 => (0..4, 3),
+            -1 => (0..4, 3),
+        );
     }
 }

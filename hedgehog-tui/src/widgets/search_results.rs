@@ -20,6 +20,7 @@ impl<'a> Widget for SearchResults<'a> {
             SearchState::Loaded(list) if list.data().is_empty() => EmptyView::new(self.theme)
                 .title("Nothing is found")
                 .subtitle("Please make sure that your query is correct")
+                .focused(true)
                 .render(area, buf),
             SearchState::Loaded(list) => {
                 List::new(
@@ -31,10 +32,12 @@ impl<'a> Widget for SearchResults<'a> {
             }
             SearchState::Loading => EmptyView::new(self.theme)
                 .title("Searching...")
+                .focused(true)
                 .render(area, buf),
             SearchState::Error(err) => EmptyView::new(self.theme)
                 .title("Search request failed")
                 .subtitle(&err.to_string())
+                .focused(true)
                 .render(area, buf),
         }
     }

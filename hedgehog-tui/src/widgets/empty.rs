@@ -8,6 +8,7 @@ pub(crate) struct EmptyView<'t> {
     theme: &'t Theme,
     title: &'t str,
     subtitle: &'t str,
+    focused: bool,
 }
 
 impl<'t> EmptyView<'t> {
@@ -16,6 +17,7 @@ impl<'t> EmptyView<'t> {
             theme,
             title: "",
             subtitle: "",
+            focused: false,
         }
     }
 
@@ -28,20 +30,40 @@ impl<'t> EmptyView<'t> {
         self.subtitle = subtitle;
         self
     }
+
+    pub(crate) fn focused(mut self, focused: bool) -> Self {
+        self.focused = focused;
+        self
+    }
 }
 
 impl<'t> Widget for EmptyView<'t> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        buf.set_style(area, self.theme.get(theming::Empty::View));
+        buf.set_style(
+            area,
+            self.theme.get(theming::Empty {
+                focused: self.focused,
+                item: None,
+            }),
+        );
         let (_, area) = split_top(area, 10.min(area.height / 5));
         let area = shrink_h(area, 3);
 
-        let mut text = Text::styled(self.title, self.theme.get(theming::Empty::Title));
+        let mut text = Text::styled(
+            self.title,
+            self.theme.get(theming::Empty {
+                focused: self.focused,
+                item: Some(theming::EmptyItem::Title),
+            }),
+        );
         if !self.subtitle.is_empty() {
             text.extend(Text::raw("\n"));
             text.extend(Text::styled(
                 self.subtitle,
-                self.theme.get(theming::Empty::Subtitle),
+                self.theme.get(theming::Empty {
+                    focused: self.focused,
+                    item: Some(theming::EmptyItem::Subtitle),
+                }),
             ));
         }
 

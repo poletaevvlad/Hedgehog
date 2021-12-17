@@ -18,6 +18,7 @@ impl<'a> Widget for ErrorsLogWidget<'a> {
         if self.log.data().is_empty() {
             EmptyView::new(self.theme)
                 .title("The log is empty")
+                .focused(true)
                 .render(area, buf);
         } else {
             List::new(

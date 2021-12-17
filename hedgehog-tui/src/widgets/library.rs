@@ -42,6 +42,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                 .subtitle(
                     "Welcome.\nAdd podcasts by their RSS feeds by typing :add [feed-url]<Enter>",
                 )
+                .focused(true)
                 .render(area, buf);
 
             return;
@@ -86,11 +87,13 @@ impl<'a> Widget for LibraryWidget<'a> {
                         EmptyView::new(self.theme)
                             .title("There are no new episodes.")
                             .subtitle("New episodes will appear here automatically. You can mark an episode as new by typing :mark new<Enter>")
+                            .focused(self.data.focus == FocusedPane::EpisodesList)
                             .render(layout[1], buf);
                     }
                     Some(FeedView::Feed(FeedStatus::Pending)) => {
                         EmptyView::new(self.theme)
                             .title("This feed's episodes aren't loaded yet")
+                            .focused(self.data.focus == FocusedPane::EpisodesList)
                             .render(layout[1], buf);
                     }
                     Some(FeedView::Feed(FeedStatus::Loaded)) => {
@@ -99,6 +102,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                             .subtitle(
                                 "There are no episodes in this feed. Perhaps, it is not a podcast?",
                             )
+                            .focused(self.data.focus == FocusedPane::EpisodesList)
                             .render(layout[1], buf);
                     }
                     Some(FeedView::Feed(FeedStatus::Error(error))) => {
@@ -107,6 +111,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                         EmptyView::new(self.theme)
                             .title("Could not load a feed")
                             .subtitle(&subtitle)
+                            .focused(self.data.focus == FocusedPane::EpisodesList)
                             .render(layout[1], buf);
                     }
                     None => {}

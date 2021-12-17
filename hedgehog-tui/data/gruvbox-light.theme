@@ -7,7 +7,9 @@ set list.item:selected bg:%d5c4a1
 set list.item:selected:focused bg:%bdae93
 set list.item.new-count fg:%d65d0e
 set list.item:selected.new-count fg:%af3a03
+
 set empty bg:%f9f5d7 fg:%3c3836
+set empty:focused bg:%fbf1c7
 set empty.title +bold fg:%282828
 
 set list.item:episode-playing fg:%98971a

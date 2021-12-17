@@ -310,20 +310,39 @@ impl StyleSelector for List {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum Empty {
-    View,
+pub(crate) struct Empty {
+    pub(crate) item: Option<EmptyItem>,
+    pub(crate) focused: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum EmptyItem {
     Title,
     Subtitle,
 }
 
+impl EmptyItem {
+    fn enumerate() -> impl IntoIterator<Item = Self> {
+        [EmptyItem::Title, EmptyItem::Subtitle]
+    }
+}
+
 impl Empty {
-    fn parse(input: &[&str]) -> Result<Empty, SelectorParsingError> {
-        match input {
-            [] => Ok(Empty::View),
-            [".title"] => Ok(Empty::Title),
-            [".subtitle"] => Ok(Empty::Subtitle),
-            _ => Err(SelectorParsingError),
-        }
+    fn parse(mut input: &[&str]) -> Result<Empty, SelectorParsingError> {
+        let focused = match input.get(0) {
+            Some(&":focused") => {
+                input = &input[1..];
+                true
+            }
+            _ => false,
+        };
+        let item = match input {
+            [] => None,
+            [".title"] => Some(EmptyItem::Title),
+            [".subtitle"] => Some(EmptyItem::Subtitle),
+            _ => return Err(SelectorParsingError),
+        };
+        Ok(Empty { item, focused })
     }
 }
 
@@ -332,8 +351,41 @@ impl StyleSelector for Empty {
     where
         Self: Sized,
     {
-        if let Empty::View = self {
-            callback(Empty::Title);
+        match (self.focused, self.item) {
+            (true, Some(_)) => {}
+            (false, item @ Some(_)) => callback(Empty {
+                focused: true,
+                item,
+            }),
+            (focused, None) => {
+                let mut callback_checked = |selector| {
+                    if &selector != self {
+                        callback(selector);
+                    }
+                };
+                if !focused {
+                    callback_checked(Empty {
+                        focused: false,
+                        item: None,
+                    });
+                }
+                callback_checked(Empty {
+                    focused: true,
+                    item: None,
+                });
+                for item in EmptyItem::enumerate() {
+                    if !focused {
+                        callback_checked(Empty {
+                            focused: false,
+                            item: Some(item),
+                        });
+                    }
+                    callback_checked(Empty {
+                        focused: true,
+                        item: Some(item),
+                    });
+                }
+            }
         }
     }
 }
@@ -532,7 +584,10 @@ impl From<Player> for Selector {
 #[cfg(test)]
 mod tests {
     use super::{Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar};
-    use crate::{status::Severity, theming::selectors::PlayerItem};
+    use crate::{
+        status::Severity,
+        theming::{selectors::PlayerItem, EmptyItem},
+    };
     use cmd_parser::CmdParsable;
     use hedgehog_player::state::PlaybackStatus;
 
@@ -554,8 +609,34 @@ mod tests {
             Selector::parse_cmd_full("list.divider").unwrap(),
             Selector::List(List::Divider)
         );
-        assert_eq!("empty".parse(), Ok(Selector::Empty(Empty::View)));
-        assert_eq!("empty.title".parse(), Ok(Selector::Empty(Empty::Title)));
+        assert_eq!(
+            "empty".parse(),
+            Ok(Selector::Empty(Empty {
+                focused: false,
+                item: None
+            }))
+        );
+        assert_eq!(
+            "empty.title".parse(),
+            Ok(Selector::Empty(Empty {
+                focused: false,
+                item: Some(EmptyItem::Title)
+            }))
+        );
+        assert_eq!(
+            "empty:focused".parse(),
+            Ok(Selector::Empty(Empty {
+                focused: true,
+                item: None
+            }))
+        );
+        assert_eq!(
+            "empty:focused.title".parse(),
+            Ok(Selector::Empty(Empty {
+                focused: true,
+                item: Some(EmptyItem::Title)
+            }))
+        );
         assert_eq!(
             "player.timing".parse(),
             Ok(Selector::Player(Player {

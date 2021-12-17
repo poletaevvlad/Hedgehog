@@ -7,7 +7,9 @@ set list.item:selected bg:%{{bg2}}
 set list.item:selected:focused bg:%{{bg3}}
 set list.item.new-count fg:%{{dark_orange}}
 set list.item:selected.new-count fg:%{{light_orange}}
+
 set empty bg:%{{bg0_hard}} fg:%{{fg1}}
+set empty:focused bg:%{{bg0}}
 set empty.title +bold fg:%{{fg0}}
 
 set list.item:episode-playing fg:%{{dark_green}}

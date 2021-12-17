@@ -1,4 +1,4 @@
-use super::{errors_log_row::ErrorLogRowRenderer, list::List};
+use super::{empty::EmptyView, errors_log_row::ErrorLogRowRenderer, list::List};
 use crate::{scrolling::ScrollableList, status::StatusLog, theming};
 use tui::widgets::Widget;
 
@@ -15,11 +15,17 @@ impl<'a> ErrorsLogWidget<'a> {
 
 impl<'a> Widget for ErrorsLogWidget<'a> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        let list = List::new(
-            ErrorLogRowRenderer::new(self.theme),
-            self.log.visible_iter(),
-        )
-        .item_height(3);
-        list.render(area, buf);
+        if self.log.data().is_empty() {
+            EmptyView::new(self.theme)
+                .title("The log is empty")
+                .render(area, buf);
+        } else {
+            List::new(
+                ErrorLogRowRenderer::new(self.theme),
+                self.log.visible_iter(),
+            )
+            .item_height(3)
+            .render(area, buf);
+        }
     }
 }

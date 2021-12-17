@@ -45,7 +45,7 @@ impl ErrorType {
             ErrorType::Database => true,
             ErrorType::Update => true,
             ErrorType::Actix => true,
-            ErrorType::Command => true,
+            ErrorType::Command => false,
             ErrorType::IO => true,
         }
     }
@@ -195,6 +195,10 @@ pub(crate) struct StatusLog {
 }
 
 impl StatusLog {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.log.is_empty()
+    }
+
     pub(crate) fn push(&mut self, status: Status) {
         self.display_status = if status.store_in_log() {
             self.log.push(StatusLogEntry {

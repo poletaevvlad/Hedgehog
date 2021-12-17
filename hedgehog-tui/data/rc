@@ -14,6 +14,7 @@ map --state episodes Tab focus feeds
 map --state episodes Enter play-current 
 map --state search Esc focus feeds
 map --state search Enter search-add
+map --state log Esc focus feeds
 map C-c confirm "Are you sure you want to quit?" --default true quit
 map q confirm "Are you sure you want to quit?" --default true quit
 map C-r refresh

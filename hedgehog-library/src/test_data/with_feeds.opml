@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<opml version="1.0">
+  <head>
+    <title>Podcast Subscriptions</title>
+  </head>
+  <body>
+    <ouline type="rss" xmlUrl="https://example.com/source_not_fetched"/>
+    <ouline type="rss" xmlUrl="https://example.com/source_2" htmlUrl="http://example.com/podcast2.html" title="Feed title" text="Feed title"/>
+    <ouline type="rss" xmlUrl="https://example.com/source_3" htmlUrl="http://example.com/podcast3.html" title="&quot;Second&quot; &lt;fetched&gt; podcast" text="&quot;Second&quot; &lt;fetched&gt; podcast"/>
+  </body>
+</opml>

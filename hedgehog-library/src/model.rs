@@ -156,6 +156,12 @@ impl Identifiable for FeedSummary {
     }
 }
 
+pub struct FeedOMPLEntry {
+    pub title: Option<String>,
+    pub feed_source: String,
+    pub link: Option<String>,
+}
+
 pub struct Feed {
     pub id: FeedId,
     pub title: Option<String>,

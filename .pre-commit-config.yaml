@@ -5,9 +5,3 @@ repos:
       - id: fmt
       - id: clippy
         args: ["--tests", "--all", "--", "-D", "warnings", "-A", "dead_code", "-D", "clippy::semicolon-if-nothing-returned"]
-
-  - repo: https://github.com/lsst-ts/pre-commit-xmllint
-    rev: v1.0.0
-    hooks:
-      - id: format-xmllint
-        files: "\\.xml$"

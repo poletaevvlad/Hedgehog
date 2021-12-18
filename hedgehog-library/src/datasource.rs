@@ -1,7 +1,7 @@
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, FeedView,
+    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, FeedView,
 };
 use std::collections::{HashMap, HashSet};
 use std::marker::Unpin;
@@ -60,6 +60,7 @@ impl EpisodesQuery {
 pub trait DataProvider: Unpin {
     fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
+    fn get_feed_opml_entries(&self) -> DbResult<Vec<FeedOMPLEntry>>;
     fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>>;
     fn get_new_episodes_count(
         &self,

@@ -4,7 +4,7 @@ use crate::datasource::{
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary,
 };
 use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
@@ -108,6 +108,20 @@ impl DataProvider for SqliteDataProvider {
                 has_title: row.get(2)?,
                 status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
                 new_count: row.get(5)?,
+            })
+        })?;
+        Ok(collect_results(rows)?)
+    }
+
+    fn get_feed_opml_entries(&self) -> DbResult<Vec<crate::model::FeedOMPLEntry>> {
+        let mut select = self
+            .connection
+            .prepare("SELECT title, source, link FROM feeds")?;
+        let rows = select.query_map([], |row| {
+            Ok(FeedOMPLEntry {
+                title: row.get(0)?,
+                feed_source: row.get(1)?,
+                link: row.get(2)?,
             })
         })?;
         Ok(collect_results(rows)?)

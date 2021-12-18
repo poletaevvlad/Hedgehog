@@ -2,6 +2,7 @@ mod actor;
 pub mod datasource;
 pub mod metadata;
 pub mod model;
+pub mod opml;
 mod rss_client;
 pub mod search;
 mod sqlite;

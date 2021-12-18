@@ -12,7 +12,7 @@ pub enum Error {
     Db(#[from] QueryError),
 }
 
-fn build_opml<W: io::Write, D: DataProvider>(write: W, data: &D) -> Result<(), Error> {
+pub fn build_opml<W: io::Write, D: DataProvider>(write: W, data: &D) -> Result<(), Error> {
     let mut writer = quick_xml::Writer::new_with_indent(write, b' ', 2);
     writer.write_event(Event::Decl(BytesDecl::new(b"1.0", Some(b"utf-8"), None)))?;
     writer.write_event(Event::Start(

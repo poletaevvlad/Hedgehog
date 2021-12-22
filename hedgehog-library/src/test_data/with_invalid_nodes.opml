@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<opml version="1.0">
+  <head>
+    <title>Podcast Subscriptions</title>
+  </head>
+  <outline type="rss" xmlUrl="https://example.com/before_body" />
+  <body>
+    <outline type="rss" xmlUrl="https://example.com/source_1">
+      <outline type="rss" xmlUrl="https://example.com/source_2" />
+    </outline>
+    <outline type="rss" xmlUrl="https://example.com/source_3" htmlUrl="http://example.com/podcast3.html" title="Feed title" text="Feed title"/>
+    <outline type="non_rss" xmlUrl="https://example.com/source_4" />
+    <outline type="rss" />
+  </body>
+  <outline type="rss" xmlUrl="https://example.com/after_body" />
+</opml>

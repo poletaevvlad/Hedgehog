@@ -54,6 +54,11 @@ fn main() {
                         .help("A path to the OPML file or '-' for standard input"),
                 ),
         )
+        .arg(
+            clap::Arg::with_name("no_mouse")
+                .long("no-mouse")
+                .help("Disables mouse support"),
+        )
         .get_matches();
 
     let result = (|| {
@@ -107,7 +112,7 @@ fn run_import<P: DataProvider>(
 
 fn run_player(
     data_provider: SqliteDataProvider,
-    _args: &ArgMatches,
+    args: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -115,12 +120,16 @@ fn run_player(
         default_hook(info);
     }));
 
-    let system = System::new();
+    let enable_mouse = !args.is_present("no_mouse");
 
+    let system = System::new();
     Player::initialize()?;
 
     enable_raw_mode()?;
-    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(io::stdout(), EnterAlternateScreen)?;
+    if enable_mouse {
+        execute!(io::stdout(), EnableMouseCapture)?;
+    }
 
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
@@ -153,7 +162,10 @@ fn run_player(
     });
     system.run()?;
 
-    execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(io::stdout(), LeaveAlternateScreen)?;
+    if enable_mouse {
+        execute!(io::stdout(), DisableMouseCapture)?;
+    }
     disable_raw_mode()?;
     Ok(())
 }

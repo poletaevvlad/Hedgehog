@@ -77,7 +77,7 @@ pub trait DataProvider: Unpin {
     ) -> DbResult<Vec<EpisodeSummary>>;
     fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize>;
 
-    fn create_feed_pending(&self, source: &str) -> DbResult<FeedId>;
+    fn create_feed_pending(&self, source: &str) -> DbResult<Option<FeedId>>;
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
     fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;

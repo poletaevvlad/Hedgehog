@@ -271,7 +271,8 @@ where
             },
             FeedUpdateRequest::AddFeed(source) => {
                 let feed_id = match self.data_provider.create_feed_pending(&source) {
-                    Ok(feed_id) => feed_id,
+                    Ok(Some(feed_id)) => feed_id,
+                    Ok(None) => return,
                     Err(error) => {
                         self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                         return;

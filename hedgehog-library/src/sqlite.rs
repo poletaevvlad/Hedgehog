@@ -285,13 +285,24 @@ impl DataProvider for SqliteDataProvider {
         Ok(count)
     }
 
-    fn create_feed_pending(&self, source: &str) -> DbResult<FeedId> {
+    fn create_feed_pending(&self, source: &str) -> DbResult<Option<FeedId>> {
+        let mut exists_statement = self
+            .connection
+            .prepare("SELECT true FROM feeds WHERE source = :source")?;
+        let exists = exists_statement
+            .query(named_params! {":source": source})?
+            .next()?
+            .is_some();
+        if exists {
+            return Ok(None);
+        }
+
         let mut statement = self
             .connection
             .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
         statement
             .insert(named_params! {":source": source})
-            .map(FeedId)
+            .map(|id| Some(FeedId(id)))
             .map_err(Into::into)
     }
 
@@ -552,6 +563,7 @@ mod tests {
         let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let id = provider
             .create_feed_pending("http://example.com/feed.xml")
+            .unwrap()
             .unwrap();
 
         let feed_summaries = provider.get_feed_summaries().unwrap();
@@ -584,10 +596,25 @@ mod tests {
     }
 
     #[test]
+    fn does_not_create_duplicate() {
+        let provider = SqliteDataProvider::connect(":memory:").unwrap();
+        let id1 = provider
+            .create_feed_pending("http://example.com/feed.xml")
+            .unwrap();
+        let id2 = provider
+            .create_feed_pending("http://example.com/feed.xml")
+            .unwrap();
+
+        assert!(id1.is_some());
+        assert!(id2.is_none());
+    }
+
+    #[test]
     fn episode_update() {
         let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let feed_id = provider
             .create_feed_pending("http://example.com/feed.xml")
+            .unwrap()
             .unwrap();
 
         let mut writer = provider.writer(feed_id).unwrap();

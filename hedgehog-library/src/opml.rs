@@ -222,10 +222,12 @@ mod tests {
         let mut data_provider = SqliteDataProvider::connect(":memory:").unwrap();
         data_provider
             .create_feed_pending("https://example.com/source_not_fetched")
+            .unwrap()
             .unwrap();
 
         let feed2_id = data_provider
             .create_feed_pending("https://example.com/source_2")
+            .unwrap()
             .unwrap();
         let mut writer = data_provider.writer(feed2_id).unwrap();
         writer
@@ -241,6 +243,7 @@ mod tests {
 
         let feed3_id = data_provider
             .create_feed_pending("https://example.com/source_3")
+            .unwrap()
             .unwrap();
         let mut writer = data_provider.writer(feed3_id).unwrap();
         writer

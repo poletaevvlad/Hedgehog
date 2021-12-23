@@ -14,7 +14,10 @@ fn main() {
     }
 
     let mut data_provider = SqliteDataProvider::connect_default_path().unwrap();
-    let feed_id = data_provider.create_feed_pending(&args[1]).unwrap();
+    let feed_id = data_provider
+        .create_feed_pending(&args[1])
+        .unwrap()
+        .unwrap();
     let mut writer = data_provider.writer(feed_id).unwrap();
 
     let file = File::open(&args[0]).unwrap();

@@ -1120,6 +1120,10 @@ impl Handler<FeedUpdateNotification> for UI {
                     .update_data::<selection::Keep, _>(|feeds| feeds.push(FeedView::Feed(feed)));
                 self.update_current_feed(ctx);
             }
+            FeedUpdateNotification::DuplicateFeed => self.set_status(
+                Status::new_custom("This podcast has already been added", Severity::Warning),
+                ctx,
+            ),
             FeedUpdateNotification::FeedDeleted(feed_id) => {
                 self.library
                     .feeds

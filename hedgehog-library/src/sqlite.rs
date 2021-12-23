@@ -70,7 +70,7 @@ impl SqliteDataProvider {
 
 impl DataProvider for SqliteDataProvider {
     fn get_feed(&self, id: FeedId) -> DbResult<Option<crate::model::Feed>> {
-        let mut statement = self.connection.prepare("SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
+        let mut statement = self.connection.prepare( "SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
                 id: row.get(0)?,

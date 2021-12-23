@@ -228,6 +228,7 @@ pub enum FeedUpdateNotification {
     UpdateFinished(FeedId, FeedUpdateResult),
     Error(FeedUpdateError),
     FeedAdded(FeedSummary),
+    DuplicateFeed,
     FeedDeleted(FeedId),
     NewCountUpdated(HashMap<FeedId, usize>),
 }
@@ -272,7 +273,10 @@ where
             FeedUpdateRequest::AddFeed(source) => {
                 let feed_id = match self.data_provider.create_feed_pending(&source) {
                     Ok(Some(feed_id)) => feed_id,
-                    Ok(None) => return,
+                    Ok(None) => {
+                        self.notify_update_listener(FeedUpdateNotification::DuplicateFeed);
+                        return;
+                    }
                     Err(error) => {
                         self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                         return;

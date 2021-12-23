@@ -1,7 +1,7 @@
 use hedgehog_library::{
     datasource::{DataProvider, EpisodeWriter, WritableDataProvider},
     metadata::{EpisodeMetadata, FeedMetadata},
-    SqliteDataProvider,
+    NewFeedMetadata, SqliteDataProvider,
 };
 use rss::Channel;
 use std::{env, fs::File, io::BufReader};
@@ -15,7 +15,7 @@ fn main() {
 
     let mut data_provider = SqliteDataProvider::connect_default_path().unwrap();
     let feed_id = data_provider
-        .create_feed_pending(&args[1])
+        .create_feed_pending(&NewFeedMetadata::new(args[1].to_string()))
         .unwrap()
         .unwrap();
     let mut writer = data_provider.writer(feed_id).unwrap();

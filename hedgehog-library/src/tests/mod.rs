@@ -6,7 +6,7 @@ use crate::model::{EpisodeSummary, FeedError, FeedId, FeedStatus};
 use crate::sqlite::SqliteDataProvider;
 use crate::{
     EpisodeSummariesRequest, EpisodesListMetadataRequest, EpisodesQuery, FeedSummariesRequest,
-    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library,
+    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library, NewFeedMetadata,
 };
 use actix::prelude::*;
 use reqwest::StatusCode;
@@ -72,7 +72,7 @@ async fn adding_new_feed() {
     assert_eq!(summaries.len(), 0);
 
     let source_url = format!("{}/feed.xml", mock_server.base_url());
-    let msg = FeedUpdateRequest::AddFeed(source_url.clone());
+    let msg = FeedUpdateRequest::AddFeed(NewFeedMetadata::new(source_url.clone()));
     library.send(msg).await.unwrap();
 
     let feed_added = reciever.recv().await.unwrap();
@@ -109,7 +109,7 @@ async fn adding_new_feed_error() {
     let (library, mut reciever) = create_library().await;
 
     let source_url = format!("{}/feed.xml", mock_server.base_url());
-    let msg = FeedUpdateRequest::AddFeed(source_url.clone());
+    let msg = FeedUpdateRequest::AddFeed(NewFeedMetadata::new(source_url.clone()));
     library.send(msg).await.unwrap();
 
     let feed_added = reciever.recv().await.unwrap();
@@ -148,7 +148,8 @@ async fn seed_feed(
     });
 
     let source_url = format!("{}/feed.xml", server.base_url());
-    let msg = FeedUpdateRequest::AddFeed(source_url.clone());
+    let msg = FeedUpdateRequest::AddFeed(NewFeedMetadata::new(source_url.clone()));
+
     library.send(msg).await.unwrap();
 
     loop {
@@ -378,7 +379,7 @@ async fn update_all() {
 
         let source = format!("{}/feed{}.xml", mock_server.base_url(), i);
         library
-            .send(FeedUpdateRequest::AddFeed(source))
+            .send(FeedUpdateRequest::AddFeed(NewFeedMetadata::new(source)))
             .await
             .unwrap();
 

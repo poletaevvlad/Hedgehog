@@ -1,5 +1,6 @@
 use crate::datasource::{
-    DataProvider, DbResult, EpisodeWriter, EpisodesQuery, QueryError, WritableDataProvider,
+    DataProvider, DbResult, EpisodeWriter, EpisodesQuery, NewFeedMetadata, QueryError,
+    WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -285,12 +286,12 @@ impl DataProvider for SqliteDataProvider {
         Ok(count)
     }
 
-    fn create_feed_pending(&self, source: &str) -> DbResult<Option<FeedId>> {
+    fn create_feed_pending(&self, data: &NewFeedMetadata) -> DbResult<Option<FeedId>> {
         let mut exists_statement = self
             .connection
             .prepare("SELECT true FROM feeds WHERE source = :source")?;
         let exists = exists_statement
-            .query(named_params! {":source": source})?
+            .query(named_params! {":source": data.source})?
             .next()?
             .is_some();
         if exists {
@@ -299,9 +300,11 @@ impl DataProvider for SqliteDataProvider {
 
         let mut statement = self
             .connection
-            .prepare("INSERT INTO feeds (source) VALUES (:source)")?;
+            .prepare("INSERT INTO feeds (source, title, link) VALUES (:source, :title, :link)")?;
         statement
-            .insert(named_params! {":source": source})
+            .insert(
+                named_params! {":source": data.source, ":title": data.title, ":link": data.link},
+            )
             .map(|id| Some(FeedId(id)))
             .map_err(Into::into)
     }
@@ -514,7 +517,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 #[cfg(test)]
 mod tests {
     use super::{ConnectionError, SqliteDataProvider};
-    use crate::datasource::{DataProvider, EpisodeWriter, WritableDataProvider};
+    use crate::datasource::{DataProvider, EpisodeWriter, NewFeedMetadata, WritableDataProvider};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, FeedStatus};
     use crate::EpisodesQuery;
@@ -562,7 +565,9 @@ mod tests {
     fn feed_update() {
         let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let id = provider
-            .create_feed_pending("http://example.com/feed.xml")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "http://example.com/feed.xml".to_string(),
+            ))
             .unwrap()
             .unwrap();
 
@@ -599,10 +604,14 @@ mod tests {
     fn does_not_create_duplicate() {
         let provider = SqliteDataProvider::connect(":memory:").unwrap();
         let id1 = provider
-            .create_feed_pending("http://example.com/feed.xml")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "http://example.com/feed.xml".to_string(),
+            ))
             .unwrap();
         let id2 = provider
-            .create_feed_pending("http://example.com/feed.xml")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "http://example.com/feed.xml".to_string(),
+            ))
             .unwrap();
 
         assert!(id1.is_some());
@@ -613,7 +622,9 @@ mod tests {
     fn episode_update() {
         let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let feed_id = provider
-            .create_feed_pending("http://example.com/feed.xml")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "http://example.com/feed.xml".to_string(),
+            ))
             .unwrap()
             .unwrap();
 

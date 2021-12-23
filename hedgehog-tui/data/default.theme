@@ -10,6 +10,7 @@ set list.item:search +dim
 set list.item:search.title -dim +bold
 set list.item:selected +reversed
 set list.item.new-count fg:yellow
+set list.item:missing-title.title +italic
 
 set player.episode bg:darkgray
 set player:stopped.status bg:black

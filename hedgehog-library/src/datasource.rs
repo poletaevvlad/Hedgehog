@@ -57,6 +57,33 @@ impl EpisodesQuery {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct NewFeedMetadata {
+    pub(crate) source: String,
+    pub(crate) title: Option<String>,
+    pub(crate) link: Option<String>,
+}
+
+impl NewFeedMetadata {
+    pub fn new(source: String) -> Self {
+        NewFeedMetadata {
+            source,
+            title: None,
+            link: None,
+        }
+    }
+
+    pub fn with_title(mut self, title: impl Into<Option<String>>) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    pub fn with_link(mut self, link: impl Into<Option<String>>) -> Self {
+        self.link = link.into();
+        self
+    }
+}
+
 pub trait DataProvider: Unpin {
     fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
@@ -77,7 +104,7 @@ pub trait DataProvider: Unpin {
     ) -> DbResult<Vec<EpisodeSummary>>;
     fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize>;
 
-    fn create_feed_pending(&self, source: &str) -> DbResult<Option<FeedId>>;
+    fn create_feed_pending(&self, data: &NewFeedMetadata) -> DbResult<Option<FeedId>>;
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
     fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;

@@ -1,4 +1,4 @@
-use crate::metadata::FeedMetadata;
+use crate::{metadata::FeedMetadata, NewFeedMetadata};
 use chrono::{DateTime, Utc};
 use cmd_parser::CmdParsable;
 use core::fmt;
@@ -123,11 +123,11 @@ pub struct FeedSummary {
 }
 
 impl FeedSummary {
-    pub(crate) fn new_created(id: FeedId, source: String) -> Self {
+    pub(crate) fn new_created(id: FeedId, data: NewFeedMetadata) -> Self {
         FeedSummary {
             id,
-            title: source,
-            has_title: false,
+            has_title: data.title.is_some(),
+            title: data.title.unwrap_or(data.source),
             status: FeedStatus::Pending,
             new_count: 0,
         }

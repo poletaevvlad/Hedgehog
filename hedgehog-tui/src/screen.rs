@@ -33,7 +33,7 @@ use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, FeedUpdateRequest,
-    FeedUpdateResult, Library,
+    FeedUpdateResult, Library, NewFeedMetadata,
 };
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
@@ -431,7 +431,7 @@ impl UI {
             Command::Volume(command) => self.player_actor.do_send(command),
             Command::AddFeed(source) => self
                 .library_actor
-                .do_send(FeedUpdateRequest::AddFeed(source)),
+                .do_send(FeedUpdateRequest::AddFeed(NewFeedMetadata::new(source))),
             Command::DeleteFeed => {
                 if let Some(FeedView::Feed(selected_feed)) = self.library.feeds.selection() {
                     self.library_actor

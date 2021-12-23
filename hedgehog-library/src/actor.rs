@@ -1,4 +1,6 @@
-use crate::datasource::{DataProvider, DbResult, EpisodeWriter, QueryError, WritableDataProvider};
+use crate::datasource::{
+    DataProvider, DbResult, EpisodeWriter, NewFeedMetadata, QueryError, WritableDataProvider,
+};
 use crate::model::{
     EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, FeedError, FeedId, FeedStatus, FeedSummary,
@@ -237,7 +239,7 @@ pub enum FeedUpdateNotification {
 #[rtype(result = "()")]
 pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
-    AddFeed(String),
+    AddFeed(NewFeedMetadata),
     DeleteFeed(FeedId),
     UpdateSingle(FeedId),
     UpdateAll,
@@ -270,8 +272,8 @@ where
                     self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             },
-            FeedUpdateRequest::AddFeed(source) => {
-                let feed_id = match self.data_provider.create_feed_pending(&source) {
+            FeedUpdateRequest::AddFeed(data) => {
+                let feed_id = match self.data_provider.create_feed_pending(&data) {
                     Ok(Some(feed_id)) => feed_id,
                     Ok(None) => {
                         self.notify_update_listener(FeedUpdateNotification::DuplicateFeed);
@@ -283,10 +285,10 @@ where
                     }
                 };
 
+                self.schedule_update(vec![(feed_id, data.source.clone())], ctx);
                 self.notify_update_listener(FeedUpdateNotification::FeedAdded(
-                    FeedSummary::new_created(feed_id, source.clone()),
+                    FeedSummary::new_created(feed_id, data),
                 ));
-                self.schedule_update(vec![(feed_id, source)], ctx);
             }
             FeedUpdateRequest::DeleteFeed(feed_id) => {
                 match self.data_provider.delete_feed(feed_id) {

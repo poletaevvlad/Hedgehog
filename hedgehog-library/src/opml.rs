@@ -1,3 +1,4 @@
+use crate::NewFeedMetadata;
 use crate::{datasource::DataProvider, QueryError};
 use quick_xml::escape::escape;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
@@ -97,17 +98,9 @@ pub fn parse_opml<R: io::BufRead>(reader: R) -> Result<OpmlEntries<R>, Error> {
 pub fn import_opml<R: io::BufRead, D: DataProvider>(reader: R, data: &D) -> Result<(), Error> {
     let entries = parse_opml(reader)?;
     for entry in entries {
-        let entry = entry?;
-        data.create_feed_pending(&entry.xml_feed)?;
+        data.create_feed_pending(&entry?)?;
     }
     Ok(())
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct OpmlEntry {
-    title: Option<String>,
-    html_feed: Option<String>,
-    xml_feed: String,
 }
 
 pub struct OpmlEntries<R: io::BufRead> {
@@ -117,7 +110,7 @@ pub struct OpmlEntries<R: io::BufRead> {
 }
 
 impl<R: io::BufRead> Iterator for OpmlEntries<R> {
-    type Item = Result<OpmlEntry, Error>;
+    type Item = Result<NewFeedMetadata, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -184,11 +177,9 @@ impl<R: io::BufRead> Iterator for OpmlEntries<R> {
                     continue;
                 }
                 if let Some(xml_feed) = xml_feed {
-                    return Some(Ok(OpmlEntry {
-                        title,
-                        html_feed,
-                        xml_feed,
-                    }));
+                    return Some(Ok(NewFeedMetadata::new(xml_feed)
+                        .with_title(title)
+                        .with_link(html_feed)));
                 }
             }
         }
@@ -199,9 +190,9 @@ impl<R: io::BufRead> Iterator for OpmlEntries<R> {
 mod tests {
     use super::build_opml;
     use crate::{
-        datasource::{DataProvider, EpisodeWriter, WritableDataProvider},
+        datasource::{DataProvider, EpisodeWriter, NewFeedMetadata, WritableDataProvider},
         metadata::FeedMetadata,
-        opml::{parse_opml, OpmlEntry},
+        opml::parse_opml,
         SqliteDataProvider,
     };
     use std::io::Cursor;
@@ -221,12 +212,16 @@ mod tests {
     fn test_build_opml() {
         let mut data_provider = SqliteDataProvider::connect(":memory:").unwrap();
         data_provider
-            .create_feed_pending("https://example.com/source_not_fetched")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "https://example.com/source_not_fetched".to_string(),
+            ))
             .unwrap()
             .unwrap();
 
         let feed2_id = data_provider
-            .create_feed_pending("https://example.com/source_2")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "https://example.com/source_2".to_string(),
+            ))
             .unwrap()
             .unwrap();
         let mut writer = data_provider.writer(feed2_id).unwrap();
@@ -242,7 +237,9 @@ mod tests {
         writer.close().unwrap();
 
         let feed3_id = data_provider
-            .create_feed_pending("https://example.com/source_3")
+            .create_feed_pending(&NewFeedMetadata::new(
+                "https://example.com/source_3".to_string(),
+            ))
             .unwrap()
             .unwrap();
         let mut writer = data_provider.writer(feed3_id).unwrap();
@@ -277,27 +274,19 @@ mod tests {
         let mut parser = parse_opml(reader).unwrap();
         assert_eq!(
             parser.next().unwrap().unwrap(),
-            OpmlEntry {
-                title: None,
-                html_feed: None,
-                xml_feed: "https://example.com/source_not_fetched".to_string(),
-            }
+            NewFeedMetadata::new("https://example.com/source_not_fetched".to_string())
         );
         assert_eq!(
             parser.next().unwrap().unwrap(),
-            OpmlEntry {
-                title: Some("Feed title".to_string()),
-                html_feed: Some("http://example.com/podcast2.html".to_string()),
-                xml_feed: "https://example.com/source_2".to_string(),
-            }
+            NewFeedMetadata::new("https://example.com/source_2".to_string())
+                .with_title("Feed title".to_string())
+                .with_link("http://example.com/podcast2.html".to_string())
         );
         assert_eq!(
             parser.next().unwrap().unwrap(),
-            OpmlEntry {
-                title: Some("\"Second\" <fetched> podcast".to_string()),
-                html_feed: Some("http://example.com/podcast3.html".to_string()),
-                xml_feed: "https://example.com/source_3".to_string(),
-            }
+            NewFeedMetadata::new("https://example.com/source_3".to_string())
+                .with_title("\"Second\" <fetched> podcast".to_string())
+                .with_link("http://example.com/podcast3.html".to_string())
         );
     }
 
@@ -305,7 +294,7 @@ mod tests {
     fn parse_ompl_with_invalid_nodes() {
         let reader = Cursor::new(include_str!("./test_data/with_invalid_nodes.opml"));
         let parser = parse_opml(reader).unwrap();
-        let resource: Vec<String> = parser.map(|entry| entry.unwrap().xml_feed).collect();
+        let resource: Vec<String> = parser.map(|entry| entry.unwrap().source).collect();
         assert_eq!(
             resource,
             vec![

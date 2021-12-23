@@ -93,7 +93,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 let item_selector = theming::ListItem {
                     selected,
                     focused: self.focused,
-                    missing_title: item.has_title,
+                    missing_title: !item.has_title,
                     state: Some(match status_indicator {
                         Some(FeedsListStatusIndicator::Error) => theming::ListState::FeedError,
                         Some(FeedsListStatusIndicator::Update) => theming::ListState::FeedUpdating,

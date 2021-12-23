@@ -24,7 +24,7 @@ use hedgehog_player::mpris::MprisPlayer;
 use hedgehog_player::Player;
 use screen::UI;
 use std::fs::OpenOptions;
-use std::io;
+use std::io::{self, BufReader};
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
@@ -44,12 +44,23 @@ fn main() {
                         .help("A file path where the OPML file will be written"),
                 ),
         )
+        .subcommand(
+            clap::SubCommand::with_name("import")
+                .about("Import podcasts from the OPML file")
+                .arg(
+                    clap::Arg::with_name("file")
+                        .required(true)
+                        .value_name("FILE")
+                        .help("A path to the OPML file or '-' for standard input"),
+                ),
+        )
         .get_matches();
 
     let result = (|| {
         let data_provider = SqliteDataProvider::connect_default_path()?;
         match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
+            ("import", Some(args)) => run_import(&data_provider, args),
             _ => run_player(data_provider, &cli_args),
         }
     })();
@@ -75,6 +86,21 @@ fn run_export<P: DataProvider>(
             opml::build_opml(file, data_provider)?;
         }
         None => opml::build_opml(io::stdout(), data_provider)?,
+    }
+    Ok(())
+}
+
+fn run_import<P: DataProvider>(
+    data_provider: &P,
+    args: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file = args.value_of("file").expect("arg is required");
+    match file {
+        "-" => opml::import_opml(std::io::stdin().lock(), data_provider)?,
+        file => opml::import_opml(
+            BufReader::new(OpenOptions::new().read(true).open(file)?),
+            data_provider,
+        )?,
     }
     Ok(())
 }

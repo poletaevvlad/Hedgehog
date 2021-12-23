@@ -94,6 +94,15 @@ pub fn parse_opml<R: io::BufRead>(reader: R) -> Result<OpmlEntries<R>, Error> {
     }
 }
 
+pub fn import_opml<R: io::BufRead, D: DataProvider>(reader: R, data: &D) -> Result<(), Error> {
+    let entries = parse_opml(reader)?;
+    for entry in entries {
+        let entry = entry?;
+        data.create_feed_pending(&entry.xml_feed)?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct OpmlEntry {
     title: Option<String>,

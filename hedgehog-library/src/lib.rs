@@ -16,5 +16,4 @@ pub use actor::{
     FeedUpdateResult,
 };
 pub use datasource::{EpisodesQuery, NewFeedMetadata, QueryError};
-pub use rss;
 pub use sqlite::SqliteDataProvider;

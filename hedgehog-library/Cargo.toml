@@ -23,7 +23,3 @@ quick-xml = "0.22"
 pretty_assertions = "1.0"
 tempfile = "3.2"
 httpmock = "0.6"
-
-[[bin]]
-name = "import-xml"
-path = "bin/import_xml.rs"

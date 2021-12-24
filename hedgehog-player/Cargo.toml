@@ -12,7 +12,3 @@ cmd-parser = { path = "../cmd-parser" }
 dbus= { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
 dbus-crossroads = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
 dbus-tokio = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
-
-[[bin]]
-name = "player-client"
-path = "bin/player_client.rs"

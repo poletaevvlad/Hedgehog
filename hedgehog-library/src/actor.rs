@@ -285,10 +285,11 @@ where
                     }
                 };
 
-                self.schedule_update(vec![(feed_id, data.source.clone())], ctx);
+                let source = data.source.clone();
                 self.notify_update_listener(FeedUpdateNotification::FeedAdded(
                     FeedSummary::new_created(feed_id, data),
                 ));
+                self.schedule_update(vec![(feed_id, source)], ctx);
             }
             FeedUpdateRequest::DeleteFeed(feed_id) => {
                 match self.data_provider.delete_feed(feed_id) {

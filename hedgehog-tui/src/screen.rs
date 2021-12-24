@@ -595,7 +595,7 @@ impl UI {
                     if replace_current {
                         episodes.update_data::<selection::Reset, _>($fn);
                     } else {
-                        episodes.update_data::<selection::FindPrevious, _>($fn);
+                        episodes.update_data::<selection::FindPrevious<selection::Keep>, _>($fn);
                     }
                 }};
             }
@@ -1127,7 +1127,7 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::FeedDeleted(feed_id) => {
                 self.library
                     .feeds
-                    .update_data::<selection::FindPrevious, _>(|feeds| {
+                    .update_data::<selection::FindPrevious<selection::Keep>, _>(|feeds| {
                         let index = feeds.iter().enumerate().find_map(|(index, feed)| {
                             match feed.id() == FeedView::Feed(feed_id) {
                                 true => Some(index),

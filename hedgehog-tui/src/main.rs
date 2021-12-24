@@ -26,6 +26,7 @@ use hedgehog_player::Player;
 use screen::UI;
 use std::fs::OpenOptions;
 use std::io::{self, BufReader};
+use std::path::Path;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
@@ -64,16 +65,29 @@ fn main() {
                 .long("no-mouse")
                 .help("Disables mouse support"),
         )
+        .arg(
+            clap::Arg::with_name("data_path")
+                .long("data-path")
+                .takes_value(true)
+                .value_name("DIR")
+                .help("Location for the episodes database and other data"),
+        )
         .get_matches();
 
     let result = (|| {
-        let base_dirs = BaseDirs::new().ok_or(CannotDetermineDataDirectory)?;
-        let mut data_dir = base_dirs.data_dir().to_path_buf();
-        data_dir.push("hedgehog");
+        let mut data_dir = match cli_args.value_of("data_path") {
+            Some(data_path) => Path::new(data_path).to_owned(),
+            None => {
+                let base_dirs = BaseDirs::new().ok_or(CannotDetermineDataDirectory)?;
+                let mut data_dir = base_dirs.data_dir().to_path_buf();
+                data_dir.push("hedgehog");
+                data_dir
+            }
+        };
         std::fs::create_dir_all(&data_dir)?;
-        data_dir.push("episodes-db");
-
+        data_dir.push("episodes");
         let data_provider = SqliteDataProvider::connect(data_dir)?;
+
         match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
             ("import", Some(args)) => run_import(&data_provider, args),

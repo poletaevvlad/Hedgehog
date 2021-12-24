@@ -26,13 +26,17 @@ use hedgehog_player::Player;
 use screen::UI;
 use std::fs::OpenOptions;
 use std::io::{self, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
 #[derive(Debug, thiserror::Error)]
 #[error("Data directory cannot be determined")]
 struct CannotDetermineDataDirectory;
+
+pub(crate) struct AppContext {
+    data_path: PathBuf,
+}
 
 fn main() {
     let cli_args = clap::App::new("Hedgehog")
@@ -86,12 +90,17 @@ fn main() {
         };
         std::fs::create_dir_all(&data_dir)?;
         data_dir.push("episodes");
-        let data_provider = SqliteDataProvider::connect(data_dir)?;
+        let data_provider = SqliteDataProvider::connect(&data_dir)?;
+
+        data_dir.pop();
+        let context = AppContext {
+            data_path: data_dir,
+        };
 
         match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
             ("import", Some(args)) => run_import(&data_provider, args),
-            _ => run_player(data_provider, &cli_args),
+            _ => run_player(data_provider, &cli_args, context),
         }
     })();
 
@@ -138,6 +147,7 @@ fn run_import<P: DataProvider>(
 fn run_player(
     data_provider: SqliteDataProvider,
     args: &ArgMatches,
+    ctx: AppContext,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -182,6 +192,7 @@ fn run_player(
             library,
             player,
             status_writer,
+            ctx,
         )
         .start();
     });

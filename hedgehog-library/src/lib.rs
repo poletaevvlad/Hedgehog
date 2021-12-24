@@ -9,11 +9,10 @@ mod sqlite;
 pub mod status_writer;
 mod tests;
 
-pub use actor::Library;
 pub use actor::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     FeedSummariesRequest, FeedUpdateError, FeedUpdateNotification, FeedUpdateRequest,
-    FeedUpdateResult,
+    FeedUpdateResult, Library,
 };
 pub use datasource::{EpisodesQuery, NewFeedMetadata, QueryError};
 pub use sqlite::SqliteDataProvider;

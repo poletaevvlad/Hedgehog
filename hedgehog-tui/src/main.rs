@@ -17,6 +17,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use directories::BaseDirs;
 use hedgehog_library::datasource::DataProvider;
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, Library, SqliteDataProvider};
@@ -27,6 +28,10 @@ use std::fs::OpenOptions;
 use std::io::{self, BufReader};
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Data directory cannot be determined")]
+struct CannotDetermineDataDirectory;
 
 fn main() {
     let cli_args = clap::App::new("Hedgehog")
@@ -62,7 +67,13 @@ fn main() {
         .get_matches();
 
     let result = (|| {
-        let data_provider = SqliteDataProvider::connect_default_path()?;
+        let base_dirs = BaseDirs::new().ok_or(CannotDetermineDataDirectory)?;
+        let mut data_dir = base_dirs.data_dir().to_path_buf();
+        data_dir.push("hedgehog");
+        std::fs::create_dir_all(&data_dir)?;
+        data_dir.push("episodes-db");
+
+        let data_provider = SqliteDataProvider::connect(data_dir)?;
         match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
             ("import", Some(args)) => run_import(&data_provider, args),

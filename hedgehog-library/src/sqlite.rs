@@ -7,7 +7,6 @@ use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary,
 };
-use directories::BaseDirs;
 use rusqlite::{named_params, Connection};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
@@ -23,9 +22,6 @@ pub enum ConnectionError {
 
     #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {version})")]
     VersionUnknown { version: u32, current: u32 },
-
-    #[error("Directory for the database cannot be determined")]
-    CannonDetermineDataDirectory,
 
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error>),
@@ -56,16 +52,6 @@ impl SqliteDataProvider {
 
         connection.pragma_update(None, "user_version", Self::CURRENT_VERSION)?;
         Ok(SqliteDataProvider { connection })
-    }
-
-    pub fn connect_default_path() -> Result<Self, ConnectionError> {
-        let base_dirs = BaseDirs::new().ok_or(ConnectionError::CannonDetermineDataDirectory)?;
-        let mut data_dir = base_dirs.data_dir().to_path_buf();
-        data_dir.push("hedgehog");
-        std::fs::create_dir_all(&data_dir)
-            .map_err(|error| ConnectionError::Other(Box::new(error)))?;
-        data_dir.push("episodes-db");
-        Self::connect(data_dir)
     }
 }
 

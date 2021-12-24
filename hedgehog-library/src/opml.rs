@@ -205,7 +205,7 @@ mod tests {
         build_opml(Cursor::new(&mut buffer), &data_provider).unwrap();
 
         let xml = String::from_utf8(buffer).unwrap();
-        assert_eq!(&xml, include_str!("./test_data/empty.opml").trim_end());
+        assert_eq!(&xml, include_str!("./test_data/opml/empty.opml").trim_end());
     }
 
     #[test]
@@ -258,19 +258,22 @@ mod tests {
         build_opml(Cursor::new(&mut buffer), &data_provider).unwrap();
 
         let xml = String::from_utf8(buffer).unwrap();
-        assert_eq!(&xml, include_str!("./test_data/with_feeds.opml").trim_end());
+        assert_eq!(
+            &xml,
+            include_str!("./test_data/opml/with-feeds.opml").trim_end()
+        );
     }
 
     #[test]
     fn parse_opml_empty() {
-        let reader = Cursor::new(include_str!("./test_data/empty.opml"));
+        let reader = Cursor::new(include_str!("./test_data/opml/empty.opml"));
         let mut parser = parse_opml(reader).unwrap();
         assert!(parser.next().is_none());
     }
 
     #[test]
     fn parse_ompl_non_empty() {
-        let reader = Cursor::new(include_str!("./test_data/with_feeds.opml"));
+        let reader = Cursor::new(include_str!("./test_data/opml/with-feeds.opml"));
         let mut parser = parse_opml(reader).unwrap();
         assert_eq!(
             parser.next().unwrap().unwrap(),
@@ -292,7 +295,7 @@ mod tests {
 
     #[test]
     fn parse_ompl_with_invalid_nodes() {
-        let reader = Cursor::new(include_str!("./test_data/with_invalid_nodes.opml"));
+        let reader = Cursor::new(include_str!("./test_data/opml/with-invalid-nodes.opml"));
         let parser = parse_opml(reader).unwrap();
         let resource: Vec<String> = parser.map(|entry| entry.unwrap().source).collect();
         assert_eq!(

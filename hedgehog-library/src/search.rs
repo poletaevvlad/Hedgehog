@@ -97,7 +97,7 @@ mod tests {
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(200)
-                .body(include_str!("./test_data/itunes-success.json"));
+                .body(include_str!("./test_data/itunes/success.json"));
         });
 
         let client = SearchClient::new().with_endpoint_url(format!("{}/search", server.base_url()));
@@ -142,7 +142,7 @@ mod tests {
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(200)
-                .body(include_str!("./test_data/itunes-success-with-no-feed.json"));
+                .body(include_str!("./test_data/itunes/success-with-no-feed.json"));
         });
 
         let client = SearchClient::new().with_endpoint_url(format!("{}/search", server.base_url()));
@@ -180,7 +180,7 @@ mod tests {
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(200)
-                .body(include_str!("./test_data/itunes-empty.json"));
+                .body(include_str!("./test_data/itunes/empty.json"));
         });
 
         let client = SearchClient::new().with_endpoint_url(format!("{}/search", server.base_url()));

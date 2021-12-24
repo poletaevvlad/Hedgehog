@@ -80,7 +80,7 @@ mod tests {
             when.method(GET).path("/podcast/feed.rss");
             then.status(200)
                 .header("content-type", "text/xml")
-                .body(include_str!("./test_data/simple_feed.xml"));
+                .body(include_str!("./test_data/rss/simple-feed.xml"));
         });
 
         let mut feed = fetch_feed(&mock_server.url("/podcast/feed.rss"))

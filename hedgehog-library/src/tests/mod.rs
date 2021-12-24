@@ -64,7 +64,7 @@ async fn adding_new_feed() {
         when.method(httpmock::Method::GET).path("/feed.xml");
         then.status(200)
             .header("content-type", "application/xml")
-            .body(include_str!("../test_data/feed1.xml"));
+            .body(include_str!("../test_data/rss/feed1.xml"));
     });
     let (library, mut reciever) = create_library().await;
 
@@ -216,7 +216,7 @@ async fn get_episode_summaries(
 #[actix::test]
 async fn creates_episodes() {
     let (library, mut reciever) = create_library().await;
-    let feed = include_str!("../test_data/feed1.xml");
+    let feed = include_str!("../test_data/rss/feed1.xml");
     let mock_server = httpmock::MockServer::start();
     let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
 
@@ -241,13 +241,13 @@ async fn creates_episodes() {
 #[actix::test]
 async fn updates_episodes_on_update() {
     let (library, mut reciever) = create_library().await;
-    let feed = include_str!("../test_data/feed1.xml");
+    let feed = include_str!("../test_data/rss/feed1.xml");
     let mock_server = httpmock::MockServer::start();
     let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
     mock_server.mock(|when, then| {
         when.method(httpmock::Method::GET).path("/feed.xml");
         then.status(200)
-            .body(include_str!("../test_data/feed1_updated_episodes.xml"));
+            .body(include_str!("../test_data/rss/feed1-updated-episodes.xml"));
     });
 
     let msg = FeedUpdateRequest::UpdateSingle(feed_id);
@@ -286,13 +286,13 @@ async fn updates_episodes_on_update() {
 #[actix::test]
 async fn removes_blocked_episodes() {
     let (library, mut reciever) = create_library().await;
-    let feed = include_str!("../test_data/feed1.xml");
+    let feed = include_str!("../test_data/rss/feed1.xml");
     let mock_server = httpmock::MockServer::start();
     let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
     mock_server.mock(|when, then| {
         when.method(httpmock::Method::GET).path("/feed.xml");
         then.status(200)
-            .body(include_str!("../test_data/feed1_blocked_episode.xml"));
+            .body(include_str!("../test_data/rss/feed1-blocked-episode.xml"));
     });
 
     let msg = FeedUpdateRequest::UpdateSingle(feed_id);
@@ -324,7 +324,7 @@ async fn removes_blocked_episodes() {
 #[actix::test]
 async fn update_failure() {
     let (library, mut reciever) = create_library().await;
-    let feed = include_str!("../test_data/feed1.xml");
+    let feed = include_str!("../test_data/rss/feed1.xml");
     let mock_server = httpmock::MockServer::start();
     let feed_id = seed_feed(&mock_server, library.clone(), &mut reciever, feed).await;
     mock_server.mock(|when, then| {
@@ -374,7 +374,7 @@ async fn update_all() {
             when.method(httpmock::Method::GET)
                 .path(format!("/feed{}.xml", i));
             then.status(200)
-                .body(include_str!("../test_data/empty_feed.xml"));
+                .body(include_str!("../test_data/rss/empty-feed.xml"));
         });
 
         let source = format!("{}/feed{}.xml", mock_server.base_url(), i);

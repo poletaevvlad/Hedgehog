@@ -24,7 +24,8 @@ use hedgehog_library::{opml, Library, SqliteDataProvider};
 use hedgehog_player::Player;
 use screen::UI;
 use std::fs::OpenOptions;
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, SeekFrom};
+use std::io::{Seek, Write};
 use std::path::{Path, PathBuf};
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
@@ -97,6 +98,18 @@ fn main() {
             }
         };
         std::fs::create_dir_all(&data_dir)?;
+
+        data_dir.push("pid");
+        let mut pidfile = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&data_dir)?;
+        writeln!(pidfile, "{}", std::process::id())?;
+        let position = pidfile.seek(SeekFrom::Current(0))?;
+        pidfile.set_len(position)?;
+        data_dir.pop();
+
         data_dir.push("episodes");
         let data_provider = SqliteDataProvider::connect(&data_dir)?;
         data_dir.pop();

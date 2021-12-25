@@ -20,6 +20,7 @@ hedgehog-player = { path = "../hedgehog-player" }
 cmd-parser = { path = "../cmd-parser" }
 directories = "4.0"
 clap = "~2.27.0"
+cluFlock = "1.2"
 
 [dev-dependencies]
 tempfile = "3.2"

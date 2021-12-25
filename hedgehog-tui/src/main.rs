@@ -12,6 +12,7 @@ mod widgets;
 
 use actix::prelude::*;
 use clap::ArgMatches;
+use cluFlock::ToFlock;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -23,9 +24,10 @@ use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, Library, SqliteDataProvider};
 use hedgehog_player::Player;
 use screen::UI;
+use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{self, BufReader, SeekFrom};
-use std::io::{Seek, Write};
+use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
@@ -33,6 +35,21 @@ use tui::Terminal;
 #[derive(Debug, thiserror::Error)]
 #[error("Data directory cannot be determined")]
 struct CannotDetermineDataDirectory;
+
+#[derive(Debug, thiserror::Error)]
+struct AlreadyRunningError {
+    pid: Option<String>,
+}
+
+impl fmt::Display for AlreadyRunningError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Another instance of Hedgehog is already running")?;
+        if let Some(ref pid) = self.pid {
+            f.write_fmt(format_args!(" (PID {})", pid))?;
+        }
+        Ok(())
+    }
+}
 
 pub(crate) struct AppContext {
     data_path: PathBuf,
@@ -105,9 +122,30 @@ fn main() {
             .write(true)
             .create(true)
             .open(&data_dir)?;
-        writeln!(pidfile, "{}", std::process::id())?;
-        let position = pidfile.seek(SeekFrom::Current(0))?;
-        pidfile.set_len(position)?;
+        let mut previous_pid = String::new();
+        pidfile.read_to_string(&mut previous_pid)?;
+
+        let pid_lock = match pidfile.try_exclusive_lock() {
+            Ok(mut lock) => {
+                lock.seek(SeekFrom::Start(0))?;
+                writeln!(lock, "{}", std::process::id())?;
+                let position = lock.seek(SeekFrom::Current(0))?;
+                lock.set_len(position)?;
+                lock
+            }
+            Err(_) => {
+                previous_pid.truncate(previous_pid.trim_end().len());
+                return Err(AlreadyRunningError {
+                    pid: if previous_pid.is_empty() {
+                        None
+                    } else {
+                        Some(previous_pid)
+                    },
+                }
+                .into());
+            }
+        };
+
         data_dir.pop();
 
         data_dir.push("episodes");
@@ -138,11 +176,13 @@ fn main() {
             config_path,
         };
 
-        match cli_args.subcommand() {
+        let result = match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
             ("import", Some(args)) => run_import(&data_provider, args),
             _ => run_player(data_provider, &cli_args, context),
-        }
+        };
+        drop(pid_lock);
+        result
     })();
 
     if let Err(error) = result {

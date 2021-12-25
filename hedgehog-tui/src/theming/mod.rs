@@ -32,7 +32,11 @@ pub(crate) struct Theme {
 }
 
 impl Theme {
-    pub(crate) fn handle_command(&mut self, command: ThemeCommand) -> Result<(), cmdreader::Error> {
+    pub(crate) fn handle_command(
+        &mut self,
+        command: ThemeCommand,
+        paths: &[PathBuf],
+    ) -> Result<(), cmdreader::Error> {
         match command {
             ThemeCommand::Reset => *self = Theme::default(),
             ThemeCommand::Set(selector, style) => self.set(selector, style),
@@ -43,11 +47,13 @@ impl Theme {
                 let resolver = FileResolver::new()
                     .with_suffix(".theme")
                     .with_reversed_order();
-                let path = resolver.resolve(path).ok_or(cmdreader::Error::Resolution)?;
+                let path = resolver
+                    .resolve(path, paths)
+                    .ok_or(cmdreader::Error::Resolution)?;
 
                 let mut reader = CommandReader::open(path)?;
                 while let Some(command) = reader.read()? {
-                    self.handle_command(command)?;
+                    self.handle_command(command, paths)?;
                 }
             }
         }

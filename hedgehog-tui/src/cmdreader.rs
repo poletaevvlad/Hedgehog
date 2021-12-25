@@ -1,5 +1,4 @@
 use cmd_parser::CmdParsable;
-use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -7,7 +6,6 @@ use std::path::{Path, PathBuf};
 pub(crate) struct FileResolver {
     suffixes: Vec<&'static str>,
     reverse_order: bool,
-    paths: Option<String>,
 }
 
 impl FileResolver {
@@ -15,7 +13,6 @@ impl FileResolver {
         FileResolver {
             suffixes: Vec::new(),
             reverse_order: false,
-            paths: None,
         }
     }
 
@@ -29,15 +26,10 @@ impl FileResolver {
         self
     }
 
-    #[cfg(test)]
-    pub(crate) fn with_paths(mut self, paths: String) -> Self {
-        self.paths = Some(paths);
-        self
-    }
-
     pub(crate) fn visit_all<P: AsRef<Path>>(
         &self,
         file_path: P,
+        paths: &[PathBuf],
         mut visitor: impl FnMut(&Path) -> bool,
     ) -> Option<PathBuf> {
         if file_path.as_ref().is_absolute() {
@@ -48,11 +40,7 @@ impl FileResolver {
             };
         }
 
-        // TODO: Non-UNIX OS paths
-        let paths_env = self.paths.as_ref().cloned().unwrap_or_else(|| {
-            env::var("HEDGEHOG_PATH").unwrap_or_else(|_| "/usr/share/hedgehog".to_string())
-        });
-        let mut paths: Vec<PathBuf> = env::split_paths(&paths_env).collect();
+        let mut paths = Vec::from(paths);
         if self.reverse_order {
             paths.reverse();
         }
@@ -81,8 +69,12 @@ impl FileResolver {
         None
     }
 
-    pub(crate) fn resolve<P: AsRef<Path>>(&self, file_path: P) -> Option<PathBuf> {
-        self.visit_all(file_path, |_| true)
+    pub(crate) fn resolve<P: AsRef<Path>>(
+        &self,
+        file_path: P,
+        paths: &[PathBuf],
+    ) -> Option<PathBuf> {
+        self.visit_all(file_path, paths, |_| true)
     }
 }
 
@@ -193,7 +185,7 @@ mod tests {
     fn resolving_path_absolute() {
         let resolver = FileResolver::new();
         assert_eq!(
-            resolver.resolve("/usr/share/hedgehog/default.theme"),
+            resolver.resolve("/usr/share/hedgehog/default.theme", &[]),
             Some("/usr/share/hedgehog/default.theme".to_string().into())
         );
     }
@@ -202,15 +194,11 @@ mod tests {
     fn resolving_path_relative() {
         let dir1 = tempdir().unwrap();
         let dir2 = tempdir().unwrap();
-        let env_path = std::env::join_paths([dir1.path(), dir2.path()])
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
+        let dirs = [dir1.path().to_path_buf(), dir2.path().to_path_buf()];
 
         let resolver = FileResolver::new()
             .with_suffix(".theme")
-            .with_suffix(".style")
-            .with_paths(env_path);
+            .with_suffix(".style");
 
         fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
             let mut path = dir.to_path_buf();
@@ -219,46 +207,42 @@ mod tests {
         }
 
         let mut resolution_order = vec![];
-        push_order_entry(&mut resolution_order, dir1.path(), "file");
-        push_order_entry(&mut resolution_order, dir1.path(), "file.theme");
-        push_order_entry(&mut resolution_order, dir1.path(), "file.style");
-        push_order_entry(&mut resolution_order, dir2.path(), "file");
-        push_order_entry(&mut resolution_order, dir2.path(), "file.theme");
-        push_order_entry(&mut resolution_order, dir2.path(), "file.style");
+        push_order_entry(&mut resolution_order, &dirs[0], "file");
+        push_order_entry(&mut resolution_order, &dirs[0], "file.theme");
+        push_order_entry(&mut resolution_order, &dirs[0], "file.style");
+        push_order_entry(&mut resolution_order, &dirs[1], "file");
+        push_order_entry(&mut resolution_order, &dirs[1], "file.theme");
+        push_order_entry(&mut resolution_order, &dirs[1], "file.style");
 
         for path in &resolution_order {
             File::create(path).unwrap();
         }
 
         let mut visited = vec![];
-        resolver.visit_all("file", |path| {
+        resolver.visit_all("file", &dirs, |path| {
             visited.push(path.to_path_buf());
             false
         });
         assert_eq!(resolution_order, visited);
 
         while !resolution_order.is_empty() {
-            let path = resolver.resolve("file");
+            let path = resolver.resolve("file", &dirs);
             assert_eq!(path.as_ref(), resolution_order.get(0));
             remove_file(resolution_order.remove(0)).unwrap();
         }
 
-        assert!(resolver.resolve("file").is_none());
+        assert!(resolver.resolve("file", &dirs).is_none());
     }
 
     #[test]
     fn visiting_reversed() {
         let dir1 = tempdir().unwrap();
         let dir2 = tempdir().unwrap();
-        let env_path = std::env::join_paths([dir1.path(), dir2.path()])
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
+        let dirs = [dir1.path().to_path_buf(), dir2.path().to_path_buf()];
 
         let resolver = FileResolver::new()
             .with_suffix(".txt")
-            .with_reversed_order()
-            .with_paths(env_path);
+            .with_reversed_order();
 
         fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
             let mut path = dir.to_path_buf();
@@ -267,17 +251,17 @@ mod tests {
         }
 
         let mut resolution_order = vec![];
-        push_order_entry(&mut resolution_order, dir2.path(), "file");
-        push_order_entry(&mut resolution_order, dir2.path(), "file.txt");
-        push_order_entry(&mut resolution_order, dir1.path(), "file");
-        push_order_entry(&mut resolution_order, dir1.path(), "file.txt");
+        push_order_entry(&mut resolution_order, &dirs[1], "file");
+        push_order_entry(&mut resolution_order, &dirs[1], "file.txt");
+        push_order_entry(&mut resolution_order, &dirs[0], "file");
+        push_order_entry(&mut resolution_order, &dirs[0], "file.txt");
 
         for path in &resolution_order {
             File::create(path).unwrap();
         }
 
         let mut visited = vec![];
-        resolver.visit_all("file", |path| {
+        resolver.visit_all("file", &dirs, |path| {
             visited.push(path.to_path_buf());
             false
         });

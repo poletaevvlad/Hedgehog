@@ -339,7 +339,10 @@ impl UI {
                 }
             }
             Command::Theme(command) => {
-                if let Err(error) = self.theme.handle_command(command) {
+                if let Err(error) = self
+                    .theme
+                    .handle_command(command, &self.app_ctx.config_path)
+                {
                     self.handle_error(error, ctx);
                 } else {
                     self.invalidate(ctx);
@@ -539,7 +542,8 @@ impl UI {
 
     fn init_rc(&mut self, ctx: &mut <UI as Actor>::Context) {
         let resolver = FileResolver::new();
-        resolver.visit_all("rc", |path| {
+        let config_path = self.app_ctx.config_path.clone();
+        resolver.visit_all("rc", &config_path, |path| {
             self.handle_command(Command::Exec(path.to_path_buf()), ctx);
             self.status.data().has_errors()
         });

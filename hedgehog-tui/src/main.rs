@@ -36,6 +36,7 @@ struct CannotDetermineDataDirectory;
 
 pub(crate) struct AppContext {
     data_path: PathBuf,
+    config_path: Vec<PathBuf>,
 }
 
 fn main() {
@@ -76,13 +77,21 @@ fn main() {
                 .value_name("DIR")
                 .help("Location for the episodes database and other data"),
         )
+        .arg(
+            clap::Arg::with_name("config_path")
+                .long("config-path")
+                .takes_value(true)
+                .value_name("DIRS")
+                .env("HEDGEHOG_PATH")
+                .help("Locations for the theme and rc files"),
+        )
         .get_matches();
 
     let result = (|| {
+        let base_dirs = BaseDirs::new().ok_or(CannotDetermineDataDirectory)?;
         let mut data_dir = match cli_args.value_of("data_path") {
             Some(data_path) => Path::new(data_path).to_owned(),
             None => {
-                let base_dirs = BaseDirs::new().ok_or(CannotDetermineDataDirectory)?;
                 let mut data_dir = base_dirs.data_dir().to_path_buf();
                 data_dir.push("hedgehog");
                 data_dir
@@ -91,10 +100,30 @@ fn main() {
         std::fs::create_dir_all(&data_dir)?;
         data_dir.push("episodes");
         let data_provider = SqliteDataProvider::connect(&data_dir)?;
-
         data_dir.pop();
+
+        let mut config_path = Vec::new();
+        if cfg!(unix) {
+            config_path.push(Path::new("/usr/share/hedgehog").to_path_buf());
+        } else if cfg!(windows) {
+            if let Ok(mut exe_path) = std::env::current_exe() {
+                exe_path.pop();
+                exe_path.push("config");
+                config_path.push(exe_path);
+            }
+        }
+
+        let mut user_config_dir = base_dirs.config_dir().to_path_buf();
+        user_config_dir.push("hedgehog");
+        config_path.push(user_config_dir);
+
+        if let Some(paths) = cli_args.value_of("config_path") {
+            config_path.extend(std::env::split_paths(paths));
+        }
+
         let context = AppContext {
             data_path: data_dir,
+            config_path,
         };
 
         match cli_args.subcommand() {

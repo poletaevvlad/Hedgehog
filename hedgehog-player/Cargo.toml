@@ -9,6 +9,9 @@ actix = "0.12"
 cmd-parser = { path = "../cmd-parser" }
 
 # MPIRS
-dbus= { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
-dbus-crossroads = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
-dbus-tokio = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response" }
+dbus= { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response", optional = true }
+dbus-crossroads = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response", optional = true }
+dbus-tokio = { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response", optional = true }
+
+[features]
+mpris = ["dbus", "dbus-crossroads", "dbus-tokio"]

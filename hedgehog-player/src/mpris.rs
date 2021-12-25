@@ -1,3 +1,5 @@
+#![cfg(feature = "mpris")]
+
 use crate::state::PlaybackState;
 use crate::volume::Volume;
 use crate::{

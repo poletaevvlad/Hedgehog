@@ -21,7 +21,6 @@ use directories::BaseDirs;
 use hedgehog_library::datasource::DataProvider;
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, Library, SqliteDataProvider};
-use hedgehog_player::mpris::MprisPlayer;
 use hedgehog_player::Player;
 use screen::UI;
 use std::fs::OpenOptions;
@@ -212,8 +211,7 @@ fn run_player(
             |_| /* TODO */ Player::init().unwrap(),
         );
 
-        let mpirs_player = player.clone();
-        MprisPlayer::start_in_arbiter(&player_arbiter.handle(), |_| MprisPlayer::new(mpirs_player));
+        run_mpris(player.clone(), player_arbiter.handle());
 
         UI::new(
             (size.width, size.height),
@@ -234,3 +232,12 @@ fn run_player(
     disable_raw_mode()?;
     Ok(())
 }
+
+#[cfg(feature = "mpris")]
+fn run_mpris(player: Addr<Player>, arbiter: ArbiterHandle) {
+    use hedgehog_player::mpris::MprisPlayer;
+    MprisPlayer::start_in_arbiter(&arbiter, |_| MprisPlayer::new(player));
+}
+
+#[cfg(not(feature = "mpris"))]
+fn run_mpris(_player: Addr<Player>, _arbiter: ArbiterHandle) {}

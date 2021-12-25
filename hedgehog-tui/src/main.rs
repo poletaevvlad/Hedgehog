@@ -102,6 +102,11 @@ fn main() {
                 .env("HEDGEHOG_PATH")
                 .help("Locations for the theme and rc files"),
         )
+        .arg(
+            clap::Arg::with_name("no_pidfile")
+                .long("no-pidfile")
+                .help("Allow multiple instances to run concurrently on the same database"),
+        )
         .get_matches();
 
     let result = (|| {
@@ -116,37 +121,42 @@ fn main() {
         };
         std::fs::create_dir_all(&data_dir)?;
 
-        data_dir.push("pid");
-        let mut pidfile = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&data_dir)?;
-        let mut previous_pid = String::new();
-        pidfile.read_to_string(&mut previous_pid)?;
+        let _pid_lock = match cli_args.is_present("no_pidfile") {
+            false => {
+                data_dir.push("pid");
+                let mut pidfile = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(&data_dir)?;
+                let mut previous_pid = String::new();
+                pidfile.read_to_string(&mut previous_pid)?;
 
-        let pid_lock = match pidfile.try_exclusive_lock() {
-            Ok(mut lock) => {
-                lock.seek(SeekFrom::Start(0))?;
-                writeln!(lock, "{}", std::process::id())?;
-                let position = lock.seek(SeekFrom::Current(0))?;
-                lock.set_len(position)?;
-                lock
+                let pid_lock = match pidfile.try_exclusive_lock() {
+                    Ok(mut lock) => {
+                        lock.seek(SeekFrom::Start(0))?;
+                        writeln!(lock, "{}", std::process::id())?;
+                        let position = lock.seek(SeekFrom::Current(0))?;
+                        lock.set_len(position)?;
+                        lock
+                    }
+                    Err(_) => {
+                        previous_pid.truncate(previous_pid.trim_end().len());
+                        return Err(AlreadyRunningError {
+                            pid: if previous_pid.is_empty() {
+                                None
+                            } else {
+                                Some(previous_pid)
+                            },
+                        }
+                        .into());
+                    }
+                };
+                data_dir.pop();
+                Some(pid_lock)
             }
-            Err(_) => {
-                previous_pid.truncate(previous_pid.trim_end().len());
-                return Err(AlreadyRunningError {
-                    pid: if previous_pid.is_empty() {
-                        None
-                    } else {
-                        Some(previous_pid)
-                    },
-                }
-                .into());
-            }
+            true => None,
         };
-
-        data_dir.pop();
 
         data_dir.push("episodes");
         let data_provider = SqliteDataProvider::connect(&data_dir)?;
@@ -176,13 +186,11 @@ fn main() {
             config_path,
         };
 
-        let result = match cli_args.subcommand() {
+        match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
             ("import", Some(args)) => run_import(&data_provider, args),
             _ => run_player(data_provider, &cli_args, context),
-        };
-        drop(pid_lock);
-        result
+        }
     })();
 
     if let Err(error) = result {

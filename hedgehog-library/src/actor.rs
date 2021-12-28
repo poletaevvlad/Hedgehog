@@ -235,14 +235,19 @@ pub enum FeedUpdateNotification {
     NewCountUpdated(HashMap<FeedId, usize>),
 }
 
+#[derive(Debug)]
+pub enum UpdateQuery {
+    Single(FeedId),
+    All,
+}
+
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
     AddFeed(NewFeedMetadata),
     DeleteFeed(FeedId),
-    UpdateSingle(FeedId),
-    UpdateAll,
+    Update(UpdateQuery),
     SetStatus(EpisodesQuery, EpisodeStatus),
     SetFeedEnabled(FeedId, bool),
 }
@@ -256,22 +261,14 @@ where
     fn handle(&mut self, msg: FeedUpdateRequest, ctx: &mut Self::Context) -> Self::Result {
         match msg {
             FeedUpdateRequest::Subscribe(recipient) => self.update_listener = Some(recipient),
-            FeedUpdateRequest::UpdateSingle(feed_id) => {
-                let source = match self.data_provider.get_feed_source(feed_id) {
-                    Ok(source) => source,
+            FeedUpdateRequest::Update(query) => {
+                match self.data_provider.get_update_sources(query) {
+                    Ok(sources) => self.schedule_update(sources, ctx),
                     Err(error) => {
                         self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
-                        return;
                     }
-                };
-                self.schedule_update(vec![(feed_id, source)], ctx);
-            }
-            FeedUpdateRequest::UpdateAll => match self.data_provider.get_update_sources() {
-                Ok(sources) => self.schedule_update(sources, ctx),
-                Err(error) => {
-                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
-            },
+            }
             FeedUpdateRequest::AddFeed(data) => {
                 let feed_id = match self.data_provider.create_feed_pending(&data) {
                     Ok(Some(feed_id)) => feed_id,

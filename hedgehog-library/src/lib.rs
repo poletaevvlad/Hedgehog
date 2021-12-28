@@ -12,7 +12,7 @@ mod tests;
 pub use actor::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     FeedSummariesRequest, FeedUpdateError, FeedUpdateNotification, FeedUpdateRequest,
-    FeedUpdateResult, Library,
+    FeedUpdateResult, Library, UpdateQuery,
 };
 pub use datasource::{EpisodesQuery, NewFeedMetadata, QueryError};
 pub use sqlite::SqliteDataProvider;

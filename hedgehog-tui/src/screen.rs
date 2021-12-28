@@ -32,7 +32,7 @@ use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, FeedUpdateRequest,
-    FeedUpdateResult, Library, NewFeedMetadata,
+    FeedUpdateResult, Library, NewFeedMetadata, UpdateQuery,
 };
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
@@ -445,13 +445,15 @@ impl UI {
                 }
             }
             Command::Update { current_only } => {
-                if current_only {
-                    if let Some(FeedView::Feed(selected_feed)) = self.selected_feed {
-                        self.library_actor
-                            .do_send(FeedUpdateRequest::UpdateSingle(selected_feed));
-                    }
+                let query = if current_only {
+                    self.selected_feed
+                        .and_then(|feed| feed.as_feed().cloned())
+                        .map(UpdateQuery::Single)
                 } else {
-                    self.library_actor.do_send(FeedUpdateRequest::UpdateAll);
+                    Some(UpdateQuery::All)
+                };
+                if let Some(query) = query {
+                    self.library_actor.do_send(FeedUpdateRequest::Update(query));
                 }
             }
             Command::SetOption(options_update) => {

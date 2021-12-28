@@ -7,6 +7,7 @@ use crate::sqlite::SqliteDataProvider;
 use crate::{
     EpisodeSummariesRequest, EpisodesListMetadataRequest, EpisodesQuery, FeedSummariesRequest,
     FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library, NewFeedMetadata,
+    UpdateQuery,
 };
 use actix::prelude::*;
 use reqwest::StatusCode;
@@ -250,7 +251,7 @@ async fn updates_episodes_on_update() {
             .body(include_str!("../test_data/rss/feed1-updated-episodes.xml"));
     });
 
-    let msg = FeedUpdateRequest::UpdateSingle(feed_id);
+    let msg = FeedUpdateRequest::Update(UpdateQuery::Single(feed_id));
     library.send(msg).await.unwrap();
 
     let update_started = reciever.recv().await.unwrap();
@@ -295,7 +296,7 @@ async fn removes_blocked_episodes() {
             .body(include_str!("../test_data/rss/feed1-blocked-episode.xml"));
     });
 
-    let msg = FeedUpdateRequest::UpdateSingle(feed_id);
+    let msg = FeedUpdateRequest::Update(UpdateQuery::Single(feed_id));
     library.send(msg).await.unwrap();
 
     let update_started = reciever.recv().await.unwrap();
@@ -332,7 +333,7 @@ async fn update_failure() {
         then.status(500);
     });
 
-    let msg = FeedUpdateRequest::UpdateSingle(feed_id);
+    let msg = FeedUpdateRequest::Update(UpdateQuery::Single(feed_id));
     library.send(msg).await.unwrap();
 
     let _update_started = reciever.recv().await.unwrap();
@@ -404,7 +405,10 @@ async fn update_all() {
         library: &Addr<Library>,
         reciever: &mut Receiver<FeedUpdateNotification>,
     ) -> HashSet<FeedId> {
-        library.send(FeedUpdateRequest::UpdateAll).await.unwrap();
+        library
+            .send(FeedUpdateRequest::Update(UpdateQuery::All))
+            .await
+            .unwrap();
         let update_started = reciever.recv().await.unwrap();
         let_assert!(let FeedUpdateNotification::UpdateStarted(feed_ids) = update_started);
         for _ in 0..feed_ids.len() {

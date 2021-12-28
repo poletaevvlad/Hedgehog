@@ -1,3 +1,4 @@
+use crate::actor::UpdateQuery;
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
@@ -88,7 +89,7 @@ pub trait DataProvider: Unpin {
     fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
     fn get_feed_opml_entries(&self) -> DbResult<Vec<FeedOMPLEntry>>;
-    fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>>;
+    fn get_update_sources(&self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>>;
     fn get_new_episodes_count(
         &self,
         feed_ids: impl IntoIterator<Item = FeedId>,
@@ -108,7 +109,6 @@ pub trait DataProvider: Unpin {
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
     fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;
-    fn get_feed_source(&self, id: FeedId) -> DbResult<String>;
 
     fn set_episode_status(
         &self,

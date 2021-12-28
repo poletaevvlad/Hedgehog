@@ -1,3 +1,4 @@
+use crate::actor::UpdateQuery;
 use crate::datasource::{
     DataProvider, DbResult, EpisodeWriter, EpisodesQuery, NewFeedMetadata, QueryError,
     WritableDataProvider,
@@ -114,12 +115,24 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn get_update_sources(&self) -> DbResult<Vec<(FeedId, String)>> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT id, source FROM feeds WHERE enabled")?;
-        let rows = statement.query_map(named_params! {}, |row| Ok((row.get(0)?, row.get(1)?)))?;
-        Ok(collect_results(rows)?)
+    fn get_update_sources(&self, query: UpdateQuery) -> DbResult<Vec<(FeedId, String)>> {
+        match query {
+            UpdateQuery::Single(feed_id) => {
+                let mut statement = self
+                    .connection
+                    .prepare("SELECT source FROM feeds WHERE id = :id LIMIT 1")?;
+                let source =
+                    statement.query_row(named_params! {":id": feed_id}, |row| row.get(0))?;
+                Ok(vec![(feed_id, source)])
+            }
+            UpdateQuery::All => {
+                let mut statement = self
+                    .connection
+                    .prepare("SELECT id, source FROM feeds WHERE enabled")?;
+                let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+                Ok(collect_results(rows)?)
+            }
+        }
     }
 
     fn get_new_episodes_count(
@@ -317,15 +330,6 @@ impl DataProvider for SqliteDataProvider {
             .prepare("UPDATE feeds SET enabled = :enabled WHERE id = :id")?;
         statement.execute(named_params! {":enabled": enabled, ":id": feed_id})?;
         Ok(())
-    }
-
-    fn get_feed_source(&self, id: FeedId) -> DbResult<String> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT source FROM feeds WHERE id = :id LIMIT 1")?;
-        statement
-            .query_row(named_params! {":id": id}, |row| row.get(0))
-            .map_err(QueryError::from)
     }
 
     fn set_episode_status(

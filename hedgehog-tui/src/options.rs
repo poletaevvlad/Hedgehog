@@ -44,4 +44,5 @@ gen_options! {
     LabelFeedError(label_feed_error: String = " E ".to_string()),
     LabelFeedUpdating(label_feed_updating: String = " U ".to_string()),
     UpdateOnStart(update_on_start: bool = true),
+    ShowEpisodeNumber(show_episode_number: bool = true),
 }

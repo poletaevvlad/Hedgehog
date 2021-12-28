@@ -383,7 +383,7 @@ impl Handler<PlayerNotification> for MprisPlayer {
 
                         let message = (callbacks.metadata_changed)(
                             &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
-                            &(guard.construct_mpris_metadata(),),
+                            &guard.construct_mpris_metadata(),
                         );
                         if let Some(message) = message {
                             let _ = connection.send(message);
@@ -408,7 +408,7 @@ impl Handler<PlayerNotification> for MprisPlayer {
 
                         let message = (callbacks.metadata_changed)(
                             &dbus::Path::from("/org/mpris/MediaPlayer2").into_static(),
-                            &(guard.construct_mpris_metadata(),),
+                            &guard.construct_mpris_metadata(),
                         );
                         if let Some(message) = message {
                             let _ = connection.send(message);

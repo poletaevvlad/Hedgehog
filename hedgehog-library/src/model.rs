@@ -178,7 +178,6 @@ pub enum EpisodeStatus {
     New,
     #[cmd(rename = "seen")]
     NotStarted,
-    #[cmd(rename = "done")]
     Finished,
     #[cmd(ignore)]
     Started(Duration),

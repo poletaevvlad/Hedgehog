@@ -132,6 +132,16 @@ impl DataProvider for SqliteDataProvider {
                 let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
                 Ok(collect_results(rows)?)
             }
+            UpdateQuery::Pending => {
+                let mut statement = self
+                    .connection
+                    .prepare("SELECT id, source FROM feeds WHERE enabled AND status = :status")?;
+                let rows = statement.query_map(
+                    named_params! {":status": FeedStatus::Pending.db_view().0},
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )?;
+                Ok(collect_results(rows)?)
+            }
         }
     }
 

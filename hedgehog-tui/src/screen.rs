@@ -549,6 +549,9 @@ impl UI {
             self.handle_command(Command::Exec(path.to_path_buf()), ctx);
             self.status.data().has_errors()
         });
+
+        self.library_actor
+            .do_send(FeedUpdateRequest::Update(UpdateQuery::Pending));
     }
 
     fn refresh_episodes(&mut self, ctx: &mut <UI as Actor>::Context, replace_current: bool) {
@@ -744,7 +747,6 @@ impl Actor for UI {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         self.load_feeds(ctx);
-        self.init_rc(ctx);
 
         self.player_actor
             .do_send(hedgehog_player::ActorCommand::Subscribe(
@@ -761,6 +763,7 @@ impl Actor for UI {
 
         ctx.add_stream(crossterm::event::EventStream::new());
 
+        self.init_rc(ctx);
         let mut data_dir = self.app_ctx.data_path.clone();
         data_dir.push("history");
         if let Err(error) = self.commands_history.load_file(data_dir) {

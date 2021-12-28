@@ -92,6 +92,7 @@ fn main() {
                 .long("data-path")
                 .takes_value(true)
                 .value_name("DIR")
+                .global(true)
                 .help("Location for the episodes database and other data"),
         )
         .arg(

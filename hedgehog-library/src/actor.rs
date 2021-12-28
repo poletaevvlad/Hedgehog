@@ -239,6 +239,7 @@ pub enum FeedUpdateNotification {
 pub enum UpdateQuery {
     Single(FeedId),
     All,
+    Pending,
 }
 
 #[derive(Debug, Message)]

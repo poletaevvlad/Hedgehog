@@ -189,12 +189,10 @@ impl<R: io::BufRead> Iterator for OpmlEntries<R> {
 #[cfg(test)]
 mod tests {
     use super::build_opml;
-    use crate::{
-        datasource::{DataProvider, EpisodeWriter, NewFeedMetadata, WritableDataProvider},
-        metadata::FeedMetadata,
-        opml::parse_opml,
-        SqliteDataProvider,
-    };
+    use crate::datasource::{DataProvider, NewFeedMetadata};
+    use crate::metadata::FeedMetadata;
+    use crate::opml::parse_opml;
+    use crate::SqliteDataProvider;
     use std::io::Cursor;
 
     #[test]

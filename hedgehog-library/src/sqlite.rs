@@ -1,7 +1,6 @@
 use crate::actor::UpdateQuery;
 use crate::datasource::{
     DataProvider, DbResult, EpisodeWriter, EpisodesQuery, NewFeedMetadata, QueryError,
-    WritableDataProvider,
 };
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
@@ -147,7 +146,7 @@ impl DataProvider for SqliteDataProvider {
 
     fn get_new_episodes_count(
         &self,
-        feed_ids: impl IntoIterator<Item = FeedId>,
+        feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>> {
         let mut sql = "
             SELECT feeds.id, COUNT(episodes.id)
@@ -368,6 +367,14 @@ impl DataProvider for SqliteDataProvider {
         }
         Ok(feed_ids_set)
     }
+
+    fn writer<'a>(&'a mut self, feed_id: FeedId) -> DbResult<Box<dyn EpisodeWriter + 'a>> {
+        let transaction = self.connection.transaction()?;
+        Ok(Box::new(SqliteEpisodeWriter {
+            feed_id,
+            transaction,
+        }))
+    }
 }
 
 impl EpisodesQuery {
@@ -434,18 +441,6 @@ fn collect_results<T, E>(items: impl IntoIterator<Item = Result<T, E>>) -> Resul
     Ok(result)
 }
 
-impl<'a> WritableDataProvider for &'a mut SqliteDataProvider {
-    type Writer = SqliteEpisodeWriter<'a>;
-
-    fn writer(self, feed_id: FeedId) -> DbResult<Self::Writer> {
-        let transaction = self.connection.transaction()?;
-        Ok(SqliteEpisodeWriter {
-            feed_id,
-            transaction,
-        })
-    }
-}
-
 pub struct SqliteEpisodeWriter<'a> {
     feed_id: FeedId,
     transaction: rusqlite::Transaction<'a>,
@@ -502,7 +497,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
             .map_err(QueryError::from)
     }
 
-    fn close(self) -> DbResult<()> {
+    fn close(self: Box<Self>) -> DbResult<()> {
         self.transaction.commit().map_err(QueryError::from)
     }
 
@@ -518,7 +513,7 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
 #[cfg(test)]
 mod tests {
     use super::{ConnectionError, SqliteDataProvider};
-    use crate::datasource::{DataProvider, EpisodeWriter, NewFeedMetadata, WritableDataProvider};
+    use crate::datasource::{DataProvider, NewFeedMetadata};
     use crate::metadata::{EpisodeMetadata, FeedMetadata};
     use crate::model::{EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, FeedStatus};
     use crate::EpisodesQuery;

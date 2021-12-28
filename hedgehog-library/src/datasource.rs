@@ -90,10 +90,8 @@ pub trait DataProvider: Unpin {
     fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
     fn get_feed_opml_entries(&self) -> DbResult<Vec<FeedOMPLEntry>>;
     fn get_update_sources(&self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>>;
-    fn get_new_episodes_count(
-        &self,
-        feed_ids: impl IntoIterator<Item = FeedId>,
-    ) -> DbResult<HashMap<FeedId, usize>>;
+    fn get_new_episodes_count(&self, feed_ids: HashSet<FeedId>)
+        -> DbResult<HashMap<FeedId, usize>>;
 
     fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData>;
@@ -115,17 +113,13 @@ pub trait DataProvider: Unpin {
         query: EpisodesQuery,
         status: EpisodeStatus,
     ) -> DbResult<HashSet<FeedId>>;
-}
 
-pub trait WritableDataProvider {
-    type Writer: EpisodeWriter;
-
-    fn writer(self, feed_id: FeedId) -> DbResult<Self::Writer>;
+    fn writer<'a>(&'a mut self, feed_id: FeedId) -> DbResult<Box<dyn EpisodeWriter + 'a>>;
 }
 
 pub trait EpisodeWriter {
     fn set_feed_metadata(&mut self, metadata: &FeedMetadata) -> DbResult<()>;
     fn set_episode_metadata(&mut self, metadata: &EpisodeMetadata) -> DbResult<EpisodeId>;
     fn delete_episode(&mut self, guid: &str) -> DbResult<()>;
-    fn close(self) -> DbResult<()>;
+    fn close(self: Box<Self>) -> DbResult<()>;
 }

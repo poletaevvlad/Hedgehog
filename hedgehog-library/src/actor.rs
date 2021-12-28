@@ -1,12 +1,9 @@
-use crate::datasource::{
-    DataProvider, DbResult, EpisodeWriter, NewFeedMetadata, QueryError, WritableDataProvider,
-};
+use crate::datasource::{DataProvider, DbResult, NewFeedMetadata, QueryError};
 use crate::model::{
     EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, FeedError, FeedId, FeedStatus, FeedSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
-use crate::sqlite::SqliteDataProvider;
 use crate::EpisodesQuery;
 use actix::fut::wrap_future;
 use actix::prelude::*;
@@ -15,17 +12,17 @@ use std::ops::Range;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
-pub struct Library<D: DataProvider = SqliteDataProvider> {
-    data_provider: D,
+pub struct Library {
+    data_provider: Box<dyn DataProvider>,
     updating_feeds: HashSet<FeedId>,
     feeds_semaphore: Arc<Semaphore>,
     update_listener: Option<Recipient<FeedUpdateNotification>>,
 }
 
-impl<D: DataProvider> Library<D> {
-    pub fn new(data_provider: D) -> Self {
+impl Library {
+    pub fn new(data_provider: impl DataProvider + 'static) -> Self {
         Library {
-            data_provider,
+            data_provider: Box::new(data_provider),
             updating_feeds: HashSet::new(),
             feeds_semaphore: Arc::new(Semaphore::new(8)),
             update_listener: None,
@@ -33,7 +30,7 @@ impl<D: DataProvider> Library<D> {
     }
 }
 
-impl<D: DataProvider + 'static> Actor for Library<D> {
+impl Actor for Library {
     type Context = Context<Self>;
 }
 
@@ -50,10 +47,7 @@ impl EpisodeSummariesRequest {
     }
 }
 
-impl<D> Handler<EpisodeSummariesRequest> for Library<D>
-where
-    D: DataProvider + 'static,
-{
+impl Handler<EpisodeSummariesRequest> for Library {
     type Result = DbResult<Vec<EpisodeSummary>>;
 
     fn handle(&mut self, msg: EpisodeSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
@@ -66,10 +60,7 @@ where
 #[rtype(result = "DbResult<EpisodesListMetadata>")]
 pub struct EpisodesListMetadataRequest(pub EpisodesQuery);
 
-impl<D> Handler<EpisodesListMetadataRequest> for Library<D>
-where
-    D: DataProvider + 'static,
-{
+impl Handler<EpisodesListMetadataRequest> for Library {
     type Result = DbResult<EpisodesListMetadata>;
 
     fn handle(
@@ -85,10 +76,7 @@ where
 #[rtype(result = "DbResult<Vec<FeedSummary>>")]
 pub struct FeedSummariesRequest;
 
-impl<D> Handler<FeedSummariesRequest> for Library<D>
-where
-    D: DataProvider + 'static,
-{
+impl Handler<FeedSummariesRequest> for Library {
     type Result = DbResult<Vec<FeedSummary>>;
 
     fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
@@ -100,7 +88,7 @@ where
 #[rtype(result = "DbResult<EpisodePlaybackData>")]
 pub struct EpisodePlaybackDataRequest(pub EpisodeId);
 
-impl<D: DataProvider + 'static> Handler<EpisodePlaybackDataRequest> for Library<D> {
+impl Handler<EpisodePlaybackDataRequest> for Library {
     type Result = DbResult<EpisodePlaybackData>;
 
     fn handle(
@@ -112,7 +100,7 @@ impl<D: DataProvider + 'static> Handler<EpisodePlaybackDataRequest> for Library<
     }
 }
 
-impl<D: DataProvider + 'static> Library<D> {
+impl Library {
     fn notify_update_listener(&mut self, message: FeedUpdateNotification) {
         if let Some(listener) = &self.update_listener {
             let result = listener.do_send(message);
@@ -125,10 +113,8 @@ impl<D: DataProvider + 'static> Library<D> {
     fn schedule_update(
         &mut self,
         mut feeds: Vec<(FeedId, String)>,
-        ctx: &mut <Library<D> as Actor>::Context,
-    ) where
-        for<'a> &'a mut D: WritableDataProvider,
-    {
+        ctx: &mut <Library as Actor>::Context,
+    ) {
         feeds.retain(|(feed_id, _)| !self.updating_feeds.contains(feed_id));
         if feeds.is_empty() {
             return;
@@ -144,7 +130,7 @@ impl<D: DataProvider + 'static> Library<D> {
                 let _permit = permit_fut.await.unwrap();
                 fetch_feed(&source).await.map_err(FeedUpdateError::from)
             })
-            .map(move |result, library: &mut Library<D>, _ctx| {
+            .map(move |result, library: &mut Library, _ctx| {
                 library.updating_feeds.remove(&feed_id);
                 let result = match result {
                     Ok(mut feed) => (|| {
@@ -253,10 +239,7 @@ pub enum FeedUpdateRequest {
     SetFeedEnabled(FeedId, bool),
 }
 
-impl<D: DataProvider + 'static> Handler<FeedUpdateRequest> for Library<D>
-where
-    for<'a> &'a mut D: WritableDataProvider,
-{
+impl Handler<FeedUpdateRequest> for Library {
     type Result = ();
 
     fn handle(&mut self, msg: FeedUpdateRequest, ctx: &mut Self::Context) -> Self::Result {

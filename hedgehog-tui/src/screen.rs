@@ -551,7 +551,11 @@ impl UI {
         });
 
         self.library_actor
-            .do_send(FeedUpdateRequest::Update(UpdateQuery::Pending));
+            .do_send(FeedUpdateRequest::Update(if self.options.update_on_start {
+                UpdateQuery::All
+            } else {
+                UpdateQuery::Pending
+            }));
     }
 
     fn refresh_episodes(&mut self, ctx: &mut <UI as Actor>::Context, replace_current: bool) {

@@ -49,14 +49,14 @@ impl EpisodeState {
         }
     }
 
-    fn as_theme_state(&self) -> theming::ListState {
+    fn as_theme_state(&self) -> (bool, theming::ListState) {
         match self {
-            EpisodeState::NotStarted => theming::ListState::Episode,
-            EpisodeState::New => theming::ListState::EpisodeNew,
-            EpisodeState::Playing => theming::ListState::EpisodePlaying,
-            EpisodeState::Started => theming::ListState::EpisodeStarted,
-            EpisodeState::Finished => theming::ListState::EpisodeFinished,
-            EpisodeState::Error => theming::ListState::EpisodeError,
+            EpisodeState::NotStarted => (false, theming::ListState::Episode),
+            EpisodeState::New => (false, theming::ListState::EpisodeNew),
+            EpisodeState::Playing => (true, theming::ListState::Episode),
+            EpisodeState::Started => (false, theming::ListState::EpisodeStarted),
+            EpisodeState::Finished => (false, theming::ListState::EpisodeFinished),
+            EpisodeState::Error => (false, theming::ListState::EpisodeError),
         }
     }
 }
@@ -157,15 +157,16 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut Buffer) {
         let (item, selected) = item;
 
+        let (playing, state) = item
+            .map(|item| self.episode_status(item))
+            .unwrap_or(EpisodeState::NotStarted)
+            .as_theme_state();
         let item_selector = theming::ListItem {
             selected,
             focused: self.focused,
             missing_title: item.map(|item| item.title.is_none()).unwrap_or(false),
-            state: Some(
-                item.map(|item| self.episode_status(item))
-                    .unwrap_or(EpisodeState::NotStarted)
-                    .as_theme_state(),
-            ),
+            state: Some(state),
+            playing,
             column: None,
         };
 

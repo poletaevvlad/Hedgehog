@@ -12,8 +12,8 @@ set empty bg:%1d2021 fg:%ebdbb2
 set empty:focused bg:%282828
 set empty.title +bold fg:%fbf1c7
 
-set list.item:episode-playing fg:%98971a
-set list.item:selected:episode-playing fg:%b8bb26
+set list.item:playing fg:%98971a
+set list.item:selected:playing fg:%b8bb26
 
 set player bg:%3c3836
 set player.status bg:%504945 +bold fg:%504945

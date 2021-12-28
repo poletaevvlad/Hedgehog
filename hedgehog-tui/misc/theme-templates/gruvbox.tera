@@ -12,8 +12,8 @@ set empty bg:%{{bg0_hard}} fg:%{{fg1}}
 set empty:focused bg:%{{bg0}}
 set empty.title +bold fg:%{{fg0}}
 
-set list.item:episode-playing fg:%{{dark_green}}
-set list.item:selected:episode-playing fg:%{{light_green}}
+set list.item:playing fg:%{{dark_green}}
+set list.item:selected:playing fg:%{{light_green}}
 
 set player bg:%{{bg1}}
 set player.status bg:%{{bg2}} +bold fg:%{{bg2}}

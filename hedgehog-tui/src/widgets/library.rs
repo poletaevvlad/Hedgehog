@@ -66,6 +66,12 @@ impl<'a> Widget for LibraryWidget<'a> {
                 self.options,
                 self.data.focus == FocusedPane::FeedsList,
                 &self.data.updating_feeds,
+            )
+            .playing(
+                self.data
+                    .playing_episode
+                    .as_ref()
+                    .map(|episode| episode.feed_id),
             ),
             self.data.feeds.visible_iter(),
         )

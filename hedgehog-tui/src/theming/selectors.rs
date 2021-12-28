@@ -121,7 +121,6 @@ pub(crate) enum ListState {
     FeedSpecial,
     Episode,
     EpisodeError,
-    EpisodePlaying,
     EpisodeFinished,
     EpisodeNew,
     EpisodeStarted,
@@ -140,7 +139,6 @@ impl ListState {
                 callback(Some(ListState::FeedSpecial));
                 callback(Some(ListState::Episode));
                 callback(Some(ListState::EpisodeError));
-                callback(Some(ListState::EpisodePlaying));
                 callback(Some(ListState::EpisodeNew));
                 callback(Some(ListState::EpisodeStarted));
                 callback(Some(ListState::EpisodeFinished));
@@ -154,7 +152,6 @@ impl ListState {
             }
             Some(ListState::Episode) => {
                 callback(Some(ListState::EpisodeError));
-                callback(Some(ListState::EpisodePlaying));
                 callback(Some(ListState::EpisodeNew));
                 callback(Some(ListState::EpisodeStarted));
                 callback(Some(ListState::EpisodeFinished));
@@ -168,6 +165,7 @@ impl ListState {
 pub(crate) struct ListItem {
     pub(crate) selected: bool,
     pub(crate) focused: bool,
+    pub(crate) playing: bool,
     pub(crate) missing_title: bool,
     pub(crate) state: Option<ListState>,
     pub(crate) column: Option<ListColumn>,
@@ -200,6 +198,7 @@ impl List {
                     match *item {
                         ":focused" => list_item.focused = true,
                         ":selected" => list_item.selected = true,
+                        ":playing" => list_item.playing = true,
                         ":missing-title" => list_item.missing_title = true,
                         item => {
                             let new_state = match item {
@@ -209,7 +208,6 @@ impl List {
                                 ":feed-special" => ListState::FeedSpecial,
                                 ":episode" => ListState::Episode,
                                 ":episode-error" => ListState::EpisodeError,
-                                ":episode-playing" => ListState::EpisodePlaying,
                                 ":episode-new" => ListState::EpisodeNew,
                                 ":episode-started" => ListState::EpisodeStarted,
                                 ":episode-finished" => ListState::EpisodeFinished,
@@ -269,6 +267,11 @@ impl StyleSelector for List {
             } else {
                 &[true, false]
             };
+            let playing_variants: &[bool] = if item.playing {
+                &[true]
+            } else {
+                &[true, false]
+            };
             let missing_variants: &[bool] = if item.missing_title {
                 &[true]
             } else {
@@ -277,31 +280,34 @@ impl StyleSelector for List {
 
             for selected in selected_variants {
                 for focused in focused_variants {
-                    for missing in missing_variants {
-                        ListState::for_each(item.state, |state| {
-                            let new_item = ListItem {
-                                selected: *selected,
-                                focused: *focused,
-                                missing_title: *missing,
-                                state,
-                                column: None,
-                            };
+                    for playing in playing_variants {
+                        for missing in missing_variants {
+                            ListState::for_each(item.state, |state| {
+                                let new_item = ListItem {
+                                    selected: *selected,
+                                    focused: *focused,
+                                    playing: *playing,
+                                    missing_title: *missing,
+                                    state,
+                                    column: None,
+                                };
 
-                            if let Some(column) = item.column {
-                                callback(List::Item(ListItem {
-                                    column: Some(column),
-                                    ..new_item
-                                }));
-                            } else {
-                                callback(List::Item(new_item));
-                                for column in ListColumn::enumerate() {
+                                if let Some(column) = item.column {
                                     callback(List::Item(ListItem {
                                         column: Some(column),
                                         ..new_item
                                     }));
+                                } else {
+                                    callback(List::Item(new_item));
+                                    for column in ListColumn::enumerate() {
+                                        callback(List::Item(ListItem {
+                                            column: Some(column),
+                                            ..new_item
+                                        }));
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
                 }
             }
@@ -675,9 +681,9 @@ mod tests {
             Ok(Selector::List(List::Item(ListItem::default())))
         );
         assert_eq!(
-            "list.item:episode-playing".parse(),
+            "list.item:episode-error".parse(),
             Ok(Selector::List(List::Item(ListItem {
-                state: Some(ListState::EpisodePlaying),
+                state: Some(ListState::EpisodeError),
                 ..Default::default()
             })))
         );

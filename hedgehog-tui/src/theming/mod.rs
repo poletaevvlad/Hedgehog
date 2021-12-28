@@ -171,7 +171,7 @@ mod tests {
         );
         theme.set(
             List::Item(ListItem {
-                state: Some(ListState::EpisodePlaying),
+                state: Some(ListState::EpisodeError),
                 ..Default::default()
             }),
             Style::default().add_modifier(Modifier::UNDERLINED),
@@ -197,7 +197,7 @@ mod tests {
         );
         assert_eq!(
             theme.get(List::Item(ListItem {
-                state: Some(ListState::EpisodePlaying),
+                state: Some(ListState::EpisodeError),
                 column: Some(ListColumn::Title),
                 ..Default::default()
             })),

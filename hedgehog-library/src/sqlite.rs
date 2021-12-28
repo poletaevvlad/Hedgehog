@@ -204,7 +204,7 @@ impl DataProvider for SqliteDataProvider {
         let mut statement = self
             .connection
             .prepare(
-                "SELECT episodes.media_url, episodes.position, episodes.duration, episodes.title, feeds.title
+                "SELECT episodes.media_url, episodes.position, episodes.duration, episodes.title, feeds.id, feeds.title
                 FROM episodes JOIN feeds ON feeds.id = episodes.feed_id
                 WHERE episodes.id = :id LIMIT 1")?;
         statement
@@ -215,7 +215,8 @@ impl DataProvider for SqliteDataProvider {
                     position: Duration::from_nanos(row.get(1)?),
                     duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
                     episode_title: row.get(3)?,
-                    feed_title: row.get(4)?,
+                    feed_id: row.get(4)?,
+                    feed_title: row.get(5)?,
                 })
             })
             .map_err(QueryError::from)

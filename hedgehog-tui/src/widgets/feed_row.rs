@@ -13,6 +13,7 @@ pub(crate) struct FeedsListRowRenderer<'t> {
     focused: bool,
     options: &'t Options,
     updating_feeds: &'t HashSet<FeedId>,
+    playing_feed: Option<FeedId>,
 }
 
 enum FeedsListStatusIndicator {
@@ -41,7 +42,13 @@ impl<'t> FeedsListRowRenderer<'t> {
             options,
             focused,
             updating_feeds,
+            playing_feed: None,
         }
+    }
+
+    pub(crate) fn playing(mut self, playing: impl Into<Option<FeedId>>) -> Self {
+        self.playing_feed = playing.into();
+        self
     }
 
     fn get_status_indicator(&self, item: &FeedSummary) -> Option<FeedsListStatusIndicator> {
@@ -69,6 +76,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     missing_title: false,
                     state: Some(theming::ListState::FeedSpecial),
                     column: None,
+                    playing: false,
                 };
                 let style = self.theme.get(theming::List::Item(item_selector));
                 buf.set_style(area, style);
@@ -100,6 +108,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                         None => theming::ListState::Feed,
                     }),
                     column: None,
+                    playing: self.playing_feed == Some(item.id),
                 };
 
                 if let Some(status_indicator) = self.get_status_indicator(item) {

@@ -110,6 +110,7 @@ pub(crate) enum Command {
     PlayCurrent,
     #[cmd(transparent)]
     Playback(PlaybackCommand),
+    Finish,
     #[cmd(alias = "enable", alias = "disable")]
     SetFeedEnabled(#[cmd(alias_override(enable = "true", disable = "false"))] bool),
     #[cmd(alias = "q")]
@@ -434,6 +435,23 @@ impl UI {
                 ctx.spawn(future);
             }
             Command::Playback(command) => self.player_actor.do_send(command),
+            Command::Finish => {
+                if let Some(playing) = &self.library.playing_episode {
+                    self.player_actor.do_send(PlaybackCommand::Stop);
+                    self.status_writer_actor
+                        .do_send(StatusWriterCommand::set_finished(playing.id));
+                    self.library
+                        .episodes
+                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                            let episode = data
+                                .find(|item| item.id == playing.id)
+                                .and_then(|index| data.item_at_mut(index));
+                            if let Some(episode) = episode {
+                                episode.status = EpisodeSummaryStatus::Finished;
+                            }
+                        });
+                }
+            }
             Command::Volume(command) => self.player_actor.do_send(command),
             Command::AddFeed(source) => self
                 .library_actor

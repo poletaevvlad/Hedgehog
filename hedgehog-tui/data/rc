@@ -8,6 +8,7 @@ map Home line first
 map End line last
 map PageUp line page-up
 map PageDown line page-down
+map f finish
 map --state feeds Tab focus episodes
 map --state feeds Enter focus episodes
 map --state episodes Tab focus feeds

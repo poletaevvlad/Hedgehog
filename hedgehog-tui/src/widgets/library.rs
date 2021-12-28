@@ -124,7 +124,9 @@ impl<'a> Widget for LibraryWidget<'a> {
                 }
             } else {
                 let mut sizing = EpisodesListSizing::compute(self.options, metadata);
-                if state == Some(FeedView::All) || !self.options.show_episode_number {
+                if matches!(state, Some(FeedView::All | FeedView::New))
+                    || !self.options.show_episode_number
+                {
                     sizing.hide_episode_numbers();
                 }
 

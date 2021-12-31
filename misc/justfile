@@ -1,10 +1,10 @@
 list:
-    jest -l
+    @just -l
 
 theme-gruvbox-dark:
     cd template_renderer && cat ../themes/gruvbox.toml | poetry run python renderer.py variant=dark ../themes/gruvbox.jinja2 > ../../hedgehog-tui/data/gruvbox-dark.theme
 
 theme-gruvbox-light:
-    handlebars-cli "$(cat ./theme-templates/gruvbox-light.json)" ./theme-templates/gruvbox.tera > ../data/gruvbox-light.theme
+    cd template_renderer && cat ../themes/gruvbox.toml | poetry run python renderer.py variant=light ../themes/gruvbox.jinja2 > ../../hedgehog-tui/data/gruvbox-light.theme
 
 theme-gruvbox: theme-gruvbox-dark theme-gruvbox-light

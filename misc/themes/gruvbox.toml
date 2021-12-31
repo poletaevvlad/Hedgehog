@@ -32,3 +32,13 @@ text = ["$light1", "$light0"]
 color_variants = ["neutral", "bright"]
 player = "$dark2"
 player_active = "$dark3"
+
+[variants.light]
+background = ["$light0", "$light0_hard"]
+highlight = ["$light0_soft", "$light0"]
+active = ["$light1", "$light2"]
+divider = "$light2"
+text = ["$dark1", "$dark0"]
+color_variants = ["faded", "neutral"]
+player = "$light2"
+player_active = "$light3"

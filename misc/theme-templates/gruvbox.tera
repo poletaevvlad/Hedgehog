@@ -33,3 +33,4 @@ set statusbar.status:error fg:%{{light_red}}
 set statusbar.status:warning fg:%{{light_yellow}}
 set statusbar.status:information fg:%{{light_blue}}
 set statusbar.confirmation fg:%{{light_orange}}
+

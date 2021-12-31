@@ -1,0 +1,17 @@
+[dark]
+background = ["1d2021", "282828"]
+highlight = ["282828", "32302F"]
+active = ["3C3836", "504945"]
+divider = "504945"
+text = ["BDAE93", "d5C4A1" ]
+text_active = ["EBDBB2", "FBF1C7"]
+
+orange = ["D65D0E", "FE8019"]
+yellow = ["D79921", "FABD2F"]
+blue = ["458588", "83A598"]
+green = ["98971A", "B8BB26"]
+purple = ["B16286", "D3869B"]
+red = ["CC241D", "FB4934"]
+
+player = "504945"
+player_active = "665c54"

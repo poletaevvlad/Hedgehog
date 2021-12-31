@@ -2,7 +2,7 @@ list:
     jest -l
 
 theme-gruvbox-dark:
-    handlebars-cli "$(cat ./theme-templates/gruvbox-dark.json)" ./theme-templates/gruvbox.tera > ../data/gruvbox-dark.theme
+    cd template_renderer && cat ../themes/gruvbox.toml | poetry run python renderer.py ../themes/gruvbox.jinja2 > ../../hedgehog-tui/data/gruvbox-dark.theme
 
 theme-gruvbox-light:
     handlebars-cli "$(cat ./theme-templates/gruvbox-light.json)" ./theme-templates/gruvbox.tera > ../data/gruvbox-light.theme

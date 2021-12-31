@@ -23,12 +23,12 @@ def color_mix(fg: str, bg: str, factor: float) -> str:
     return f"{red:02x}{green:02x}{blue:02x}"
 
 
-def main():
-    if len(sys.argv) != 2:
-        print(f"USAGE: {sys.argv[0]} <template path>", file=sys.stderr)
+def main():     
+    if len(sys.argv) < 2:
+        print(f"USAGE: {sys.argv[0]} (<var>=<value>)* <template path>", file=sys.stderr)
         sys.exit(1)
 
-    template = Path(sys.argv[1]).read_text()
+    template = Path(sys.argv[-1]).read_text()
     jinja_env = Environment(
         loader=DictLoader({"index": template}),
         autoescape=select_autoescape(default=False, default_for_string=False),
@@ -36,7 +36,17 @@ def main():
     jinja_env.globals["color_mix"] = color_mix
 
     template = jinja_env.get_template("index")
+
     context = toml.load(sys.stdin)
+    for values in sys.argv[1:-1]:
+        key_value = values.split("=", maxsplit=2)
+        if len(key_value) != 2:
+            print(f"Invalid key-value pair '{key_value}'\n", file=sys.stderr)
+            print(f"USAGE: {sys.argv[0]} (<var>=<value>)* <template path>", file=sys.stderr)
+            sys.exit(1)
+        key, value = key_value
+        context[key] = value
+
     print(template.render(context))
 
 

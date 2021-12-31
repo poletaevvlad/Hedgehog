@@ -1,56 +1,60 @@
 set list.divider bg:%504945 fg:%504945
 
-set list.item bg: %1d2021 fg:%8c8370 bg:%1d2021
-set list.item.title fg:%BDAE93
-set list.item:feed-special fg:%BDAE93
+set list.item bg: %1d2021 fg:%989078 bg:%1d2021
+set list.item.title fg:%ebdbb2
+set list.item:feed-special fg:%ebdbb2
 set list.item:feed-special bg:%282828 +bold
-set list.item:selected bg: %3C3836 fg:%b6aa8c bg:%3C3836
-set list.item:selected.title fg:%EBDBB2
-set list.item:selected:feed-special fg:%EBDBB2
-set list.item:playing bg: %1d2021 fg:%396669 bg:%1d2021
+set list.item:episode-finished.title fg:%989078
+set list.item:selected bg: %3c3836 fg:%a59980 bg:%3c3836
+set list.item:selected.title fg:%ebdbb2
+set list.item:selected:feed-special fg:%ebdbb2
+set list.item:playing bg: %1d2021 fg:%355c5e bg:%1d2021
 set list.item:playing.title fg:%458588
-set list.item:playing:selected bg: %3C3836 fg:%6d847a bg:%3C3836
-set list.item:playing:selected.title fg:%83A598
-set list.item:focused bg: %282828 fg:%a1957c bg:%282828
-set list.item:focused.title fg:%d5C4A1
-set list.item:focused:feed-special fg:%d5C4A1
-set list.item:feed-special:focused bg:%32302F
-set list.item:selected:focused bg: %504945 fg:%c7be9f bg:%504945
-set list.item:selected:focused.title fg:%FBF1C7
-set list.item:selected:focused:feed-special fg:%FBF1C7
-set list.item:playing:focused bg: %282828 fg:%3c696b bg:%282828
+set list.item:playing:selected bg: %3c3836 fg:%667970 bg:%3c3836
+set list.item:playing:selected.title fg:%83a598
+set list.item:focused bg: %282828 fg:%a6a087 bg:%282828
+set list.item:focused.title fg:%fbf1c7
+set list.item:focused:feed-special fg:%fbf1c7
+set list.item:feed-special:focused bg:%32302f
+set list.item:episode-finished.title fg:%a6a087
+set list.item:selected:focused bg: %504945 fg:%b6ad93 bg:%504945
+set list.item:selected:focused.title fg:%fbf1c7
+set list.item:selected:focused:feed-special fg:%fbf1c7
+set list.item:playing:focused bg: %282828 fg:%395f61 bg:%282828
 set list.item:playing:focused.title fg:%458588
-set list.item:playing:selected:focused bg: %504945 fg:%73897f bg:%504945
-set list.item:playing:selected:focused.title fg:%83A598
+set list.item:playing:selected:focused bg: %504945 fg:%6e8076 bg:%504945
+set list.item:playing:selected:focused.title fg:%83a598
 
-set list.item.new-count fg:%D65D0E
-set list.item:selected.new-count fg:%D65D0E
-set list.item:episode-new.state fg:%D65D0E
-set list.item:episode-new:selected.state fg:%D65D0E
-set list.item:episode-started.state fg:%D79921
-set list.item:episode-started:selected.state fg:%D79921
-set list.item:episode-error.state fg:%CC241D
-set list.item:episode-error:selected.state fg:%CC241D
-set list.item:feed-error.state fg:%CC241D
-set list.item:feed-error:selected.state fg:%CC241D
+set list.item.new-count fg:%d65d0e
+set list.item:selected.new-count fg:%d65d0e
+set list.item:episode-new.state fg:%d65d0e
+set list.item:episode-new:selected.state fg:%d65d0e
+set list.item:episode-started.state fg:%d79921
+set list.item:episode-started:selected.state fg:%d79921
+set list.item:episode-finished.state fg:%689d6a
+set list.item:episode-finished:selected.state fg:%689d6a
+set list.item:episode-error.state fg:%cc241d
+set list.item:episode-error:selected.state fg:%cc241d
+set list.item:feed-error.state fg:%cc241d
+set list.item:feed-error:selected.state fg:%cc241d
 
-
-
-set player bg:%504945 fg:%FBF1C7
-
+set player bg:%504945 fg:%fbf1c7
 set player:playing bg:%5e583c
-set player:playing.status bg:%98971A
-
-
+set player:playing.status bg:%98971a
 set player:paused bg:%4d5552
 set player:paused.status bg:%458588
-
-
-set player:buffering bg:%634e52
-set player:buffering.status bg:%B16286
-
+set player:buffering bg:%68413d
+set player:buffering.status bg:%cc241d
 set player.episode +bold
-set player.feed fg:%EBDBB2 -bold
+set player.feed fg:%ebdbb2 -bold
 set player.status fg:%1d2021 +bold
 set player:stopped.status bg:%665c54 fg:%665c54
 set player.timing bg:%504945
+
+set statusbar.empty bg:%1d2021
+set statusbar.command bg:%1d2021 fg:%fbf1c7
+set statusbar.command.prompt fg:%fabd2f
+set statusbar.status:error fg:%fb4934
+set statusbar.status:warning fg:%fabd2f
+set statusbar.status:information fg:%83a598
+set statusbar.status:error.label fg:%fe8019

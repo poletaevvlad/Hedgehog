@@ -1,5 +1,20 @@
+{% macro var(name) -%}
+  {% if name.startswith("$") -%}
+    {{ variables[name[1:]] }}
+  {%- else -%}
+    {{ name }}
+  {%- endif %}
+{%- endmacro -%}
+
+{% set colors = variants[variant] -%}
+
+{% macro accent(name, index) -%}
+  {{ variables[name][colors.color_variants[index]] }}
+{%- endmacro -%}
+
+
 {% macro list_row(selector, bg, fg, include_special = false) -%}
-set {{ selector }} bg: %{{ bg }} fg:%{{ color_mix(fg, bg, 0.3) }} bg:%{{ bg }}
+set {{ selector }} bg: %{{ bg }} fg:%{{ color_mix(fg, bg, 0.4) }} bg:%{{ bg }}
 set {{ selector }}.title fg:%{{ fg }}
 {%- if include_special %}
 set {{ selector }}:feed-special fg:%{{ fg }}
@@ -7,36 +22,46 @@ set {{ selector }}:feed-special fg:%{{ fg }}
 {%- endmacro -%}
 
 {%- macro highlight_column(selector, column, color) -%}
-set {{ selector }}.{{ column }} fg:%{{ color[0] }}
-set {{ selector }}:selected.{{ column }} fg:%{{ color[0] }}
+set {{ selector }}.{{ column }} fg:%{{ accent(color, 0) }}
+set {{ selector }}:selected.{{ column }} fg:%{{ accent(color, 0) }}
 {%- endmacro -%}
 
-set list.divider bg:%{{ dark.divider }} fg:%{{ dark.divider }}
+set list.divider bg:%{{ var(colors.divider) }} fg:%{{ var(colors.divider) }}
 {% for index, selector in [(0, ""), (1, ":focused")] %}
-{{ list_row("list.item" + selector, dark.background[index], dark.text[index], true) }}
-set list.item:feed-special{{ selector }} bg:%{{ dark.highlight[index] }}{% if index == 0 %} +bold{% endif %}
-{{ list_row("list.item:selected" + selector, dark.active[index], dark.text_active[index], true) }}
-{{ list_row("list.item:playing" + selector, dark.background[index], dark.blue[0]) }}
-{{ list_row("list.item:playing:selected" + selector, dark.active[index], dark.blue[1]) }}
+{{ list_row("list.item" + selector, var(colors.background[index]), var(colors.text[index]), true) }}
+set list.item:feed-special{{ selector }} bg:%{{ var(colors.highlight[index]) }}{% if index == 0 %} +bold{% endif %}
+set list.item:episode-finished.title fg:%{{ color_mix(var(colors.text[index]), var(colors.background[index]), 0.4) }}
+{{ list_row("list.item:selected" + selector, var(colors.active[index]), var(colors.text[index]), true) }}
+{{ list_row("list.item:playing" + selector, var(colors.background[index]), accent("blue", 0)) }}
+{{ list_row("list.item:playing:selected" + selector, var(colors.active[index]), accent("blue", 1)) }}
 {%- endfor %}
 
-{{ highlight_column("list.item", "new-count", dark.orange) }}
-{{ highlight_column("list.item:episode-new", "state", dark.orange) }}
-{{ highlight_column("list.item:episode-started", "state", dark.yellow) }}
-{{ highlight_column("list.item:episode-error", "state", dark.red) }}
-{{ highlight_column("list.item:feed-error", "state", dark.red) }}
+{{ highlight_column("list.item", "new-count", "orange") }}
+{{ highlight_column("list.item:episode-new", "state", "orange") }}
+{{ highlight_column("list.item:episode-started", "state", "yellow") }}
+{{ highlight_column("list.item:episode-finished", "state", "aqua") }}
+{{ highlight_column("list.item:episode-error", "state", "red") }}
+{{ highlight_column("list.item:feed-error", "state", "red") }}
 
-{% macro player_state(state, color) %}
-set player:{{ state }} bg:%{{ color_mix(dark.player, color, 0.2) }}
+{% macro player_state(state, color) -%}
+set player:{{ state }} bg:%{{ color_mix(var(colors.player), color, 0.2) }}
 set player:{{ state }}.status bg:%{{ color }}
-{% endmacro %}
+{%- endmacro -%}
 
-set player bg:%{{ dark.player }} fg:%{{ dark.text_active[1] }}
-{{ player_state("playing", dark.green[0]) }}
-{{ player_state("paused", dark.blue[0]) }}
-{{ player_state("buffering", dark.purple[0]) }}
+set player bg:%{{ var(colors.player) }} fg:%{{ var(colors.text[1]) }}
+{{ player_state("playing", accent("green", 0)) }}
+{{ player_state("paused", accent("blue", 0)) }}
+{{ player_state("buffering", accent("purple", 0)) }}
 set player.episode +bold
-set player.feed fg:%{{ dark.text_active[0] }} -bold
-set player.status fg:%{{ dark.background[0] }} +bold
-set player:stopped.status bg:%{{ dark.player_active }} fg:%{{ dark.player_active }}
-set player.timing bg:%{{ dark.player }}
+set player.feed fg:%{{ var(colors.text[0]) }} -bold
+set player.status fg:%{{ var(colors.background[0]) }} +bold
+set player:stopped.status bg:%{{ var(colors.player_active) }} fg:%{{ var(colors.player_active) }}
+set player.timing bg:%{{ var(colors.player) }}
+
+set statusbar.empty bg:%{{ var(colors.background[0]) }}
+set statusbar.command bg:%{{ var(colors.background[0]) }} fg:%{{ var(colors.text[1]) }}
+set statusbar.command.prompt fg:%{{ accent("yellow", 1) }}
+set statusbar.status:error fg:%{{ accent("red", 1) }}
+set statusbar.status:warning fg:%{{ accent("yellow", 1) }}
+set statusbar.status:information fg:%{{ accent("blue", 1) }}
+set statusbar.status:error.label fg:%{{ accent("orange", 1) }}

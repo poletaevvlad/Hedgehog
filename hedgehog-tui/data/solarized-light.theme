@@ -7,6 +7,7 @@ set list.item:focused.title fg:%002b36
 set list.item:focused:feed-special fg:%002b36
 set list.item:selected bg:%c0c4bb fg:%073642
 set list.item:focused:selected bg:%839496
+set list.item:missing-title.title +italic
 
 
 set list.item.new-count fg:%b58900
@@ -51,4 +52,4 @@ set statusbar.status:error fg:%dc322f
 set statusbar.status:warning fg:%b58900
 set statusbar.status:information fg:%2aa198
 set statusbar.status.label +bold
-set statusbar.command.prompt bg:%eee8d5 fg:%6c71c4
+set statusbar.confirmation bg:%eee8d5 fg:%073642

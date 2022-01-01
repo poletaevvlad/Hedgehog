@@ -12,6 +12,7 @@ set list.item:playing bg: %fbf1c7 fg:%689d97 bg:%fbf1c7
 set list.item:playing.title fg:%076678
 set list.item:playing:selected bg: %ebdbb2 fg:%87a798 bg:%ebdbb2
 set list.item:playing:selected.title fg:%458588
+set empty bg:%fbf1c7 fg:%3c3836
 set list.item:focused bg: %f9f5d7 fg:%7b7a6e bg:%f9f5d7
 set list.item:focused.title fg:%282828
 set list.item:focused:feed-special fg:%282828
@@ -24,7 +25,10 @@ set list.item:playing:focused bg: %f9f5d7 fg:%679f9e bg:%f9f5d7
 set list.item:playing:focused.title fg:%076678
 set list.item:playing:selected:focused bg: %d5c4a1 fg:%7e9e92 bg:%d5c4a1
 set list.item:playing:selected:focused.title fg:%458588
+set empty:focused bg:%f9f5d7 fg:%282828
+set empty.title +bold
 
+set list.item:missing-title.title +italic
 set list.item.new-count fg:%af3a03
 set list.item:selected.new-count fg:%af3a03
 set list.item:episode-new.state fg:%af3a03
@@ -59,3 +63,4 @@ set statusbar.status:error fg:%cc241d
 set statusbar.status:warning fg:%d79921
 set statusbar.status:information fg:%458588
 set statusbar.status:error.label fg:%d65d0e
+set statusbar.confirmation bg:%fbf1c7 fg:%af3a03

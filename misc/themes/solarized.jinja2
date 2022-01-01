@@ -15,6 +15,7 @@ set list.item:focused.title fg:%{{ color("base03") }}
 set list.item:focused:feed-special fg:%{{ color("base03") }}
 set list.item:selected bg:%{{ color_mix(color("base1"), color("base2"), 0.5) }} fg:%{{ color("base02") }}
 set list.item:focused:selected bg:%{{ color("base0") }}
+set list.item:missing-title.title +italic
 
 {% macro highlight_column(column, highlight_color) %}
 set list.item{{ column }} fg:%{{ highlight_color }}
@@ -49,3 +50,4 @@ set statusbar.status:error fg:%{{ color("red") }}
 set statusbar.status:warning fg:%{{ color("yellow") }}
 set statusbar.status:information fg:%{{ color("cyan") }}
 set statusbar.status.label +bold
+set statusbar.confirmation bg:%{{ color("base2") }} fg:%{{ color("base02") }}

@@ -2,6 +2,9 @@
 # This theme definition is automatically generated from a Jinja2 template
 # located at `misc/themes/gruvbox.jinja2`
 
+# This theme is based on the "Gruvbox" VIM theme developed by Pavel Pertsev (@morhetz)
+# See the original theme: https://github.com/morhetz/gruvbox
+
 set list.divider bg:%d5c4a1 fg:%d5c4a1
 set list.item bg: %fbf1c7 fg:%888270 bg:%fbf1c7
 set list.item.title fg:%3c3836

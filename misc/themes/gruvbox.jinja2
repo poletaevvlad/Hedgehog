@@ -27,6 +27,9 @@ set {{ selector }}:selected.{{ column }} fg:%{{ accent(color, 0) }}
 
 {% include "header.jinja2" %}
 
+# This theme is based on the "Gruvbox" VIM theme developed by Pavel Pertsev (@morhetz)
+# See the original theme: https://github.com/morhetz/gruvbox
+
 set list.divider bg:%{{ var(colors.divider) }} fg:%{{ var(colors.divider) }}
 {%- for index, selector in [(0, ""), (1, ":focused")] %}
 {{ list_row("list.item" + selector, var(colors.background[index]), var(colors.text[index]), true) }}

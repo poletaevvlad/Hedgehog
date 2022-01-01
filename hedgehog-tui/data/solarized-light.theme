@@ -2,6 +2,9 @@
 # This theme definition is automatically generated from a Jinja2 template
 # located at `misc/themes/solarized.jinja2`
 
+# This theme is based on Solarized theme developed by Ethan Schoonover
+# See the specification: https://ethanschoonover.com/colophon/
+
 set list.divider bg:%93a1a1 fg:%93a1a1
 set list.item bg:%eee8d5 fg:%586e75
 set list.item:focused bg:%fdf6e3

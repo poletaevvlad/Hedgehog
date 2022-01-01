@@ -1,3 +1,7 @@
+# **DO NOT EDIT**
+# This theme definition is automatically generated from a Jinja2 template
+# located at `misc/themes/solarized.jinja2`
+
 set list.divider bg:%586e75 fg:%586e75
 set list.item bg:%073642 fg:%93a1a1
 set list.item:focused bg:%002b36
@@ -9,26 +13,18 @@ set list.item:selected bg:%2f525b fg:%eee8d5
 set list.item:focused:selected bg:%657b83
 set list.item:missing-title.title +italic
 
-
 set list.item.new-count fg:%b58900
 set list.item:selected.new-count fg:%eee8d5
 set list.item:selected:focused.new-count fg:%fdf6e3 +bold
-
-
 set list.item:episode-new.state fg:%b58900
 set list.item:selected:episode-new.state fg:%eee8d5
 set list.item:selected:focused:episode-new.state fg:%fdf6e3 +bold
-
-
 set list.item:episode-started.state fg:%859900
 set list.item:selected:episode-started.state fg:%eee8d5
 set list.item:selected:focused:episode-started.state fg:%fdf6e3 +bold
-
-
 set list.item:episode-error.state fg:%dc322f
 set list.item:selected:episode-error.state fg:%eee8d5
 set list.item:selected:focused:episode-error.state fg:%fdf6e3 +bold
-
 set list.item:selected:focused.state +bold
 set list.item:selected:search.title +bold
 set list.item:selected:log-entry.title +bold

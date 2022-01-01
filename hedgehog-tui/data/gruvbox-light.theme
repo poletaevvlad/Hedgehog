@@ -1,5 +1,8 @@
-set list.divider bg:%d5c4a1 fg:%d5c4a1
+# **DO NOT EDIT**
+# This theme definition is automatically generated from a Jinja2 template
+# located at `misc/themes/gruvbox.jinja2`
 
+set list.divider bg:%d5c4a1 fg:%d5c4a1
 set list.item bg: %fbf1c7 fg:%888270 bg:%fbf1c7
 set list.item.title fg:%3c3836
 set list.item:feed-special fg:%3c3836

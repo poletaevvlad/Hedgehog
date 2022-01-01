@@ -6,6 +6,14 @@
   {%- endif %}
 {%- endmacro -%}
 
+{% macro highlight_column(column, highlight_color) -%}
+set list.item{{ column }} fg:%{{ highlight_color }}
+set list.item:selected{{ column }} fg:%{{ color("base02") }}
+set list.item:selected:focused{{ column }} fg:%{{ color("base03") }} +bold
+{%- endmacro -%}
+
+{% include "header.jinja2" %}
+
 set list.divider bg:%{{ color("base1") }} fg:%{{ color("base1") }}
 set list.item bg:%{{ color("base2") }} fg:%{{ color("base01") }}
 set list.item:focused bg:%{{ color("base3") }}
@@ -16,12 +24,6 @@ set list.item:focused:feed-special fg:%{{ color("base03") }}
 set list.item:selected bg:%{{ color_mix(color("base1"), color("base2"), 0.5) }} fg:%{{ color("base02") }}
 set list.item:focused:selected bg:%{{ color("base0") }}
 set list.item:missing-title.title +italic
-
-{% macro highlight_column(column, highlight_color) %}
-set list.item{{ column }} fg:%{{ highlight_color }}
-set list.item:selected{{ column }} fg:%{{ color("base02") }}
-set list.item:selected:focused{{ column }} fg:%{{ color("base03") }} +bold
-{% endmacro -%}
 
 {{ highlight_column(".new-count", color("yellow")) }}
 {{ highlight_column(":episode-new.state", color("yellow")) }}

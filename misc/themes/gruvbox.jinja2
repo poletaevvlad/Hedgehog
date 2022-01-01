@@ -25,8 +25,10 @@ set {{ selector }}.{{ column }} fg:%{{ accent(color, 0) }}
 set {{ selector }}:selected.{{ column }} fg:%{{ accent(color, 0) }}
 {%- endmacro -%}
 
+{% include "header.jinja2" %}
+
 set list.divider bg:%{{ var(colors.divider) }} fg:%{{ var(colors.divider) }}
-{% for index, selector in [(0, ""), (1, ":focused")] %}
+{%- for index, selector in [(0, ""), (1, ":focused")] %}
 {{ list_row("list.item" + selector, var(colors.background[index]), var(colors.text[index]), true) }}
 set list.item:feed-special{{ selector }} bg:%{{ var(colors.highlight[index]) }}{% if index == 0 %} +bold{% endif %}
 set list.item:episode-finished.title fg:%{{ color_mix(var(colors.text[index]), var(colors.background[index]), 0.4) }}

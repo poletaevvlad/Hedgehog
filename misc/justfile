@@ -1,10 +1,19 @@
 list:
     @just -l
 
-theme-gruvbox-dark:
-    cd template_renderer && cat ../themes/gruvbox.toml | poetry run python renderer.py variant=dark ../themes/gruvbox.jinja2 > ../../hedgehog-tui/data/gruvbox-dark.theme
+theme-gruvbox variant:
+    cd template_renderer && cat ../themes/gruvbox.toml | poetry run python renderer.py variant={{variant}} ../themes/gruvbox.jinja2 > ../../hedgehog-tui/data/gruvbox-{{variant}}.theme
 
-theme-gruvbox-light:
-    cd template_renderer && cat ../themes/gruvbox.toml | poetry run python renderer.py variant=light ../themes/gruvbox.jinja2 > ../../hedgehog-tui/data/gruvbox-light.theme
+theme-gruvbox-all:
+    just theme-gruvbox dark
+    just theme-gruvbox light
 
-theme-gruvbox: theme-gruvbox-dark theme-gruvbox-light
+theme-solarized variant:
+    cd template_renderer && cat ../themes/solarized.toml | poetry run python renderer.py variant={{variant}} ../themes/solarized.jinja2 > ../../hedgehog-tui/data/solarized-{{variant}}.theme
+
+theme-solarized-all:
+    just theme-solarized dark
+    just theme-solarized light
+
+theme: theme-solarized-all theme-gruvbox-all
+

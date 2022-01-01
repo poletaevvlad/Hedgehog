@@ -1,0 +1,54 @@
+set list.divider bg:%93a1a1 fg:%93a1a1
+set list.item bg:%eee8d5 fg:%586e75
+set list.item:focused bg:%fdf6e3
+set list.item.title fg:%073642
+set list.item:feed-special fg:%073642 +bold
+set list.item:focused.title fg:%002b36
+set list.item:focused:feed-special fg:%002b36
+set list.item:selected bg:%c0c4bb fg:%073642
+set list.item:focused:selected bg:%839496
+
+
+set list.item.new-count fg:%b58900
+set list.item:selected.new-count fg:%073642
+set list.item:selected:focused.new-count fg:%002b36 +bold
+
+
+set list.item:episode-new.state fg:%b58900
+set list.item:selected:episode-new.state fg:%073642
+set list.item:selected:focused:episode-new.state fg:%002b36 +bold
+
+
+set list.item:episode-started.state fg:%859900
+set list.item:selected:episode-started.state fg:%073642
+set list.item:selected:focused:episode-started.state fg:%002b36 +bold
+
+
+set list.item:episode-error.state fg:%dc322f
+set list.item:selected:episode-error.state fg:%073642
+set list.item:selected:focused:episode-error.state fg:%002b36 +bold
+
+set list.item:selected:focused.state +bold
+set list.item:selected:search.title +bold
+set list.item:selected:log-entry.title +bold
+
+set empty bg:%eee8d5 fg:%073642
+set empty.title fg:%002b36 +bold
+set empty:focused bg:%fdf6e3
+
+set player bg:%93a1a1 fg:%002b36
+set player.timing bg:%839496
+set player.feed fg:%073642
+set player.status bg:%839496 +bold
+set player:playing.status bg:%859900
+set player:paused.status bg:%268bd2
+set player:buffering.status bg:%dc322f
+
+set statusbar.empty bg:%eee8d5
+set statusbar.command bg:%eee8d5 fg:%073642
+set statusbar.status bg:%eee8d5
+set statusbar.status:error fg:%dc322f
+set statusbar.status:warning fg:%b58900
+set statusbar.status:information fg:%2aa198
+set statusbar.status.label +bold
+set statusbar.command.prompt bg:%eee8d5 fg:%6c71c4

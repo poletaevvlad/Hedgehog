@@ -1,0 +1,51 @@
+{% macro color(name) -%}
+  {% if variant == "dark" and inversion[name] is defined -%}
+    {{ colors[inversion[name]] }}
+  {%- else -%}
+    {{ colors[name] }}
+  {%- endif %}
+{%- endmacro -%}
+
+set list.divider bg:%{{ color("base1") }} fg:%{{ color("base1") }}
+set list.item bg:%{{ color("base2") }} fg:%{{ color("base01") }}
+set list.item:focused bg:%{{ color("base3") }}
+set list.item.title fg:%{{ color("base02") }}
+set list.item:feed-special fg:%{{ color("base02") }} +bold
+set list.item:focused.title fg:%{{ color("base03") }}
+set list.item:focused:feed-special fg:%{{ color("base03") }}
+set list.item:selected bg:%{{ color_mix(color("base1"), color("base2"), 0.5) }} fg:%{{ color("base02") }}
+set list.item:focused:selected bg:%{{ color("base0") }}
+
+{% macro highlight_column(column, highlight_color) %}
+set list.item{{ column }} fg:%{{ highlight_color }}
+set list.item:selected{{ column }} fg:%{{ color("base02") }}
+set list.item:selected:focused{{ column }} fg:%{{ color("base03") }} +bold
+{% endmacro -%}
+
+{{ highlight_column(".new-count", color("yellow")) }}
+{{ highlight_column(":episode-new.state", color("yellow")) }}
+{{ highlight_column(":episode-started.state", color("green")) }}
+{{ highlight_column(":episode-error.state", color("red")) }}
+set list.item:selected:focused.state +bold
+set list.item:selected:search.title +bold
+set list.item:selected:log-entry.title +bold
+
+set empty bg:%{{ color("base2") }} fg:%{{ color("base02") }}
+set empty.title fg:%{{ color("base03") }} +bold
+set empty:focused bg:%{{ color("base3") }}
+
+set player bg:%{{ color("base1") }} fg:%{{ color("base03") }}
+set player.timing bg:%{{ color("base0") }}
+set player.feed fg:%{{ color("base02") }}
+set player.status bg:%{{ color("base0") }} +bold
+set player:playing.status bg:%{{ color("green") }}
+set player:paused.status bg:%{{ color("blue") }}
+set player:buffering.status bg:%{{ color("red") }}
+
+set statusbar.empty bg:%{{ color("base2") }}
+set statusbar.command bg:%{{ color("base2") }} fg:%{{ color("base02") }}
+set statusbar.status bg:%{{ color("base2") }}
+set statusbar.status:error fg:%{{ color("red") }}
+set statusbar.status:warning fg:%{{ color("yellow") }}
+set statusbar.status:information fg:%{{ color("cyan") }}
+set statusbar.status.label +bold

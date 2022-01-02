@@ -548,13 +548,15 @@ impl UI {
                 }
             }
             Command::Refresh => {
-                self.load_feeds(ctx);
                 self.library
                     .episodes
                     .update_data::<selection::Reset, _>(|data| {
                         data.clear_provider();
                         data.clear();
                     });
+                self.selected_feed = None;
+                self.library.episodes_list_metadata = None;
+                self.load_feeds(ctx);
                 self.invalidate(ctx);
             }
         }

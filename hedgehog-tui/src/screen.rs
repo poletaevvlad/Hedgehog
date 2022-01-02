@@ -584,12 +584,15 @@ impl UI {
         self.library
             .episodes
             .update_data::<selection::Keep, _>(|data| {
-                // To prevent updates for the old
+                // To prevent updates for the old data
                 data.clear_provider();
                 if replace_current {
                     data.clear();
                 }
             });
+        if replace_current {
+            self.library.episodes_list_metadata = None;
+        }
 
         let query = EpisodesQuery::from_feed_view(feed_id);
         let new_provider = EpisodesListProvider {
@@ -674,6 +677,7 @@ impl UI {
                     data.clear();
                     data.clear_provider();
                 });
+            self.library.episodes_list_metadata = None;
         }
         self.invalidate(ctx);
     }

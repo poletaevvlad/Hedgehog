@@ -41,9 +41,6 @@ impl Theme {
             ThemeCommand::Reset => *self = Theme::default(),
             ThemeCommand::Set(selector, style) => self.set(selector, style),
             ThemeCommand::Load(path, loading_option) => {
-                if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
-                    *self = Theme::default();
-                }
                 let resolver = FileResolver::new()
                     .with_suffix(".theme")
                     .with_reversed_order();
@@ -51,9 +48,20 @@ impl Theme {
                     .resolve(path, paths)
                     .ok_or(cmdreader::Error::Resolution)?;
 
-                let mut reader = CommandReader::open(path)?;
-                while let Some(command) = reader.read()? {
-                    self.handle_command(command, paths)?;
+                let snapshot = self.styles.clone();
+                if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
+                    *self = Theme::default();
+                }
+                let result: Result<(), cmdreader::Error> = (|| {
+                    let mut reader = CommandReader::open(path)?;
+                    while let Some(command) = reader.read()? {
+                        self.handle_command(command, paths)?;
+                    }
+                    Ok(())
+                })();
+                if let Err(error) = result {
+                    self.styles = snapshot;
+                    return Err(error);
                 }
             }
         }

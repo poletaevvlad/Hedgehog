@@ -87,9 +87,35 @@ impl_hedgehog_error!(actix::MailboxError, ErrorType::Actix);
 impl_hedgehog_error!(hedgehog_library::QueryError, ErrorType::Database);
 impl_hedgehog_error!(std::io::Error, ErrorType::IO);
 
+pub(crate) struct CustomStatus {
+    text: Cow<'static, str>,
+    severity: Severity,
+    ttl: Option<Duration>,
+}
+
+impl CustomStatus {
+    pub(crate) fn new(text: impl Into<Cow<'static, str>>) -> Self {
+        CustomStatus {
+            text: text.into(),
+            severity: Severity::Information,
+            ttl: None,
+        }
+    }
+
+    pub(crate) fn set_severity(mut self, severity: Severity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    pub(crate) fn set_ttl(mut self, ttl: impl Into<Option<Duration>>) -> Self {
+        self.ttl = ttl.into();
+        self
+    }
+}
+
 pub(crate) enum Status {
     Error(Box<dyn HedgehogError + 'static>),
-    Custom(Cow<'static, str>, Severity),
+    Custom(CustomStatus),
     VolumeChanged(Option<Volume>),
 }
 
@@ -101,19 +127,15 @@ impl Status {
     pub(crate) fn severity(&self) -> Severity {
         match self {
             Status::Error(_) => Severity::Error,
-            Status::Custom(_, severity) => *severity,
+            Status::Custom(status) => status.severity,
             Status::VolumeChanged(_) => Severity::Information,
         }
-    }
-
-    pub(crate) fn new_custom(text: impl Into<Cow<'static, str>>, severity: Severity) -> Self {
-        Status::Custom(text.into(), severity)
     }
 
     pub(crate) fn ttl(&self) -> Option<Duration> {
         match self {
             Status::Error(err) => err.error_type().ttl(),
-            Status::Custom(_, _) => None,
+            Status::Custom(custom) => custom.ttl,
             Status::VolumeChanged(_) => Some(Duration::from_secs(2)),
         }
     }
@@ -128,10 +150,15 @@ impl Status {
     fn store_in_log(&self) -> bool {
         match self {
             Status::Error(error) => error.error_type().store_in_log(),
-            Status::Custom(_, Severity::Error) => true,
-            Status::Custom(_, _) => false,
+            Status::Custom(custom) => custom.severity == Severity::Error,
             Status::VolumeChanged(_) => false,
         }
+    }
+}
+
+impl From<CustomStatus> for Status {
+    fn from(status: CustomStatus) -> Self {
+        Status::Custom(status)
     }
 }
 
@@ -139,7 +166,7 @@ impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Status::Error(value) => f.write_fmt(format_args!("{}", value)),
-            Status::Custom(error, _) => f.write_str(error),
+            Status::Custom(custom) => f.write_str(&custom.text),
             Status::VolumeChanged(Some(volume)) => {
                 f.write_fmt(format_args!("Volume: {:.0}%", volume.cubic() * 100.0))
             }

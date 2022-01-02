@@ -6,7 +6,7 @@ use crate::mouse::{MouseEventKind, MouseHitResult, MouseState, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
-use crate::status::{HedgehogError, Severity, Status, StatusLog};
+use crate::status::{CustomStatus, HedgehogError, Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
@@ -325,18 +325,12 @@ impl UI {
                 let redefined = self.key_mapping.contains(key, state);
                 self.key_mapping.map(key, state, *command);
                 if redefined {
-                    self.set_status(
-                        Status::new_custom("Key mapping redefined", Severity::Information),
-                        ctx,
-                    );
+                    self.set_status(CustomStatus::new("Key mapping redefined").into(), ctx);
                 }
             }
             Command::Unmap(key, state) => {
                 if !self.key_mapping.unmap(key, state) {
-                    self.set_status(
-                        Status::new_custom("Key mapping is not defined", Severity::Warning),
-                        ctx,
-                    );
+                    self.set_status(CustomStatus::new("Key mapping is not defined").into(), ctx);
                 }
             }
             Command::Theme(command) => {
@@ -1155,7 +1149,9 @@ impl Handler<FeedUpdateNotification> for UI {
                 self.update_current_feed(ctx);
             }
             FeedUpdateNotification::DuplicateFeed => self.set_status(
-                Status::new_custom("This podcast has already been added", Severity::Warning),
+                CustomStatus::new("This podcast has already been added")
+                    .set_severity(Severity::Warning)
+                    .into(),
                 ctx,
             ),
             FeedUpdateNotification::FeedDeleted(feed_id) => {

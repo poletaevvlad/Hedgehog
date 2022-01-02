@@ -1,10 +1,12 @@
+use crate::scrolling::DataView;
 use chrono::{DateTime, Local};
 use hedgehog_player::volume::Volume;
 use std::borrow::Cow;
 use std::fmt;
 use std::time::Duration;
 
-use crate::scrolling::DataView;
+pub(crate) const TTL_LONG: Duration = Duration::from_secs(10);
+pub(crate) const TTL_SHORT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ErrorType {
@@ -30,11 +32,11 @@ impl ErrorType {
 
     fn ttl(&self) -> Option<Duration> {
         match self {
-            ErrorType::Playback => Some(Duration::from_secs(10)),
+            ErrorType::Playback => Some(TTL_LONG),
             ErrorType::Database => None,
-            ErrorType::Update => Some(Duration::from_secs(10)),
+            ErrorType::Update => Some(TTL_SHORT),
             ErrorType::Actix => None,
-            ErrorType::Command => Some(Duration::from_secs(3)),
+            ErrorType::Command => Some(TTL_SHORT),
             ErrorType::IO => None,
         }
     }

@@ -6,7 +6,7 @@ use crate::mouse::{MouseEventKind, MouseHitResult, MouseState, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
-use crate::status::{CustomStatus, HedgehogError, Severity, Status, StatusLog};
+use crate::status::{self, CustomStatus, HedgehogError, Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
@@ -325,12 +325,22 @@ impl UI {
                 let redefined = self.key_mapping.contains(key, state);
                 self.key_mapping.map(key, state, *command);
                 if redefined {
-                    self.set_status(CustomStatus::new("Key mapping redefined").into(), ctx);
+                    self.set_status(
+                        CustomStatus::new("Key mapping redefined")
+                            .set_ttl(status::TTL_SHORT)
+                            .into(),
+                        ctx,
+                    );
                 }
             }
             Command::Unmap(key, state) => {
                 if !self.key_mapping.unmap(key, state) {
-                    self.set_status(CustomStatus::new("Key mapping is not defined").into(), ctx);
+                    self.set_status(
+                        CustomStatus::new("Key mapping is not defined")
+                            .set_ttl(status::TTL_SHORT)
+                            .into(),
+                        ctx,
+                    );
                 }
             }
             Command::Theme(command) => {
@@ -1151,6 +1161,7 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::DuplicateFeed => self.set_status(
                 CustomStatus::new("This podcast has already been added")
                     .set_severity(Severity::Warning)
+                    .set_ttl(status::TTL_SHORT)
                     .into(),
                 ctx,
             ),

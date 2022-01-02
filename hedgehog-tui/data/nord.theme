@@ -1,0 +1,48 @@
+# **DO NOT EDIT**
+# This theme definition is automatically generated from a Jinja2 template
+# located at `misc/themes/nord.jinja2`
+
+# This theme is based on the Nord color scheme developed by Arctic Ice Studio
+# Details: https://www.nordtheme.com/
+
+set list.divider bg:%4C566A fg:%4C566A
+
+set list.item bg:%3B4252 fg:%a8afbb
+set list.item:selected bg:%434C5E
+set list.item.title fg:%D8DEE9
+set list.item:feed-special fg:%D8DEE9
+set empty bg:%3B4252 fg:%D8DEE9
+set list.item:focused bg:%2E3440 fg:%b3b6be
+set list.item:focused:selected bg:%4C566A
+set list.item:focused.title fg:%ECEFF4
+set list.item:focused:feed-special fg:%ECEFF4
+set empty:focused bg:%2E3440 fg:%ECEFF4
+
+set empty.title +bold
+set list.item:feed-special +bold
+set list.item:missing-title.title +italic
+set list.item.new-count fg:%A3BE8C +bold
+set list.item:episode-new.state fg:%A3BE8C +bold
+set list.item:episode-error.state fg:%BF616A +bold
+set list.item:episode:playing.state fg:%88C0D0 +bold
+set list.item:feed-error.state fg:%BF616A +bold
+set list.item:episode-finished.state fg:%5E81AC +bold
+set list.item:episode-started.state fg:%EBCB8B +bold
+set list.item:playing.title fg:%88C0D0
+
+set player bg:%4C566A fg:%D8DEE9
+set player.episode fg:%ECEFF4
+set player.status +bold
+set player:playing.status bg:%A3BE8C fg:%3B4252
+set player:paused.status bg:%88C0D0 fg:%3B4252
+set player:buffering.status bg:%B48EAD fg:%3B4252
+
+set statusbar.empty bg:%2E3440
+set statusbar.command bg:%2E3440 fg:%ECEFF4
+set statusbar.command.prompt fg:%D8DEE9
+set statusbar.status bg:%2E3440
+set statusbar.status.label +bold
+set statusbar.status:error fg:%BF616A
+set statusbar.status:warning fg:%EBCB8B
+set statusbar.status:information fg:%81A1C1
+set statusbar.confirmation bg:%2E3440 fg:%ECEFF4

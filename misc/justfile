@@ -15,5 +15,7 @@ theme-solarized-all:
     just theme-solarized dark
     just theme-solarized light
 
-theme: theme-solarized-all theme-gruvbox-all
+theme-nord:
+    cd template_renderer && cat ../themes/nord.toml | poetry run python renderer.py variant=dark ../themes/nord.jinja2 > ../../hedgehog-tui/data/nord.theme
 
+theme: theme-solarized-all theme-gruvbox-all theme-nord

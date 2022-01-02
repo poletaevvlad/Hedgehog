@@ -1,0 +1,28 @@
+[variables]
+dark1 = "2E3440"
+dark2 = "3B4252"
+dark3 = "434C5E"
+dark4 = "4C566A"
+
+light1 = "D8DEE9"
+light2 = "E5E9F0"
+light3 = "ECEFF4"
+
+frost1 = "8FBCBB"
+frost2 = "88C0D0"
+frost3 = "81A1C1"
+frost4 = "5E81AC"
+
+red = "BF616A"
+orange = "D08770"
+yellow = "EBCB8B"
+green = "A3BE8C"
+purple = "B48EAD"
+
+[variants.dark]
+background = ["$dark2", "$dark1"]
+highlight = ["$dark3", "$dark4"]
+divider = "$dark4"
+text = ["$light1", "$light3"]
+text_highlight = ["$light1", "$light3"]
+player = "$dark4"

@@ -143,6 +143,18 @@ impl<'a> Widget for LibraryWidget<'a> {
                 )
                 .render(layout[1], buf);
             }
+        } else {
+            buf.set_style(
+                layout[1],
+                self.theme.get(theming::List::Item(theming::ListItem {
+                    selected: false,
+                    focused: self.data.focus == FocusedPane::EpisodesList,
+                    playing: false,
+                    missing_title: false,
+                    state: Some(theming::ListState::Episode),
+                    column: None,
+                })),
+            );
         }
     }
 }

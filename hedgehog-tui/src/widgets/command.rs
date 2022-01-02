@@ -37,7 +37,9 @@ impl CommandState {
     ) -> CommandActionResult {
         match event {
             key!('c', CONTROL) | key!(Esc) => CommandActionResult::Clear,
-            key!(Backspace) if self.buffer.is_empty() && self.history_index.is_none() => {
+            key!(Backspace) | key!('h', CONTROL)
+                if self.buffer.is_empty() && self.history_index.is_none() =>
+            {
                 CommandActionResult::Clear
             }
             key!(Up) | key!(Down) => {

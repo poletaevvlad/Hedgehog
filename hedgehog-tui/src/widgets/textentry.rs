@@ -182,6 +182,7 @@ impl Buffer {
                 | key!(Backspace)
                 | key!(Backspace, SHIFT)
                 | key!(Backspace, ALT)
+                | key!('h', CONTROL)
                 | key!(Delete)
                 | key!(Delete, SHIFT)
                 | key!(Delete, CONTROL)
@@ -204,7 +205,9 @@ impl Buffer {
             key!(Right, CONTROL) => self.move_cursor(Direction::Forward, Amount::Word),
             key!(Home) => self.move_cursor(Direction::Backward, Amount::All),
             key!(End) => self.move_cursor(Direction::Forward, Amount::All),
-            key!(Backspace) => self.delete(Direction::Backward, Amount::Character),
+            key!(Backspace) | key!('h', CONTROL) => {
+                self.delete(Direction::Backward, Amount::Character)
+            }
             key!(Delete) => self.delete(Direction::Forward, Amount::Character),
             key!(Backspace, SHIFT) => self.delete(Direction::Backward, Amount::All),
             key!(Delete, SHIFT) => self.delete(Direction::Forward, Amount::All),

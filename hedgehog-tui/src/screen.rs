@@ -150,7 +150,7 @@ pub(crate) struct CommandConfirmation {
 }
 
 pub(crate) struct UI {
-    app_ctx: super::AppContext,
+    app_env: super::AppEnvironment,
 
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
     invalidation_request: Option<SpawnHandle>,
@@ -182,10 +182,10 @@ impl UI {
         library_actor: Addr<Library>,
         player_actor: Addr<Player>,
         status_writer_actor: Addr<StatusWriter>,
-        app_ctx: super::AppContext,
+        app_env: super::AppEnvironment,
     ) -> Self {
         UI {
-            app_ctx,
+            app_env,
             terminal,
             invalidation_request: None,
             layout: WidgetPositions::default(),
@@ -346,7 +346,7 @@ impl UI {
             Command::Theme(command) => {
                 if let Err(error) = self
                     .theme
-                    .handle_command(command, &self.app_ctx.config_path)
+                    .handle_command(command, &self.app_env.config_path)
                 {
                     self.handle_error(error, ctx);
                 } else {
@@ -568,7 +568,7 @@ impl UI {
 
     fn init_rc(&mut self, ctx: &mut <UI as Actor>::Context) {
         let resolver = FileResolver::new();
-        let config_path = self.app_ctx.config_path.clone();
+        let config_path = self.app_env.config_path.clone();
         resolver.visit_all("rc", &config_path, |path| {
             self.handle_command(Command::Exec(path.to_path_buf()), ctx);
             self.status.data().has_errors()
@@ -796,7 +796,7 @@ impl Actor for UI {
         ctx.add_stream(crossterm::event::EventStream::new());
 
         self.init_rc(ctx);
-        let mut data_dir = self.app_ctx.data_path.clone();
+        let mut data_dir = self.app_env.data_path.clone();
         data_dir.push("history");
         if let Err(error) = self.commands_history.load_file(data_dir) {
             self.handle_error(error, ctx);

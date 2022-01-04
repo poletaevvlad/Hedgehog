@@ -1,4 +1,5 @@
 mod cmdreader;
+mod environment;
 mod events;
 mod history;
 mod keymap;
@@ -19,6 +20,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use directories::BaseDirs;
+use environment::AppEnvironment;
 use hedgehog_library::datasource::DataProvider;
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, Library, SqliteDataProvider};
@@ -28,7 +30,7 @@ use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{self, BufReader, SeekFrom};
 use std::io::{Read, Seek, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
@@ -49,11 +51,6 @@ impl fmt::Display for AlreadyRunningError {
         }
         Ok(())
     }
-}
-
-pub(crate) struct AppContext {
-    data_path: PathBuf,
-    config_path: Vec<PathBuf>,
 }
 
 fn main() {
@@ -182,7 +179,7 @@ fn main() {
             config_path.extend(std::env::split_paths(paths));
         }
 
-        let context = AppContext {
+        let context = AppEnvironment {
             data_path: data_dir,
             config_path,
         };
@@ -237,7 +234,7 @@ fn run_import<P: DataProvider>(
 fn run_player(
     data_provider: SqliteDataProvider,
     args: &ArgMatches,
-    ctx: AppContext,
+    ctx: AppEnvironment,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {

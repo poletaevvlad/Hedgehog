@@ -796,7 +796,7 @@ impl Actor for UI {
         ctx.add_stream(crossterm::event::EventStream::new());
 
         self.init_rc(ctx);
-        let mut data_dir = self.app_env.data_path.clone();
+        let mut data_dir = self.app_env.data_path().to_path_buf();
         data_dir.push("history");
         if let Err(error) = self.commands_history.load_file(data_dir) {
             self.handle_error(error, ctx);

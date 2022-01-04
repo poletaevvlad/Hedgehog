@@ -160,34 +160,34 @@ fn main() {
         let data_provider = SqliteDataProvider::connect(&data_dir)?;
         data_dir.pop();
 
-        let mut config_path = Vec::new();
+        let mut environment = AppEnvironment::new_with_data_path(data_dir);
+
         if cfg!(unix) {
-            config_path.push(Path::new("/usr/share/hedgehog").to_path_buf());
+            let _ = environment.push_config_path("/usr/share/hedgehog");
         } else if cfg!(windows) {
             if let Ok(mut exe_path) = std::env::current_exe() {
                 exe_path.pop();
                 exe_path.push("config");
-                config_path.push(exe_path);
+                let _ = environment.push_config_path(exe_path);
             }
         }
 
         let mut user_config_dir = base_dirs.config_dir().to_path_buf();
         user_config_dir.push("hedgehog");
-        config_path.push(user_config_dir);
+        let _ = environment.push_config_path(user_config_dir);
 
         if let Some(paths) = cli_args.value_of("config_path") {
-            config_path.extend(std::env::split_paths(paths));
+            for path in std::env::split_paths(paths) {
+                if let Err(err) = environment.push_config_path(&path) {
+                    eprintln!("Warning: {:?} is invalid config directory ({})", path, err);
+                }
+            }
         }
-
-        let context = AppEnvironment {
-            data_path: data_dir,
-            config_path,
-        };
 
         match cli_args.subcommand() {
             ("export", Some(args)) => run_export(&data_provider, args),
             ("import", Some(args)) => run_import(&data_provider, args),
-            _ => run_player(data_provider, &cli_args, context),
+            _ => run_player(data_provider, &cli_args, environment),
         }
     })();
 
@@ -234,7 +234,7 @@ fn run_import<P: DataProvider>(
 fn run_player(
     data_provider: SqliteDataProvider,
     args: &ArgMatches,
-    ctx: AppEnvironment,
+    env: AppEnvironment,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -278,7 +278,7 @@ fn run_player(
             library,
             player,
             status_writer,
-            ctx,
+            env,
         )
         .start();
     });

@@ -3,12 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[derive(Debug)]
 pub(crate) struct AppEnvironment {
-    pub(crate) data_path: PathBuf,
+    data_path: PathBuf,
     pub(crate) config_path: Vec<PathBuf>,
 }
 
 impl AppEnvironment {
+    pub(crate) fn data_path(&self) -> &Path {
+        &self.data_path
+    }
+
     pub(crate) fn new_with_data_path(data_path: PathBuf) -> Self {
         AppEnvironment {
             data_path,

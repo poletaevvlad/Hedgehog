@@ -16,16 +16,6 @@ impl FileResolver {
         }
     }
 
-    pub(crate) fn with_suffix(mut self, suffix: &'static str) -> Self {
-        self.suffixes.push(suffix);
-        self
-    }
-
-    pub(crate) fn with_reversed_order(mut self) -> Self {
-        self.reverse_order = true;
-        self
-    }
-
     pub(crate) fn visit_all<P: AsRef<Path>>(
         &self,
         file_path: P,
@@ -68,14 +58,6 @@ impl FileResolver {
         }
         None
     }
-
-    pub(crate) fn resolve<P: AsRef<Path>>(
-        &self,
-        file_path: P,
-        paths: &[PathBuf],
-    ) -> Option<PathBuf> {
-        self.visit_all(file_path, paths, |_| true)
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -85,9 +67,6 @@ pub(crate) enum Error {
 
     #[error("invalid command at line {1}: {0}")]
     Parsing(#[source] cmd_parser::ParseError<'static>, usize),
-
-    #[error("cannot find file")]
-    Resolution,
 }
 
 #[derive(Debug)]
@@ -128,11 +107,10 @@ impl CommandReader {
 
 #[cfg(test)]
 mod tests {
-    use super::{CommandReader, Error, FileResolver};
+    use super::{CommandReader, Error};
     use cmd_parser::CmdParsable;
-    use std::fs::{remove_file, File};
+    use std::fs::File;
     use std::io::Write;
-    use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
     #[derive(Debug, PartialEq, Eq, CmdParsable)]
@@ -179,92 +157,5 @@ mod tests {
             reader.read::<MockCmd>().unwrap_err(),
             Error::Parsing(_, 2)
         ));
-    }
-
-    #[test]
-    fn resolving_path_absolute() {
-        let resolver = FileResolver::new();
-        assert_eq!(
-            resolver.resolve("/usr/share/hedgehog/default.theme", &[]),
-            Some("/usr/share/hedgehog/default.theme".to_string().into())
-        );
-    }
-
-    #[test]
-    fn resolving_path_relative() {
-        let dir1 = tempdir().unwrap();
-        let dir2 = tempdir().unwrap();
-        let dirs = [dir1.path().to_path_buf(), dir2.path().to_path_buf()];
-
-        let resolver = FileResolver::new()
-            .with_suffix(".theme")
-            .with_suffix(".style");
-
-        fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
-            let mut path = dir.to_path_buf();
-            path.push(filename);
-            order.push(path);
-        }
-
-        let mut resolution_order = vec![];
-        push_order_entry(&mut resolution_order, &dirs[0], "file");
-        push_order_entry(&mut resolution_order, &dirs[0], "file.theme");
-        push_order_entry(&mut resolution_order, &dirs[0], "file.style");
-        push_order_entry(&mut resolution_order, &dirs[1], "file");
-        push_order_entry(&mut resolution_order, &dirs[1], "file.theme");
-        push_order_entry(&mut resolution_order, &dirs[1], "file.style");
-
-        for path in &resolution_order {
-            File::create(path).unwrap();
-        }
-
-        let mut visited = vec![];
-        resolver.visit_all("file", &dirs, |path| {
-            visited.push(path.to_path_buf());
-            false
-        });
-        assert_eq!(resolution_order, visited);
-
-        while !resolution_order.is_empty() {
-            let path = resolver.resolve("file", &dirs);
-            assert_eq!(path.as_ref(), resolution_order.get(0));
-            remove_file(resolution_order.remove(0)).unwrap();
-        }
-
-        assert!(resolver.resolve("file", &dirs).is_none());
-    }
-
-    #[test]
-    fn visiting_reversed() {
-        let dir1 = tempdir().unwrap();
-        let dir2 = tempdir().unwrap();
-        let dirs = [dir1.path().to_path_buf(), dir2.path().to_path_buf()];
-
-        let resolver = FileResolver::new()
-            .with_suffix(".txt")
-            .with_reversed_order();
-
-        fn push_order_entry(order: &mut Vec<PathBuf>, dir: &Path, filename: &str) {
-            let mut path = dir.to_path_buf();
-            path.push(filename);
-            order.push(path);
-        }
-
-        let mut resolution_order = vec![];
-        push_order_entry(&mut resolution_order, &dirs[1], "file");
-        push_order_entry(&mut resolution_order, &dirs[1], "file.txt");
-        push_order_entry(&mut resolution_order, &dirs[0], "file");
-        push_order_entry(&mut resolution_order, &dirs[0], "file.txt");
-
-        for path in &resolution_order {
-            File::create(path).unwrap();
-        }
-
-        let mut visited = vec![];
-        resolver.visit_all("file", &dirs, |path| {
-            visited.push(path.to_path_buf());
-            false
-        });
-        assert_eq!(resolution_order, visited);
     }
 }

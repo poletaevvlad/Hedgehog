@@ -78,7 +78,6 @@ impl HedgehogError for crate::cmdreader::Error {
         match self {
             crate::cmdreader::Error::Io(_) => ErrorType::IO,
             crate::cmdreader::Error::Parsing(_, _) => ErrorType::Command,
-            crate::cmdreader::Error::Resolution => ErrorType::IO,
         }
     }
 }

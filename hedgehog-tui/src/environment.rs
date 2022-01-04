@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     io,
     path::{Path, PathBuf},
 };
@@ -10,8 +11,25 @@ pub(crate) struct AppEnvironment {
 }
 
 impl AppEnvironment {
-    pub(crate) fn data_path(&self) -> &Path {
-        &self.data_path
+    pub(crate) fn history_path(&self) -> PathBuf {
+        let mut path = self.data_path.to_path_buf();
+        path.push("history");
+        path
+    }
+
+    pub(crate) fn resolve_config<'a>(&self, path: &'a Path) -> Cow<'a, Path> {
+        if path.is_absolute() || path.exists() {
+            return path.into();
+        }
+
+        for config_path in self.config_path.iter().rev() {
+            let mut config_path = config_path.to_path_buf();
+            config_path.push(path);
+            if config_path.exists() {
+                return config_path.into();
+            }
+        }
+        path.into()
     }
 
     pub(crate) fn new_with_data_path(data_path: PathBuf) -> Self {
@@ -78,5 +96,43 @@ mod tests {
 
         env.push_config_path(&path3).unwrap();
         assert!(&env.config_path.iter().eq(vec![&path2, &path1].into_iter()));
+    }
+
+    #[test]
+    fn resolve_config() {
+        let mut env = AppEnvironment::new_with_data_path(Path::new("/data").to_path_buf());
+
+        let tmp_path = tempdir().unwrap();
+        let mut path = tmp_path.path().to_path_buf();
+        path.push("global");
+        std::fs::create_dir(&path).unwrap();
+        env.push_config_path(&path).unwrap();
+        path.push("file");
+        std::fs::write(&path, "").unwrap();
+        let global_path = path.to_path_buf();
+        path.pop();
+        path.pop();
+
+        path.push("user");
+        std::fs::create_dir(&path).unwrap();
+        env.push_config_path(&path).unwrap();
+        path.push("file");
+        std::fs::write(&path, "").unwrap();
+        let local_path = path;
+
+        // Absolute path
+        let result = env.resolve_config(&global_path);
+        assert_eq!(result, global_path);
+
+        let result = env.resolve_config(Path::new("file"));
+        assert_eq!(result, local_path);
+
+        std::fs::remove_file(local_path).unwrap();
+        let result = env.resolve_config(Path::new("file"));
+        assert_eq!(result, global_path);
+
+        std::fs::remove_file(global_path).unwrap();
+        let result = env.resolve_config(Path::new("file"));
+        assert_eq!(result, Path::new("file"));
     }
 }

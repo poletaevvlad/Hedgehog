@@ -1,7 +1,8 @@
 mod selectors;
 mod style_parser;
 
-use crate::cmdreader::{self, CommandReader, FileResolver};
+use crate::cmdreader::{self, CommandReader};
+use crate::environment::AppEnvironment;
 use cmd_parser::CmdParsable;
 use selectors::StyleSelector;
 pub(crate) use selectors::{
@@ -35,27 +36,23 @@ impl Theme {
     pub(crate) fn handle_command(
         &mut self,
         command: ThemeCommand,
-        paths: &[PathBuf],
+        env: &AppEnvironment,
     ) -> Result<(), cmdreader::Error> {
         match command {
             ThemeCommand::Reset => *self = Theme::default(),
             ThemeCommand::Set(selector, style) => self.set(selector, style),
-            ThemeCommand::Load(path, loading_option) => {
-                let resolver = FileResolver::new()
-                    .with_suffix(".theme")
-                    .with_reversed_order();
-                let path = resolver
-                    .resolve(path, paths)
-                    .ok_or(cmdreader::Error::Resolution)?;
+            ThemeCommand::Load(mut path, loading_option) => {
+                path.set_extension("theme");
+                let theme_path = env.resolve_config(&path);
 
                 let snapshot = self.styles.clone();
                 if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
                     *self = Theme::default();
                 }
                 let result: Result<(), cmdreader::Error> = (|| {
-                    let mut reader = CommandReader::open(path)?;
+                    let mut reader = CommandReader::open(theme_path)?;
                     while let Some(command) = reader.read()? {
-                        self.handle_command(command, paths)?;
+                        self.handle_command(command, env)?;
                     }
                     Ok(())
                 })();

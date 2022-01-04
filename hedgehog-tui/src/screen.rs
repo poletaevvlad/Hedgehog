@@ -344,17 +344,15 @@ impl UI {
                 }
             }
             Command::Theme(command) => {
-                if let Err(error) = self
-                    .theme
-                    .handle_command(command, &self.app_env.config_path)
-                {
+                if let Err(error) = self.theme.handle_command(command, &self.app_env) {
                     self.handle_error(error, ctx);
                 } else {
                     self.invalidate(ctx);
                 }
             }
             Command::Exec(path) => {
-                let mut reader = match CommandReader::open(path) {
+                let file_path = self.app_env.resolve_config(&path);
+                let mut reader = match CommandReader::open(file_path) {
                     Ok(reader) => reader,
                     Err(error) => {
                         self.handle_error(error, ctx);
@@ -796,9 +794,7 @@ impl Actor for UI {
         ctx.add_stream(crossterm::event::EventStream::new());
 
         self.init_rc(ctx);
-        let mut data_dir = self.app_env.data_path().to_path_buf();
-        data_dir.push("history");
-        if let Err(error) = self.commands_history.load_file(data_dir) {
+        if let Err(error) = self.commands_history.load_file(self.app_env.history_path()) {
             self.handle_error(error, ctx);
         }
 

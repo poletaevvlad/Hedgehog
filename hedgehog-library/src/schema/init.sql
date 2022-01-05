@@ -26,6 +26,7 @@ CREATE TABLE episodes (
     "status" INTEGER NOT NULL DEFAULT 0,
     "position" INTEGER NOT NULL DEFAULT 0,
     "error_code" INTEGER,
+    "hidden" INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY("feed_id") REFERENCES feeds("id") ON DELETE CASCADE
 );
 

@@ -368,6 +368,19 @@ impl DataProvider for SqliteDataProvider {
         Ok(feed_ids_set)
     }
 
+    fn set_episode_hidden(&self, query: EpisodesQuery, hidden: bool) -> DbResult<()> {
+        let mut sql = "UPDATE episodes AS ep SET hidden = :hidden".to_string();
+        query.build_where_clause(&mut sql);
+        let mut statement = self.connection.prepare(&sql)?;
+
+        let where_params = EpisodeQueryParams::from_query(query);
+        let mut params = where_params.as_sql_params();
+        params.push((":hidden", &hidden));
+
+        statement.execute(&*params)?;
+        Ok(())
+    }
+
     fn writer<'a>(&'a mut self, feed_id: FeedId) -> DbResult<Box<dyn EpisodeWriter + 'a>> {
         let transaction = self.connection.transaction()?;
         Ok(Box::new(SqliteEpisodeWriter {
@@ -388,6 +401,9 @@ impl EpisodesQuery {
         }
         if self.status.is_some() {
             clauses.push("ep.status = :status");
+        }
+        if !self.with_hidden {
+            clauses.push("NOT ep.hidden");
         }
         if !clauses.is_empty() {
             query.push_str(" WHERE ");

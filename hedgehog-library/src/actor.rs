@@ -236,6 +236,7 @@ pub enum FeedUpdateRequest {
     DeleteFeed(FeedId),
     Update(UpdateQuery),
     SetStatus(EpisodesQuery, EpisodeStatus),
+    SetHidden(EpisodesQuery, bool),
     SetFeedEnabled(FeedId, bool),
 }
 
@@ -293,6 +294,11 @@ impl Handler<FeedUpdateRequest> for Library {
                     Ok(())
                 })();
                 if let Err(error) = result {
+                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                }
+            }
+            FeedUpdateRequest::SetHidden(query, hidden) => {
+                if let Err(error) = self.data_provider.set_episode_hidden(query, hidden) {
                     self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             }

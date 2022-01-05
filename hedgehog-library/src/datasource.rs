@@ -23,6 +23,7 @@ pub struct EpisodesQuery {
     pub(crate) episode_id: Option<EpisodeId>,
     pub(crate) feed_id: Option<FeedId>,
     pub(crate) status: Option<EpisodeSummaryStatus>,
+    pub(crate) with_hidden: bool,
     pub(crate) include_feed_title: bool,
 }
 
@@ -44,6 +45,11 @@ impl EpisodesQuery {
 
     pub fn include_feed_title(mut self) -> Self {
         self.include_feed_title = true;
+        self
+    }
+
+    pub fn with_hidden(mut self, with_hidden: bool) -> Self {
+        self.with_hidden = with_hidden;
         self
     }
 
@@ -113,6 +119,7 @@ pub trait DataProvider: Unpin {
         query: EpisodesQuery,
         status: EpisodeStatus,
     ) -> DbResult<HashSet<FeedId>>;
+    fn set_episode_hidden(&self, query: EpisodesQuery, hidden: bool) -> DbResult<()>;
 
     fn writer<'a>(&'a mut self, feed_id: FeedId) -> DbResult<Box<dyn EpisodeWriter + 'a>>;
 }

@@ -134,6 +134,8 @@ pub(crate) enum Command {
         #[cmd(attr(if))]
         condition: Option<EpisodeSummaryStatus>,
     },
+    #[cmd(ignore, alias = "hide", alias = "unhide")]
+    SetEpisodeHidden(#[cmd(alias_override(hide = "true", unhide = "false"))] bool),
     #[cmd(alias = "s")]
     Search(#[cmd(parse_with = "cmd_parser::string_parse_all")] String),
     SearchAdd,
@@ -560,6 +562,19 @@ impl UI {
                 self.library.episodes_list_metadata = None;
                 self.load_feeds(ctx);
                 self.invalidate(ctx);
+            }
+            Command::SetEpisodeHidden(hidden) => {
+                let query = self
+                    .library
+                    .episodes
+                    .selection()
+                    .map(|episode| EpisodesQuery::default().id(episode.id));
+
+                if let Some(query) = query {
+                    self.library_actor
+                        .do_send(FeedUpdateRequest::SetHidden(query, hidden));
+                    self.refresh_episodes(ctx, false);
+                }
             }
         }
     }

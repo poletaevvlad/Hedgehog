@@ -25,6 +25,7 @@ pub struct EpisodesQuery {
     pub(crate) status: Option<EpisodeSummaryStatus>,
     pub(crate) with_hidden: bool,
     pub(crate) include_feed_title: bool,
+    pub(crate) reversed_order: bool,
 }
 
 impl Default for EpisodesQuery {
@@ -35,6 +36,7 @@ impl Default for EpisodesQuery {
             status: None,
             with_hidden: true,
             include_feed_title: false,
+            reversed_order: false,
         }
     }
 }
@@ -62,6 +64,11 @@ impl EpisodesQuery {
 
     pub fn with_hidden(mut self, with_hidden: bool) -> Self {
         self.with_hidden = with_hidden;
+        self
+    }
+
+    pub fn reversed_order(mut self, reversed_order: bool) -> Self {
+        self.reversed_order = reversed_order;
         self
     }
 
@@ -125,6 +132,7 @@ pub trait DataProvider: Unpin {
     fn delete_feed(&self, id: FeedId) -> DbResult<()>;
     fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
     fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;
+    fn reverse_feed_order(&self, feed_id: FeedId) -> DbResult<()>;
 
     fn set_episode_status(
         &self,

@@ -238,6 +238,7 @@ pub enum FeedUpdateRequest {
     SetStatus(EpisodesQuery, EpisodeStatus),
     SetHidden(EpisodesQuery, bool),
     SetFeedEnabled(FeedId, bool),
+    ReverseFeedOrder(FeedId),
 }
 
 impl Handler<FeedUpdateRequest> for Library {
@@ -304,6 +305,11 @@ impl Handler<FeedUpdateRequest> for Library {
             }
             FeedUpdateRequest::SetFeedEnabled(feed_id, enabled) => {
                 if let Err(error) = self.data_provider.set_feed_enabled(feed_id, enabled) {
+                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                }
+            }
+            FeedUpdateRequest::ReverseFeedOrder(feed_id) => {
+                if let Err(error) = self.data_provider.reverse_feed_order(feed_id) {
                     self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
                 }
             }

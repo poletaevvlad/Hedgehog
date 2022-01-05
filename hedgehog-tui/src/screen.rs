@@ -122,6 +122,7 @@ pub(crate) enum Command {
     #[cmd(rename = "add")]
     AddFeed(String),
     DeleteFeed,
+    Reverse,
     #[cmd(alias = "u")]
     Update {
         #[cmd(attr(this = "true"))]
@@ -580,6 +581,27 @@ impl UI {
                     self.refresh_episodes(ctx, false);
                 }
             }
+            Command::Reverse => {
+                match self
+                    .selected_feed
+                    .and_then(|feed_view| feed_view.as_feed().cloned())
+                {
+                    Some(feed_id) => {
+                        self.library_actor
+                            .do_send(FeedUpdateRequest::ReverseFeedOrder(feed_id));
+                        self.refresh_episodes(ctx, true);
+                    }
+                    None => {
+                        self.set_status(
+                            CustomStatus::new("Only individual podcasts' order can be reversed")
+                                .set_ttl(status::TTL_SHORT)
+                                .set_severity(Severity::Warning)
+                                .into(),
+                            ctx,
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -640,8 +662,9 @@ impl UI {
                     None => None,
                     Some((metadata, None)) => Some((metadata, None)),
                     Some((metadata, Some(range))) => {
+                        let query = query.clone().reversed_order(metadata.reversed_order);
                         let episodes = library_actor
-                            .send(EpisodeSummariesRequest::new(query.clone(), range.clone()))
+                            .send(EpisodeSummariesRequest::new(query, range.clone()))
                             .await;
                         Some((metadata, Some((range, episodes))))
                     }

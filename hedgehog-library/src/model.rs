@@ -308,6 +308,7 @@ pub struct EpisodesListMetadata {
     pub max_episode_number: Option<i64>,
     pub max_duration: Option<Duration>,
     pub has_publication_date: bool,
+    pub reversed_order: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]

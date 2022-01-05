@@ -222,7 +222,13 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata> {
-        let mut sql = "SELECT COUNT(ep.id), MAX(ep.season_number), MAX(ep.episode_number), MAX(ep.duration), SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END)  FROM episodes AS ep".to_string();
+        let mut sql =
+            "SELECT COUNT(ep.id), MAX(ep.season_number), MAX(ep.episode_number), MAX(ep.duration),
+                    SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END), feeds.reversed
+            FROM episodes AS ep
+            JOIN feeds ON ep.feed_id = feeds.id
+            "
+            .to_string();
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 
@@ -236,6 +242,7 @@ impl DataProvider for SqliteDataProvider {
                     max_episode_number: row.get(2)?,
                     max_duration: row.get::<_, Option<u64>>(3)?.map(Duration::from_nanos),
                     has_publication_date: row.get::<_, Option<u64>>(4)?.unwrap_or(0) > 0,
+                    reversed_order: row.get::<_, Option<bool>>(5)?.unwrap_or(false),
                 })
             })
             .map_err(QueryError::from)
@@ -256,7 +263,12 @@ impl DataProvider for SqliteDataProvider {
             sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
         }
         request.build_where_clause(&mut sql);
-        sql.push_str(" ORDER BY ep.publication_date DESC LIMIT :limit OFFSET :offset");
+        sql.push_str(" ORDER BY ep.publication_date ");
+        sql.push_str(match request.reversed_order {
+            true => "ASC",
+            false => "DESC",
+        });
+        sql.push_str(" LIMIT :limit OFFSET :offset");
         let mut statement = self.connection.prepare(&sql)?;
 
         let where_params = EpisodeQueryParams::from_query(request);
@@ -340,6 +352,14 @@ impl DataProvider for SqliteDataProvider {
             .connection
             .prepare("UPDATE feeds SET enabled = :enabled WHERE id = :id")?;
         statement.execute(named_params! {":enabled": enabled, ":id": feed_id})?;
+        Ok(())
+    }
+
+    fn reverse_feed_order(&self, feed_id: FeedId) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET reversed = NOT reversed WHERE id = :feed_id")?;
+        statement.execute(named_params! {":feed_id": feed_id})?;
         Ok(())
     }
 

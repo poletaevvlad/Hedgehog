@@ -155,6 +155,13 @@ impl Status {
             Status::VolumeChanged(_) => false,
         }
     }
+
+    pub(crate) fn error_type(&self) -> Option<ErrorType> {
+        match self {
+            Status::Error(error) => Some(error.error_type()),
+            _ => None,
+        }
+    }
 }
 
 impl From<CustomStatus> for Status {

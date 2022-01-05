@@ -395,6 +395,14 @@ impl UI {
                     {
                         return;
                     }
+                    self.status
+                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                            if let Some(status::ErrorType::Playback) =
+                                data.display_status().and_then(Status::error_type)
+                            {
+                                data.clear_display();
+                            }
+                        });
                     episode_id
                 } else {
                     return;

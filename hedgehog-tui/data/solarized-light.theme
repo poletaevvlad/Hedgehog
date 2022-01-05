@@ -15,6 +15,7 @@ set list.item:focused:feed-special fg:%002b36
 set list.item:selected bg:%c0c4bb fg:%073642
 set list.item:focused:selected bg:%839496
 set list.item:missing-title.title +italic
+set list.item:hidden.title fg:%657b83
 
 set list.item.new-count fg:%b58900
 set list.item:selected.new-count fg:%073642

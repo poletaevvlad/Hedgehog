@@ -35,6 +35,7 @@ set list.divider bg:%{{ var(colors.divider) }} fg:%{{ var(colors.divider) }}
 {{ list_row("list.item" + selector, var(colors.background[index]), var(colors.text[index]), true) }}
 set list.item:feed-special{{ selector }} bg:%{{ var(colors.highlight[index]) }}{% if index == 0 %} +bold{% endif %}
 set list.item:episode-finished.title fg:%{{ color_mix(var(colors.text[index]), var(colors.background[index]), 0.4) }}
+set list.item:hidden.title fg:%{{ color_mix(var(colors.text[index]), var(colors.background[index]), 0.6) }}
 {{ list_row("list.item:selected" + selector, var(colors.active[index]), var(colors.text[index]), true) }}
 {{ list_row("list.item:playing" + selector, var(colors.background[index]), accent("blue", 0)) }}
 {{ list_row("list.item:playing:selected" + selector, var(colors.active[index]), accent("blue", 1)) }}

@@ -77,6 +77,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     state: Some(theming::ListState::FeedSpecial),
                     column: None,
                     playing: false,
+                    hidden: false,
                 };
                 let style = self.theme.get(theming::List::Item(item_selector));
                 buf.set_style(area, style);
@@ -109,6 +110,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     }),
                     column: None,
                     playing: self.playing_feed == Some(item.id),
+                    hidden: false,
                 };
 
                 if let Some(status_indicator) = self.get_status_indicator(item) {

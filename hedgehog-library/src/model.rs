@@ -265,6 +265,7 @@ pub struct EpisodeSummary {
     pub status: EpisodeSummaryStatus,
     pub duration: Option<Duration>,
     pub publication_date: Option<DateTime<Utc>>,
+    pub is_hidden: bool,
 }
 
 impl Identifiable for EpisodeSummary {

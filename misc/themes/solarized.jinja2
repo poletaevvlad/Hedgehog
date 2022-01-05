@@ -27,6 +27,7 @@ set list.item:focused:feed-special fg:%{{ color("base03") }}
 set list.item:selected bg:%{{ color_mix(color("base1"), color("base2"), 0.5) }} fg:%{{ color("base02") }}
 set list.item:focused:selected bg:%{{ color("base0") }}
 set list.item:missing-title.title +italic
+set list.item:hidden.title fg:%{{ color("base00") }}
 
 {{ highlight_column(".new-count", color("yellow")) }}
 {{ highlight_column(":episode-new.state", color("yellow")) }}

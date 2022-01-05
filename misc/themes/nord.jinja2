@@ -19,6 +19,8 @@ set list.item{{selector}} bg:%{{ var(colors.background[index]) }} fg:%{{ color_m
 set list.item{{selector}}:selected bg:%{{ var(colors.highlight[index]) }}
 set list.item{{selector}}.title fg:%{{ var(colors.text[index]) }}
 set list.item{{selector}}:feed-special fg:%{{ var(colors.text[index]) }}
+set list.item{{selector}}:episode-finished.title fg:%{{ color_mix(var(colors.text[index]), var(colors.background[index]), 0.4) }}
+set list.item{{selector}}:hidden.title fg:%{{ color_mix(var(colors.text[index]), var(colors.background[index]), 0.6) }}
 set empty{{selector}} bg:%{{ var(colors.background[index]) }} fg:%{{ var(colors.text[index]) }}
 {%- endfor %}
 

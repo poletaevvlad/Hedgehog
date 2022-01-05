@@ -168,6 +168,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for EpisodesListRowRenderer<'t> {
             state: Some(state),
             playing,
             column: None,
+            hidden: item.map(|item| item.is_hidden).unwrap_or(false),
         };
 
         if self.sizing.date_width > 0 {

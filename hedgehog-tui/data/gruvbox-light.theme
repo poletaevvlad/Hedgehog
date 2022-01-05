@@ -11,6 +11,7 @@ set list.item.title fg:%3c3836
 set list.item:feed-special fg:%3c3836
 set list.item:feed-special bg:%f2e5bc +bold
 set list.item:episode-finished.title fg:%888270
+set list.item:hidden.title fg:%aea78d
 set list.item:selected bg: %ebdbb2 fg:%827967 bg:%ebdbb2
 set list.item:selected.title fg:%3c3836
 set list.item:selected:feed-special fg:%3c3836
@@ -24,6 +25,7 @@ set list.item:focused.title fg:%282828
 set list.item:focused:feed-special fg:%282828
 set list.item:feed-special:focused bg:%fbf1c7
 set list.item:episode-finished.title fg:%7b7a6e
+set list.item:hidden.title fg:%a5a391
 set list.item:selected:focused bg: %d5c4a1 fg:%6d6658 bg:%d5c4a1
 set list.item:selected:focused.title fg:%282828
 set list.item:selected:focused:feed-special fg:%282828

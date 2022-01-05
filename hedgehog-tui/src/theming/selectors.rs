@@ -166,6 +166,7 @@ pub(crate) struct ListItem {
     pub(crate) selected: bool,
     pub(crate) focused: bool,
     pub(crate) playing: bool,
+    pub(crate) hidden: bool,
     pub(crate) missing_title: bool,
     pub(crate) state: Option<ListState>,
     pub(crate) column: Option<ListColumn>,
@@ -199,6 +200,7 @@ impl List {
                         ":focused" => list_item.focused = true,
                         ":selected" => list_item.selected = true,
                         ":playing" => list_item.playing = true,
+                        ":hidden" => list_item.hidden = true,
                         ":missing-title" => list_item.missing_title = true,
                         item => {
                             let new_state = match item {
@@ -267,6 +269,7 @@ impl StyleSelector for List {
             } else {
                 &[true, false]
             };
+            let hidden_variants: &[bool] = if item.hidden { &[true] } else { &[true, false] };
             let playing_variants: &[bool] = if item.playing {
                 &[true]
             } else {
@@ -281,32 +284,35 @@ impl StyleSelector for List {
             for selected in selected_variants {
                 for focused in focused_variants {
                     for playing in playing_variants {
-                        for missing in missing_variants {
-                            ListState::for_each(item.state, |state| {
-                                let new_item = ListItem {
-                                    selected: *selected,
-                                    focused: *focused,
-                                    playing: *playing,
-                                    missing_title: *missing,
-                                    state,
-                                    column: None,
-                                };
+                        for hidden in hidden_variants {
+                            for missing in missing_variants {
+                                ListState::for_each(item.state, |state| {
+                                    let new_item = ListItem {
+                                        selected: *selected,
+                                        focused: *focused,
+                                        playing: *playing,
+                                        hidden: *hidden,
+                                        missing_title: *missing,
+                                        state,
+                                        column: None,
+                                    };
 
-                                if let Some(column) = item.column {
-                                    callback(List::Item(ListItem {
-                                        column: Some(column),
-                                        ..new_item
-                                    }));
-                                } else {
-                                    callback(List::Item(new_item));
-                                    for column in ListColumn::enumerate() {
+                                    if let Some(column) = item.column {
                                         callback(List::Item(ListItem {
                                             column: Some(column),
                                             ..new_item
                                         }));
+                                    } else {
+                                        callback(List::Item(new_item));
+                                        for column in ListColumn::enumerate() {
+                                            callback(List::Item(ListItem {
+                                                column: Some(column),
+                                                ..new_item
+                                            }));
+                                        }
                                     }
-                                }
-                            });
+                                });
+                            }
                         }
                     }
                 }

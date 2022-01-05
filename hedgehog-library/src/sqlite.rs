@@ -247,7 +247,7 @@ impl DataProvider for SqliteDataProvider {
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
         let feed_title_required = request.include_feed_title;
-        let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date".to_string();
+        let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date, ep.hidden".to_string();
         if feed_title_required {
             sql.push_str(", feeds.title");
         }
@@ -276,10 +276,11 @@ impl DataProvider for SqliteDataProvider {
                 duration: row.get::<_, Option<u64>>(6)?.map(Duration::from_nanos),
                 publication_date: row.get(7)?,
                 feed_title: if feed_title_required {
-                    row.get(8)?
+                    row.get(9)?
                 } else {
                     None
                 },
+                is_hidden: row.get(8)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -734,6 +735,7 @@ mod tests {
                 status: EpisodeSummaryStatus::New,
                 duration: Some(Duration::from_secs(300)),
                 publication_date: None,
+                is_hidden: false,
             }
         );
         assert_eq!(
@@ -748,6 +750,7 @@ mod tests {
                 status: EpisodeSummaryStatus::New,
                 duration: None,
                 publication_date: None,
+                is_hidden: false,
             }
         );
     }

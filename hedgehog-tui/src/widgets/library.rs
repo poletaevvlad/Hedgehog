@@ -153,6 +153,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                     missing_title: false,
                     state: Some(theming::ListState::Episode),
                     column: None,
+                    hidden: false,
                 })),
             );
         }

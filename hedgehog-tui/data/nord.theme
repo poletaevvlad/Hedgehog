@@ -11,11 +11,15 @@ set list.item bg:%3B4252 fg:%a8afbb
 set list.item:selected bg:%434C5E
 set list.item.title fg:%D8DEE9
 set list.item:feed-special fg:%D8DEE9
+set list.item:episode-finished.title fg:%999fac
+set list.item:hidden.title fg:%79808e
 set empty bg:%3B4252 fg:%D8DEE9
 set list.item:focused bg:%2E3440 fg:%b3b6be
 set list.item:focused:selected bg:%4C566A
 set list.item:focused.title fg:%ECEFF4
 set list.item:focused:feed-special fg:%ECEFF4
+set list.item:focused:episode-finished.title fg:%a0a4ac
+set list.item:focused:hidden.title fg:%7a7e88
 set empty:focused bg:%2E3440 fg:%ECEFF4
 
 set empty.title +bold

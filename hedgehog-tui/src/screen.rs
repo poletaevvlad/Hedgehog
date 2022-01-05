@@ -479,7 +479,11 @@ impl UI {
                 }
             }
             Command::SetOption(options_update) => {
+                let affects_episodes_list = options_update.affects_episodes_list();
                 self.options.update(options_update);
+                if affects_episodes_list {
+                    self.refresh_episodes(ctx, false);
+                }
                 self.invalidate(ctx);
             }
             Command::SetFeedEnabled(enabled) => {
@@ -613,7 +617,7 @@ impl UI {
             self.library.episodes_list_metadata = None;
         }
 
-        let query = EpisodesQuery::from_feed_view(feed_id);
+        let query = EpisodesQuery::from_feed_view(feed_id).with_hidden(self.options.hidden);
         let new_provider = EpisodesListProvider {
             query: query.clone(),
             actor: ctx.address(),

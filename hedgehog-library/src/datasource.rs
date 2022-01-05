@@ -18,13 +18,25 @@ pub enum QueryError {
 
 pub type DbResult<T> = Result<T, QueryError>;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct EpisodesQuery {
     pub(crate) episode_id: Option<EpisodeId>,
     pub(crate) feed_id: Option<FeedId>,
     pub(crate) status: Option<EpisodeSummaryStatus>,
     pub(crate) with_hidden: bool,
     pub(crate) include_feed_title: bool,
+}
+
+impl Default for EpisodesQuery {
+    fn default() -> Self {
+        Self {
+            episode_id: None,
+            feed_id: None,
+            status: None,
+            with_hidden: true,
+            include_feed_title: false,
+        }
+    }
 }
 
 impl EpisodesQuery {

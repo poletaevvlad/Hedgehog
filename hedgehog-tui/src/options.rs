@@ -45,4 +45,11 @@ gen_options! {
     LabelFeedUpdating(label_feed_updating: String = " U ".to_string()),
     UpdateOnStart(update_on_start: bool = true),
     ShowEpisodeNumber(show_episode_number: bool = true),
+    Hidden(hidden: bool = false),
+}
+
+impl OptionsUpdate {
+    pub(crate) fn affects_episodes_list(&self) -> bool {
+        matches!(self, OptionsUpdate::Hidden(_))
+    }
 }

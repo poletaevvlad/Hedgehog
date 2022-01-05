@@ -1,4 +1,4 @@
-use crate::cmdreader::{CommandReader, FileResolver};
+use crate::cmdreader::CommandReader;
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
@@ -565,12 +565,12 @@ impl UI {
     }
 
     fn init_rc(&mut self, ctx: &mut <UI as Actor>::Context) {
-        let resolver = FileResolver::new();
-        let config_path = self.app_env.config_path.clone();
-        resolver.visit_all("rc", &config_path, |path| {
+        for path in self.app_env.resolve_rc("rc") {
             self.handle_command(Command::Exec(path.to_path_buf()), ctx);
-            self.status.data().has_errors()
-        });
+            if self.status.data().has_errors() {
+                break;
+            }
+        }
 
         self.library_actor
             .do_send(FeedUpdateRequest::Update(if self.options.update_on_start {

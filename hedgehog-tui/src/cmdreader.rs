@@ -1,64 +1,7 @@
 use cmd_parser::CmdParsable;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
-use std::path::{Path, PathBuf};
-
-pub(crate) struct FileResolver {
-    suffixes: Vec<&'static str>,
-    reverse_order: bool,
-}
-
-impl FileResolver {
-    pub(crate) fn new() -> Self {
-        FileResolver {
-            suffixes: Vec::new(),
-            reverse_order: false,
-        }
-    }
-
-    pub(crate) fn visit_all<P: AsRef<Path>>(
-        &self,
-        file_path: P,
-        paths: &[PathBuf],
-        mut visitor: impl FnMut(&Path) -> bool,
-    ) -> Option<PathBuf> {
-        if file_path.as_ref().is_absolute() {
-            return if visitor(file_path.as_ref()) {
-                Some(file_path.as_ref().to_path_buf())
-            } else {
-                None
-            };
-        }
-
-        let mut paths = Vec::from(paths);
-        if self.reverse_order {
-            paths.reverse();
-        }
-
-        for mut path in paths {
-            path.push(file_path.as_ref());
-            if path.is_file() && visitor(&path) {
-                return Some(path);
-            }
-
-            let file_name = match path.file_name() {
-                Some(os_str) => os_str.to_os_string(),
-                None => continue,
-            };
-
-            for suffix in &self.suffixes {
-                let mut file_name_with_suffix = file_name.clone();
-                file_name_with_suffix.push(suffix);
-
-                path.set_file_name(file_name_with_suffix.clone());
-                if path.is_file() && visitor(&path) {
-                    return Some(path);
-                }
-            }
-        }
-        None
-    }
-}
+use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {

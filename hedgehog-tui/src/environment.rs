@@ -1,8 +1,6 @@
-use std::{
-    borrow::Cow,
-    io,
-    path::{Path, PathBuf},
-};
+use std::borrow::Cow;
+use std::io;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub(crate) struct AppEnvironment {
@@ -30,6 +28,19 @@ impl AppEnvironment {
             }
         }
         path.into()
+    }
+
+    pub(crate) fn resolve_rc(&self, path: impl AsRef<Path>) -> Vec<PathBuf> {
+        let path = path.as_ref();
+        let mut paths = Vec::new();
+        for config_path in &self.config_path {
+            let mut path_buf = config_path.to_path_buf();
+            path_buf.push(path);
+            if path_buf.is_file() {
+                paths.push(path_buf);
+            }
+        }
+        paths
     }
 
     pub(crate) fn new_with_data_path(data_path: PathBuf) -> Self {
@@ -119,6 +130,9 @@ mod tests {
         path.push("file");
         std::fs::write(&path, "").unwrap();
         let local_path = path;
+
+        let result_all = env.resolve_rc("file");
+        assert_eq!(result_all, vec![global_path.clone(), local_path.clone()]);
 
         // Absolute path
         let result = env.resolve_config(&global_path);

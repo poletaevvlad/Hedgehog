@@ -407,6 +407,7 @@ pub(crate) enum PlayerItem {
     EpisodeTitle,
     FeedTitle,
     Status,
+    Progress,
     Timing,
 }
 
@@ -416,6 +417,7 @@ impl PlayerItem {
             PlayerItem::EpisodeTitle,
             PlayerItem::FeedTitle,
             PlayerItem::Status,
+            PlayerItem::Progress,
             PlayerItem::Timing,
         ]
     }
@@ -440,6 +442,7 @@ impl Player {
                 ":buffering" => (Some(PlaybackStatus::Buffering), None),
                 ".status" => (None, Some(PlayerItem::Status)),
                 ".timing" => (None, Some(PlayerItem::Timing)),
+                ".progress" => (None, Some(PlayerItem::Progress)),
                 ".episode" => (None, Some(PlayerItem::EpisodeTitle)),
                 ".feed" => (None, Some(PlayerItem::FeedTitle)),
                 _ => return Err(SelectorParsingError),

@@ -9,6 +9,9 @@ use tui::layout::Rect;
 use tui::text::{Span, Spans};
 use tui::widgets::{Paragraph, Widget};
 
+use super::layout::split_right;
+use super::progressbar::ProgressBar;
+
 pub(crate) struct PlayerState<'a> {
     state: &'a PlaybackState,
     theme: &'a theming::Theme,
@@ -68,6 +71,27 @@ impl<'a> Widget for PlayerState<'a> {
                 width,
             );
             area.width -= width;
+
+            if let Some(duration) = timing.duration {
+                if area.width > self.options.progress_bar_width * 2
+                    && !self.options.progress_bar_chars.is_empty()
+                {
+                    let (title_area, progress_area) =
+                        split_right(area, self.options.progress_bar_width);
+                    area = title_area;
+
+                    let percentage =
+                        (timing.position.as_millis() as f64 / duration.as_millis() as f64).min(1.0);
+                    let style = self.theme.get(theming::Player {
+                        status: Some(status),
+                        subitem: Some(theming::PlayerItem::Progress),
+                    });
+                    let widget = ProgressBar::new(percentage)
+                        .symbols(&self.options.progress_bar_chars)
+                        .style(style);
+                    widget.render(progress_area, buf);
+                }
+            }
         }
 
         let title_style = self.theme.get(theming::Player {

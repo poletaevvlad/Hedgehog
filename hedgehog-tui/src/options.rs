@@ -46,10 +46,10 @@ gen_options! {
     UpdateOnStart(update_on_start: bool = true),
     ShowEpisodeNumber(show_episode_number: bool = true),
     Hidden(hidden: bool = false),
-    ProgressBarWidth(progress_bar_width: u16 = 16),
+    ProgressBarWidth(progress_bar_width: u16 = 32),
     ProgressBarChars(
         #[cmd(parse_with = "parse_char_vec")]
-        progress_bar_chars: Vec<char> = vec!['⠁', '⠃', '⠇', '⡇', '⡏', '⡟', '⡿', '⣿']
+        progress_bar_chars: Vec<char> = vec![' ', '⠁', '⠃', '⠇', '⡇', '⡏', '⡟', '⡿', '⣿']
     ),
 }
 

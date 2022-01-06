@@ -1,7 +1,7 @@
 use cmd_parser::CmdParsable;
 
 macro_rules! gen_options {
-    ($($command:ident($name:ident: $value:ty = $default:expr)),*$(,)?) => {
+    ($($(#$attr:tt)* $command:ident($(#$arg_attr:tt)* $name:ident: $value:ty = $default:expr)),*$(,)?) => {
         pub(crate) struct Options {
             $(pub(crate) $name: $value),*
         }
@@ -16,7 +16,7 @@ macro_rules! gen_options {
 
         #[derive(Debug, Clone, PartialEq, CmdParsable)]
         pub(crate) enum OptionsUpdate {
-            $($command($value)),*
+            $($(#$attr)* $command($(#$arg_attr)* $value)),*
         }
 
         impl Options {
@@ -46,10 +46,19 @@ gen_options! {
     UpdateOnStart(update_on_start: bool = true),
     ShowEpisodeNumber(show_episode_number: bool = true),
     Hidden(hidden: bool = false),
+    ProgressBarWidth(progress_bar_width: u16 = 16),
+    ProgressBarChars(
+        #[cmd(parse_with = "parse_char_vec")]
+        progress_bar_chars: Vec<char> = vec!['⠁', '⠃', '⠇', '⡇', '⡏', '⡟', '⡿', '⣿']
+    ),
 }
 
 impl OptionsUpdate {
     pub(crate) fn affects_episodes_list(&self) -> bool {
         matches!(self, OptionsUpdate::Hidden(_))
     }
+}
+
+fn parse_char_vec(input: &str) -> Result<(Vec<char>, &str), cmd_parser::ParseError<'_>> {
+    String::parse_cmd_raw(input).map(|(string, remaining)| (string.chars().collect(), remaining))
 }

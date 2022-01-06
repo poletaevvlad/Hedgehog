@@ -9,6 +9,7 @@ mod layout;
 pub(crate) mod library;
 pub(crate) mod list;
 pub(crate) mod player_state;
+mod progressbar;
 pub(crate) mod search_results;
 pub(crate) mod search_row;
 pub(crate) mod status;

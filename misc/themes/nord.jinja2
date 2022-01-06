@@ -36,8 +36,10 @@ set list.item:episode-finished.state fg:%{{ variables.frost4 }} +bold
 set list.item:episode-started.state fg:%{{ variables.yellow }} +bold
 set list.item:playing.title fg:%{{ variables.frost2 }}
 
-set player bg:%{{ var(colors.player) }} fg:%{{ var(colors.text[0]) }}
+set player bg:%{{ var(colors.player[1]) }} fg:%{{ var(colors.text[0]) }}
 set player.episode fg:%{{ var(colors.text[1]) }}
+set player.progress bg:%{{ var(colors.player[0]) }}
+set player.timing bg:%{{ var(colors.player[0]) }}
 set player.status +bold
 set player:playing.status bg:%{{ variables.green }} fg:%{{ var(colors.background[0]) }}
 set player:paused.status bg:%{{ variables.frost2 }} fg:%{{ var(colors.background[0]) }}

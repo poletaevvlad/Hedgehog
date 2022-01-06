@@ -53,10 +53,13 @@ set list.item:feed-error:selected.state fg:%cc241d
 set player bg:%504945 fg:%fbf1c7
 set player:playing bg:%5e583c
 set player:playing.status bg:%98971a
+set player:playing.progress fg:%ebdbb2 bg:%6c6833
 set player:paused bg:%4d5552
 set player:paused.status bg:%458588
+set player:paused.progress fg:%ebdbb2 bg:%4b615f
 set player:buffering bg:%634e52
 set player:buffering.status bg:%b16286
+set player:buffering.progress fg:%ebdbb2 bg:%76535f
 set player.episode +bold
 set player.feed fg:%ebdbb2 -bold
 set player.status fg:%1d2021 +bold

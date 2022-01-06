@@ -25,4 +25,4 @@ highlight = ["$dark3", "$dark4"]
 divider = "$dark4"
 text = ["$light1", "$light3"]
 text_highlight = ["$light1", "$light3"]
-player = "$dark4"
+player = ["$dark4", "$dark3"]

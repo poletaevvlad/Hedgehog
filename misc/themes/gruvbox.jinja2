@@ -54,6 +54,7 @@ set list.item:missing-title.title +italic
 {% macro player_state(state, color) -%}
 set player:{{ state }} bg:%{{ color_mix(var(colors.player), color, 0.2) }}
 set player:{{ state }}.status bg:%{{ color }}
+set player:{{ state }}.progress fg:%{{ var(colors.text[0]) }} bg:%{{ color_mix(var(colors.player), color, 0.4) }}
 {%- endmacro -%}
 
 set player bg:%{{ var(colors.player) }} fg:%{{ var(colors.text[1]) }}

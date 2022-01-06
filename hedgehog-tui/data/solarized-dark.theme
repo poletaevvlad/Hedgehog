@@ -39,6 +39,7 @@ set empty:focused bg:%002b36
 
 set player bg:%586e75 fg:%fdf6e3
 set player.timing bg:%657b83
+set player.progress bg:%657b83
 set player.feed fg:%eee8d5
 set player.status bg:%657b83 +bold
 set player:playing.status bg:%859900

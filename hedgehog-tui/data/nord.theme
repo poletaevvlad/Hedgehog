@@ -34,8 +34,10 @@ set list.item:episode-finished.state fg:%5E81AC +bold
 set list.item:episode-started.state fg:%EBCB8B +bold
 set list.item:playing.title fg:%88C0D0
 
-set player bg:%4C566A fg:%D8DEE9
+set player bg:%434C5E fg:%D8DEE9
 set player.episode fg:%ECEFF4
+set player.progress bg:%4C566A
+set player.timing bg:%4C566A
 set player.status +bold
 set player:playing.status bg:%A3BE8C fg:%3B4252
 set player:paused.status bg:%88C0D0 fg:%3B4252

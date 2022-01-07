@@ -191,6 +191,8 @@ pub enum PlaybackCommand {
     Seek(Duration),
     #[cmd(rename = "seek")]
     SeekRelative(SeekDirection, Duration),
+    #[cmd(rename = "rate")]
+    SetRate(f64),
 }
 
 impl Handler<PlaybackCommand> for Player {
@@ -310,6 +312,28 @@ impl Handler<PlaybackCommand> for Player {
                                 seeked: true,
                             });
                             self.seek_position = Some(pos_duration);
+                        }
+                    }
+                }
+                PlaybackCommand::SetRate(speed) => {
+                    if self.state.map(|state| state.is_started) == Some(true) {
+                        let current_position =
+                            self.element.query_position::<gst::ClockTime>().or_else(|| {
+                                self.seek_position
+                                    .map(|pos| gst::ClockTime::from_nseconds(pos.as_nanos() as u64))
+                            });
+
+                        if let Some(current_position) = current_position {
+                            self.element
+                                .seek(
+                                    speed,
+                                    gst::SeekFlags::FLUSH,
+                                    gst::SeekType::Set,
+                                    Some(current_position),
+                                    gst::SeekType::Set,
+                                    gst::ClockTime::NONE,
+                                )
+                                .map_err(GstError::from_err)?;
                         }
                     }
                 }

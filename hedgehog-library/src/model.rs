@@ -214,9 +214,7 @@ pub enum EpisodeSummaryStatus {
     NotStarted,
     #[cmd(rename = "done")]
     Finished,
-    #[cmd(ignore)]
     Started,
-    #[cmd(ignore)]
     Error,
 }
 

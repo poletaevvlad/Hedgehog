@@ -6,18 +6,26 @@ set statusbar.command.prompt fg:cyan
 set statusbar.confirmation fg:yellow
 
 set list.item:feed-special +bold
-set list.item:search +dim
-set list.item:search.title -dim +bold
-set list.item:selected +reversed
 set list.item.new-count fg:yellow
 set list.item:missing-title.title +italic
+set list.item:selected +reversed
+set list.item +dim
+set list.item:focused -dim
+set list.item:search.title +bold
+set list.item:episode-new.state fg:yellow
+set list.item:episode-started.state fg:green
+set list.item:episode-finished.state fg:darkgray
+set list.item:episode-error.state fg:red
+set list.item:playing fg:blue
 
-set player.episode bg:darkgray
-set player:stopped.status bg:black
-set player:playing.status bg:green fg:black
-set player:paused.status bg:blue fg:black
-set player:buffering.status bg:red fg:black
-set player.status +bold
-set player.timing bg:blue fg:black
+set player bg:darkgray fg:white
+set player.status +bold fg:black
+set player:paused.status bg:blue
+set player:playing.status bg:green
+set player:buffering.status bg:red
+set player.timing bg:gray fg:black
+set player.progress bg:gray fg:black
 
+set empty +dim
+set empty:focused -dim
 set empty.title +bold

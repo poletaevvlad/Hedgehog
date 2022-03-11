@@ -1,4 +1,4 @@
-use cmd_parser::CmdParsable;
+use cmdparse::Parsable;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -90,10 +90,8 @@ impl FromStr for Key {
     }
 }
 
-impl CmdParsable for Key {
-    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
-        cmd_parser::parse_cmd_token(input, "key")
-    }
+impl<Ctx> Parsable<Ctx> for Key {
+    type Parser = cmdparse::parsers::FromStrParser<Self>;
 }
 
 #[derive(Debug)]
@@ -136,7 +134,7 @@ impl<T, S> Default for KeyMapping<T, S> {
 #[cfg(test)]
 mod tests {
     use super::{Key, KeyParsingError};
-    use cmd_parser::CmdParsable;
+    use cmdparse::parse;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     #[test]
@@ -163,15 +161,12 @@ mod tests {
         );
 
         assert_eq!(
-            Key::parse_cmd("S-Space 10").unwrap(),
-            (
-                KeyEvent::new(KeyCode::Char(' '), KeyModifiers::SHIFT).into(),
-                "10"
-            )
+            parse::<_, Key>("S-Space", ()).unwrap(),
+            KeyEvent::new(KeyCode::Char(' '), KeyModifiers::SHIFT).into(),
         );
 
-        assert_eq!("S-unknown".parse::<Key>(), Err(KeyParsingError::UnknownKey),);
-        assert_eq!("F256".parse::<Key>(), Err(KeyParsingError::UnknownKey),);
+        assert_eq!("S-unknown".parse::<Key>(), Err(KeyParsingError::UnknownKey));
+        assert_eq!("F256".parse::<Key>(), Err(KeyParsingError::UnknownKey));
         assert_eq!("".parse::<Key>(), Err(KeyParsingError::Empty));
         assert_eq!(
             "L-a".parse::<Key>(),
@@ -180,18 +175,6 @@ mod tests {
         assert_eq!(
             "S-A-S-a".parse::<Key>(),
             Err(KeyParsingError::DuplicateModifier),
-        );
-    }
-
-    #[test]
-    fn parse_cmd() {
-        assert_eq!(
-            Key::parse_cmd_full("C-a").unwrap(),
-            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL).into()
-        );
-        assert_eq!(
-            &Key::parse_cmd_full("unknown").unwrap_err().to_string(),
-            "invalid key \"unknown\": key is not recognized"
         );
     }
 }

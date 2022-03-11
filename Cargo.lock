@@ -439,26 +439,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "cmd-parser"
+name = "cmdparse"
 version = "0.1.0"
+source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#f52990187af1a55aa1c644be439525f85dee062f"
 dependencies = [
- "cmd-parser-derive",
+ "cmdparse-derive",
 ]
 
 [[package]]
-name = "cmd-parser-derive"
+name = "cmdparse-derive"
 version = "0.1.0"
+source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#f52990187af1a55aa1c644be439525f85dee062f"
 dependencies = [
+ "linked-hash-map",
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "cmd-parser-derive-tests"
-version = "0.1.0"
-dependencies = [
- "cmd-parser",
 ]
 
 [[package]]
@@ -1121,7 +1117,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "chrono",
- "cmd-parser",
+ "cmdparse",
  "httpmock",
  "pretty_assertions",
  "quick-xml 0.22.0",
@@ -1140,7 +1136,7 @@ name = "hedgehog-player"
 version = "0.1.0"
 dependencies = [
  "actix",
- "cmd-parser",
+ "cmdparse",
  "dbus",
  "dbus-crossroads",
  "dbus-tokio",
@@ -1155,7 +1151,7 @@ dependencies = [
  "chrono",
  "clap",
  "cluFlock",
- "cmd-parser",
+ "cmdparse",
  "crossterm 0.20.0",
  "directories",
  "hedgehog-library",
@@ -1465,6 +1461,12 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
+
+[[package]]
+name = "linked-hash-map"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
 
 [[package]]
 name = "lock_api"

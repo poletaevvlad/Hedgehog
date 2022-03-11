@@ -1,5 +1,9 @@
 use actix::Message;
-use cmd_parser::{CmdParsable, ParseError};
+use cmdparse::{
+    error::ParseError,
+    parsers::{ParsableTransformation, TransformParser},
+    Parsable,
+};
 use gstreamer_base::glib::{ToValue, Type, Value};
 use std::fmt;
 
@@ -55,28 +59,51 @@ impl ToValue for Volume {
     }
 }
 
-impl CmdParsable for Volume {
-    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), ParseError<'_>> {
-        let (percentage, input) = f64::parse_cmd_raw(input)?;
-        Ok((Volume::from_cubic_clip(percentage / 100.0), input))
+pub struct VolumeTransformer;
+
+impl ParsableTransformation<Volume> for VolumeTransformer {
+    type Input = f64;
+
+    fn transform(input: Self::Input) -> Result<Volume, ParseError<'static>> {
+        Ok(Volume::from_cubic_clip(input / 100.0))
     }
 }
 
-fn parse_volume_delta(input: &str) -> Result<(f64, &str), cmd_parser::ParseError<'_>> {
-    let (delta, remaining) = f64::parse_cmd_raw(input)?;
-    Ok((delta / 100.0, remaining))
+impl<Ctx> Parsable<Ctx> for Volume {
+    type Parser = TransformParser<<f64 as Parsable<Ctx>>::Parser, VolumeTransformer, Volume>;
 }
 
-#[derive(Debug, Copy, Clone, Message, PartialEq, CmdParsable)]
+struct VolumeDeltaTransformer;
+
+impl ParsableTransformation<f64> for VolumeDeltaTransformer {
+    type Input = f64;
+
+    fn transform(input: Self::Input) -> Result<f64, ParseError<'static>> {
+        Ok(input / 100.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Message, PartialEq, cmdparse::Parsable)]
 #[rtype(result = "()")]
 pub enum VolumeCommand {
     #[cmd(ignore, alias = "mute", alias = "unmute")]
-    SetMuted(#[cmd(alias_override(mute = "true", unmute = "false"))] bool),
+    SetMuted(
+        #[cmd(
+            alias_value(alias = "mute", value = "true"),
+            alias_value(alias = "unmute", value = "false")
+        )]
+        bool,
+    ),
     ToggleMute,
     #[cmd(rename = "vol-set")]
     SetVolume(Volume),
     #[cmd(rename = "vol-adjust")]
-    AdjustVolume(#[cmd(parse_with = "parse_volume_delta")] f64),
+    AdjustVolume(
+        #[cmd(
+            parser = "TransformParser<<f64 as Parsable<CmdParserCtx>>::Parser, VolumeDeltaTransformer, f64>"
+        )]
+        f64,
+    ),
 }
 
 #[cfg(test)]

@@ -6,7 +6,7 @@ edition = "2018"
 [dependencies]
 gstreamer-base = "0.17"
 actix = "0.12"
-cmd-parser = { path = "../cmd-parser" }
+cmdparse = { git = "ssh://git@github.com/poletaevvlad/cmdparse.git", branch = "main" }
 
 # MPIRS
 dbus= { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response", optional = true }

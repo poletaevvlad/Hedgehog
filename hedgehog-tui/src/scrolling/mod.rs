@@ -1,8 +1,6 @@
 pub(crate) mod pagination;
 pub(crate) mod selection;
 mod viewport;
-
-use cmd_parser::CmdParsable;
 use std::ops::Range;
 use viewport::Viewport;
 
@@ -126,7 +124,7 @@ impl<D: DataView> ScrollableList<D> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, CmdParsable)]
+#[derive(Debug, Clone, Copy, PartialEq, cmdparse::Parsable)]
 pub(crate) enum ScrollAction {
     MoveBy(isize),
     MoveToVisible(usize),

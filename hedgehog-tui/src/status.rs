@@ -67,11 +67,30 @@ macro_rules! impl_hedgehog_error {
     };
 }
 
-impl<'a> HedgehogError for cmd_parser::ParseError<'a> {
+/// A representation of the [`cmdparse::error::ParseError`] that does not reference the parsed
+/// input and has a static lifetime.
+#[derive(Debug)]
+pub struct CommandError(String);
+
+impl<'a> From<cmdparse::error::ParseError<'a>> for CommandError {
+    fn from(error: cmdparse::error::ParseError<'a>) -> Self {
+        CommandError(error.to_string())
+    }
+}
+
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl HedgehogError for CommandError {
     fn error_type(&self) -> ErrorType {
         ErrorType::Command
     }
 }
+
+impl std::error::Error for CommandError {}
 
 impl HedgehogError for crate::cmdreader::Error {
     fn error_type(&self) -> ErrorType {

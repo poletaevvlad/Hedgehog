@@ -6,32 +6,32 @@
 # See the original theme: https://github.com/morhetz/gruvbox
 
 set list.divider bg:%504945 fg:%504945
-set list.item bg: %1d2021 fg:%989078 bg:%1d2021
+set list.item bg:%1d2021 fg:%989078 bg:%1d2021
 set list.item.title fg:%ebdbb2
 set list.item:feed-special fg:%ebdbb2
 set list.item:feed-special bg:%282828 +bold
 set list.item:episode-finished.title fg:%989078
 set list.item:hidden.title fg:%6f6a5b
-set list.item:selected bg: %3c3836 fg:%a59980 bg:%3c3836
+set list.item:selected bg:%3c3836 fg:%a59980 bg:%3c3836
 set list.item:selected.title fg:%ebdbb2
 set list.item:selected:feed-special fg:%ebdbb2
-set list.item:playing bg: %1d2021 fg:%355c5e bg:%1d2021
+set list.item:playing bg:%1d2021 fg:%355c5e bg:%1d2021
 set list.item:playing.title fg:%458588
-set list.item:playing:selected bg: %3c3836 fg:%667970 bg:%3c3836
+set list.item:playing:selected bg:%3c3836 fg:%667970 bg:%3c3836
 set list.item:playing:selected.title fg:%83a598
 set empty bg:%1d2021 fg:%ebdbb2
-set list.item:focused bg: %282828 fg:%a6a087 bg:%282828
+set list.item:focused bg:%282828 fg:%a6a087 bg:%282828
 set list.item:focused.title fg:%fbf1c7
 set list.item:focused:feed-special fg:%fbf1c7
 set list.item:feed-special:focused bg:%32302f
 set list.item:episode-finished.title fg:%a6a087
 set list.item:hidden.title fg:%7c7867
-set list.item:selected:focused bg: %504945 fg:%b6ad93 bg:%504945
+set list.item:selected:focused bg:%504945 fg:%b6ad93 bg:%504945
 set list.item:selected:focused.title fg:%fbf1c7
 set list.item:selected:focused:feed-special fg:%fbf1c7
-set list.item:playing:focused bg: %282828 fg:%395f61 bg:%282828
+set list.item:playing:focused bg:%282828 fg:%395f61 bg:%282828
 set list.item:playing:focused.title fg:%458588
-set list.item:playing:selected:focused bg: %504945 fg:%6e8076 bg:%504945
+set list.item:playing:selected:focused bg:%504945 fg:%6e8076 bg:%504945
 set list.item:playing:selected:focused.title fg:%83a598
 set empty:focused bg:%282828 fg:%fbf1c7
 set empty.title +bold

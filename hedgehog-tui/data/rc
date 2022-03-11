@@ -9,17 +9,17 @@ map End line last
 map PageUp line page-up
 map PageDown line page-down
 map f finish
-map --state feeds Tab focus episodes
-map --state feeds Enter focus episodes
-map --state episodes Tab focus feeds
-map --state episodes Enter play-current 
-map --state search Esc focus feeds
-map --state search Enter search-add
-map --state log Esc focus feeds
+map Tab --state feeds focus episodes
+map Enter --state feeds focus episodes
+map Tab --state episodes focus feeds
+map Enter --state episodes play-current 
+map Esc --state search focus feeds
+map Enter --state search search-add
+map Esc --state log focus feeds
 map C-c confirm "Are you sure you want to quit?" --default true quit
 map q confirm "Are you sure you want to quit?" --default true quit
 map C-r refresh
-map --state feeds Delete confirm "Are you sure you want to delete this feed? Your history will be deleted." delete-feed
+map Delete --state feeds confirm "Are you sure you want to delete this feed? Your history will be deleted." delete-feed
 
 map Right seek +5
 map Left seek -5

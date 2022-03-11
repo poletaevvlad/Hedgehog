@@ -1,5 +1,3 @@
-use cmd_parser::CmdParsable;
-
 macro_rules! gen_options {
     ($($(#$attr:tt)* $command:ident($(#$arg_attr:tt)* $name:ident: $value:ty = $default:expr)),*$(,)?) => {
         pub(crate) struct Options {
@@ -14,7 +12,7 @@ macro_rules! gen_options {
             }
         }
 
-        #[derive(Debug, Clone, PartialEq, CmdParsable)]
+        #[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
         pub(crate) enum OptionsUpdate {
             $($(#$attr)* $command($(#$arg_attr)* $value)),*
         }
@@ -48,7 +46,7 @@ gen_options! {
     Hidden(hidden: bool = false),
     ProgressBarWidth(progress_bar_width: u16 = 32),
     ProgressBarChars(
-        #[cmd(parse_with = "parse_char_vec")]
+        #[cmd(parser = "cmdparse::parsers::TransformParser<cmdparse::parsers::StringParser, CharVecTransformation, Vec<char>>")]
         progress_bar_chars: Vec<char> = vec![' ', '⠁', '⠃', '⠇', '⡇', '⡏', '⡟', '⡿', '⣿']
     ),
 }
@@ -59,6 +57,12 @@ impl OptionsUpdate {
     }
 }
 
-fn parse_char_vec(input: &str) -> Result<(Vec<char>, &str), cmd_parser::ParseError<'_>> {
-    String::parse_cmd_raw(input).map(|(string, remaining)| (string.chars().collect(), remaining))
+struct CharVecTransformation;
+
+impl cmdparse::parsers::ParsableTransformation<Vec<char>> for CharVecTransformation {
+    type Input = String;
+
+    fn transform(input: Self::Input) -> Result<Vec<char>, cmdparse::error::ParseError<'static>> {
+        Ok(input.chars().collect())
+    }
 }

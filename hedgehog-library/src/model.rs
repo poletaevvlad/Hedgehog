@@ -1,8 +1,7 @@
 use crate::{metadata::FeedMetadata, NewFeedMetadata};
 use chrono::{DateTime, Utc};
-use cmd_parser::CmdParsable;
-use core::fmt;
 use rusqlite::types::{FromSql, ToSql};
+use std::fmt;
 use std::time::Duration;
 
 macro_rules! entity_id {
@@ -173,7 +172,7 @@ pub struct Feed {
     pub status: FeedStatus,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, CmdParsable)]
+#[derive(Debug, Clone, PartialEq, Eq, cmdparse::Parsable)]
 pub enum EpisodeStatus {
     New,
     #[cmd(rename = "seen")]
@@ -207,7 +206,7 @@ impl EpisodeStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, CmdParsable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, cmdparse::Parsable)]
 pub enum EpisodeSummaryStatus {
     New,
     #[cmd(rename = "seen")]

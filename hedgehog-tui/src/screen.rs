@@ -19,7 +19,6 @@ use crate::widgets::status::StatusView;
 use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
-use cmd_parser::CmdParsable;
 use crossterm::event::Event;
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
@@ -38,7 +37,7 @@ use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
 use hedgehog_player::{
     PlaybackCommand, PlaybackMetadata, Player, PlayerErrorNotification, PlayerNotification,
-    SeekDirection,
+    SeekDirection, SeekOffset,
 };
 use std::collections::HashSet;
 use std::io::{stdout, Write};
@@ -48,7 +47,7 @@ use std::time::Duration;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CmdParsable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, cmdparse::Parsable)]
 pub(crate) enum FocusedPane {
     #[cmd(rename = "feeds")]
     FeedsList,
@@ -96,7 +95,7 @@ impl LibraryViewModel {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, CmdParsable)]
+#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
 pub(crate) enum Command {
     #[cmd(rename = "line")]
     Cursor(ScrollAction),
@@ -112,11 +111,17 @@ pub(crate) enum Command {
     Playback(PlaybackCommand),
     Finish,
     #[cmd(alias = "enable", alias = "disable")]
-    SetFeedEnabled(#[cmd(alias_override(enable = "true", disable = "false"))] bool),
+    SetFeedEnabled(
+        #[cmd(
+            alias_value(alias = "enable", value = "true"),
+            alias_value(alias = "disable", value = "false")
+        )]
+        bool,
+    ),
     #[cmd(alias = "q")]
     Quit,
     #[cmd(rename = "focus", alias = "log")]
-    SetFocus(#[cmd(alias_override(log = "FocusedPane::ErrorsLog"))] FocusedPane),
+    SetFocus(#[cmd(alias_value(alias = "log", value = "FocusedPane::ErrorsLog"))] FocusedPane),
     #[cmd(rename = "set")]
     SetOption(OptionsUpdate),
     #[cmd(rename = "add")]
@@ -136,15 +141,23 @@ pub(crate) enum Command {
         condition: Option<EpisodeSummaryStatus>,
     },
     #[cmd(ignore, alias = "hide", alias = "unhide")]
-    SetEpisodeHidden(#[cmd(alias_override(hide = "true", unhide = "false"))] bool),
+    SetEpisodeHidden(
+        #[cmd(
+            alias_value(alias = "hide", value = "true"),
+            alias_value(alias = "unhide", value = "false")
+        )]
+        bool,
+    ),
     #[cmd(alias = "s")]
-    Search(#[cmd(parse_with = "cmd_parser::string_parse_all")] String),
+    Search(
+        /*#[cmd(parse_with = "cmd_parser::string_parse_all")]*/ String,
+    ),
     SearchAdd,
 
     Refresh,
 }
 
-#[derive(Debug, Clone, PartialEq, CmdParsable)]
+#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
 pub(crate) struct CommandConfirmation {
     pub(crate) prompt: String,
     pub(crate) action: Command,
@@ -364,7 +377,7 @@ impl UI {
                 };
 
                 loop {
-                    match reader.read() {
+                    match reader.read(()) {
                         Ok(None) => break,
                         Ok(Some(command)) => {
                             self.handle_command(command, ctx);
@@ -927,8 +940,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                     };
                                     self.handle_command(
                                         Command::Playback(PlaybackCommand::SeekRelative(
-                                            seek_direction,
-                                            Duration::from_secs(1),
+                                            SeekOffset(seek_direction, Duration::from_secs(1)),
                                         )),
                                         ctx,
                                     );
@@ -1013,10 +1025,10 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                             self.handle_error(error, ctx);
                         }
                         self.command = None;
-                        match <Option<Command>>::parse_cmd_full(&command_str) {
+                        match cmdparse::parse::<_, Option<Command>>(&command_str, ()) {
                             Ok(Some(command)) => self.handle_command(command, ctx),
                             Ok(None) => {}
-                            Err(error) => self.handle_error(error.into_static(), ctx),
+                            Err(error) => self.handle_error(status::CommandError::from(error), ctx),
                         }
                         self.invalidate(ctx);
                     }

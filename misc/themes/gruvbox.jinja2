@@ -13,7 +13,7 @@
 {%- endmacro -%}
 
 {% macro list_row(selector, bg, fg, include_special = false) -%}
-set {{ selector }} bg: %{{ bg }} fg:%{{ color_mix(fg, bg, 0.4) }} bg:%{{ bg }}
+set {{ selector }} bg:%{{ bg }} fg:%{{ color_mix(fg, bg, 0.4) }} bg:%{{ bg }}
 set {{ selector }}.title fg:%{{ fg }}
 {%- if include_special %}
 set {{ selector }}:feed-special fg:%{{ fg }}

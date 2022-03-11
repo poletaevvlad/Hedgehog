@@ -3,7 +3,6 @@ mod style_parser;
 
 use crate::cmdreader::{self, CommandReader};
 use crate::environment::AppEnvironment;
-use cmd_parser::CmdParsable;
 use selectors::StyleSelector;
 pub(crate) use selectors::{
     Empty, EmptyItem, List, ListColumn, ListItem, ListState, Player, PlayerItem, Selector,
@@ -51,7 +50,7 @@ impl Theme {
                 }
                 let result: Result<(), cmdreader::Error> = (|| {
                     let mut reader = CommandReader::open(theme_path)?;
-                    while let Some(command) = reader.read()? {
+                    while let Some(command) = reader.read(())? {
                         self.handle_command(command, env)?;
                     }
                     Ok(())
@@ -95,7 +94,7 @@ impl Default for Theme {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, CmdParsable)]
+#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
 pub(crate) enum ThemeLoadingMode {
     Reset,
     NoReset,
@@ -107,13 +106,10 @@ impl Default for ThemeLoadingMode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, CmdParsable)]
+#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
 pub(crate) enum ThemeCommand {
     Reset,
-    Set(
-        Selector,
-        #[cmd(parse_with = "style_parser::parse_cmd")] Style,
-    ),
+    Set(Selector, #[cmd(parser = "style_parser::StyleParser")] Style),
     Load(PathBuf, Option<ThemeLoadingMode>),
 }
 

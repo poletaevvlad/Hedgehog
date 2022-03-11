@@ -1,4 +1,3 @@
-use cmd_parser::CmdParsable;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
@@ -9,7 +8,7 @@ pub(crate) enum Error {
     Io(#[from] io::Error),
 
     #[error("invalid command at line {1}: {0}")]
-    Parsing(#[source] cmd_parser::ParseError<'static>, usize),
+    Parsing(#[source] crate::status::CommandError, usize),
 }
 
 #[derive(Debug)]
@@ -30,7 +29,10 @@ impl CommandReader {
         })
     }
 
-    pub(crate) fn read<C: CmdParsable>(&mut self) -> Result<Option<C>, Error> {
+    pub(crate) fn read<Ctx: Clone, P: cmdparse::Parsable<Ctx>>(
+        &mut self,
+        ctx: Ctx,
+    ) -> Result<Option<P>, Error> {
         loop {
             self.buffer.clear();
             let read_count = self.reader.read_line(&mut self.buffer)?;
@@ -39,10 +41,10 @@ impl CommandReader {
             }
 
             self.line_no += 1;
-            return match <Option<C>>::parse_cmd_full(&self.buffer) {
+            return match cmdparse::parse::<_, Option<P>>(&self.buffer, ctx.clone()) {
                 Ok(Some(command)) => Ok(Some(command)),
                 Ok(None) => continue,
-                Err(error) => Err(Error::Parsing(error.into_static(), self.line_no)),
+                Err(error) => Err(Error::Parsing(error.into(), self.line_no)),
             };
         }
     }
@@ -51,12 +53,11 @@ impl CommandReader {
 #[cfg(test)]
 mod tests {
     use super::{CommandReader, Error};
-    use cmd_parser::CmdParsable;
     use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
 
-    #[derive(Debug, PartialEq, Eq, CmdParsable)]
+    #[derive(Debug, PartialEq, Eq, cmdparse::Parsable)]
     enum MockCmd {
         First(usize),
         Second(String),
@@ -76,12 +77,12 @@ mod tests {
         drop(file);
 
         let mut reader = CommandReader::open(path).unwrap();
-        assert_eq!(reader.read().unwrap(), Some(MockCmd::First(4)));
+        assert_eq!(reader.read(()).unwrap(), Some(MockCmd::First(4)));
         assert_eq!(
-            reader.read().unwrap(),
+            reader.read(()).unwrap(),
             Some(MockCmd::Second("four".to_string()))
         );
-        assert_eq!(reader.read::<MockCmd>().unwrap(), None);
+        assert_eq!(reader.read::<(), MockCmd>(()).unwrap(), None);
     }
 
     #[test]
@@ -95,9 +96,9 @@ mod tests {
         drop(file);
 
         let mut reader = CommandReader::open(path).unwrap();
-        assert_eq!(reader.read().unwrap(), Some(MockCmd::First(4)));
+        assert_eq!(reader.read(()).unwrap(), Some(MockCmd::First(4)));
         assert!(matches!(
-            reader.read::<MockCmd>().unwrap_err(),
+            reader.read::<(), MockCmd>(()).unwrap_err(),
             Error::Parsing(_, 2)
         ));
     }

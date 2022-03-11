@@ -17,7 +17,7 @@ unicode-width = "0.1"
 thiserror = "1.0"
 hedgehog-library = { path = "../hedgehog-library" }
 hedgehog-player = { path = "../hedgehog-player" }
-cmd-parser = { path = "../cmd-parser" }
+cmdparse = { git = "ssh://git@github.com/poletaevvlad/cmdparse.git", branch = "main" }
 directories = "4.0"
 clap = "~2.27.0"
 cluFlock = "1.2"

@@ -4,11 +4,15 @@ pub mod state;
 pub mod volume;
 
 use actix::prelude::*;
-use cmd_parser::CmdParsable;
+use cmdparse::{
+    error::{ParseError, UnrecognizedToken},
+    tokens::{Token, TokenStream},
+    CompletionResult, Parsable, ParseResult, Parser,
+};
 pub use gst_utils::GstError;
 use gst_utils::{build_flags, get_property, set_property};
 use gstreamer_base::{gst, gst::prelude::*, BaseParse};
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 use volume::{Volume, VolumeCommand};
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -147,28 +151,90 @@ impl Handler<ActorCommand> for Player {
     }
 }
 
+#[derive(Default)]
+struct DurationParser;
+
+impl DurationParser {
+    fn parse_duration(input: &str) -> Result<Duration, ()> {
+        let mut parts = input.rsplitn(3, ':');
+        let mut seconds: f64 = match parts.next().unwrap().parse() {
+            Ok(seconds) => seconds,
+            Err(_) => return Err(()),
+        };
+
+        let mut multiplier = 60.0;
+        for part in parts {
+            match part.parse::<u64>() {
+                Ok(part) => {
+                    seconds += multiplier * part as f64;
+                    multiplier *= 60.0;
+                }
+                Err(_) => return Err(()),
+            }
+        }
+        Ok(Duration::from_secs_f64(seconds))
+    }
+}
+
+impl<Ctx> Parser<Ctx> for DurationParser {
+    type Value = Duration;
+
+    fn parse<'a>(&self, input: TokenStream<'a>, _ctx: Ctx) -> ParseResult<'a, Self::Value> {
+        match input.take().transpose()? {
+            Some((token @ Token::Attribute(_), remaining)) => {
+                Err(UnrecognizedToken::new(token, remaining).into())
+            }
+            Some((token @ Token::Text(text), remaining)) => {
+                let text = text.parse_string();
+                match DurationParser::parse_duration(&text) {
+                    Ok(duration) => Ok((duration, remaining)),
+                    Err(_) => Err(ParseError::invalid(token, None).expected("duration").into()),
+                }
+            }
+            None => Err(ParseError::token_required().expected("duration").into()),
+        }
+    }
+
+    fn complete<'a>(&self, input: TokenStream<'a>, _ctx: Ctx) -> CompletionResult<'a> {
+        match input.take() {
+            Some(Ok((Token::Text(_), remaining))) if remaining.is_all_consumed() => {
+                CompletionResult::new_final(true)
+            }
+            Some(Ok((Token::Text(_), remaining))) => CompletionResult::new(remaining, true),
+            Some(Ok((Token::Attribute(_), _))) => CompletionResult::new(input, false),
+            Some(Err(_)) | None => CompletionResult::new_final(false),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SeekDirection {
     Forward,
     Backward,
 }
 
-impl CmdParsable for SeekDirection {
-    fn parse_cmd_raw(input: &str) -> Result<(Self, &str), cmd_parser::ParseError<'_>> {
-        let mut chars = input.chars();
-        match chars.next() {
-            Some('+') => Ok((SeekDirection::Forward, chars.as_str())),
-            Some('-') => Ok((SeekDirection::Backward, chars.as_str())),
-            Some(ch) => Err(cmd_parser::ParseError {
-                kind: cmd_parser::ParseErrorKind::UnknownVariant(ch.to_string().into()),
-                expected: "seek direction (+/-)".into(),
-            }),
-            None => Err(cmd_parser::ParseError {
-                kind: cmd_parser::ParseErrorKind::TokenRequired,
-                expected: "seek direction (+/-)".into(),
-            }),
-        }
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct SeekOffset(pub SeekDirection, pub Duration);
+
+impl FromStr for SeekOffset {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (direction, tail) = if let Some(tail) = s.strip_prefix('-') {
+            (SeekDirection::Backward, tail)
+        } else if let Some(tail) = s.strip_prefix('+') {
+            (SeekDirection::Forward, tail)
+        } else {
+            (SeekDirection::Forward, s)
+        };
+
+        let duration = DurationParser::parse_duration(tail)?;
+        Ok(SeekOffset(direction, duration))
     }
+}
+
+impl<Ctx> Parsable<Ctx> for SeekOffset {
+    type Parser = cmdparse::parsers::FromStrParser<Self>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -178,19 +244,23 @@ pub struct PlaybackMetadata {
     pub feed_title: Option<String>,
 }
 
-#[derive(Debug, Message, PartialEq, Clone, CmdParsable)]
+#[derive(Debug, Message, PartialEq, Clone, cmdparse::Parsable)]
 #[rtype(result = "()")]
 pub enum PlaybackCommand {
     #[cmd(ignore)]
-    Play(String, Duration, Option<PlaybackMetadata>),
+    Play(
+        String,
+        #[cmd(parser = "DurationParser")] Duration,
+        Option<PlaybackMetadata>,
+    ),
     Stop,
     Pause,
     Resume,
     TogglePause,
     #[cmd(transparent)]
-    Seek(Duration),
+    Seek(#[cmd(parser = "DurationParser")] Duration),
     #[cmd(rename = "seek")]
-    SeekRelative(SeekDirection, Duration),
+    SeekRelative(SeekOffset),
     #[cmd(rename = "rate")]
     SetRate(f64),
 }
@@ -285,7 +355,7 @@ impl Handler<PlaybackCommand> for Player {
                         });
                     }
                 }
-                PlaybackCommand::SeekRelative(direction, duration) => {
+                PlaybackCommand::SeekRelative(SeekOffset(direction, duration)) => {
                     if self.state.map(|state| state.is_started) == Some(true) {
                         let current_position =
                             self.element.query_position::<gst::ClockTime>().or_else(|| {

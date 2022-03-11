@@ -1,8 +1,41 @@
 use cmdparse::error::{ParseError, UnrecognizedToken};
 use cmdparse::tokens::{Token, TokenStream};
-use cmdparse::ParseResult;
-use std::borrow::Borrow;
+use cmdparse::{CompletionResult, ParseResult};
+use std::borrow::{Borrow, Cow};
 use tui::style::{Color, Modifier, Style};
+
+// These arrays must remain sorted
+const COLOR_NAMES: &[&str] = &[
+    "black",
+    "blue",
+    "cyan",
+    "darkgray",
+    "gray",
+    "green",
+    "lightblue",
+    "lightcyan",
+    "lightgreen",
+    "lightmagenta",
+    "lightred",
+    "lightyellow",
+    "magenta",
+    "red",
+    "reset",
+    "white",
+    "yellow",
+];
+
+const MODIFIER_NAMES: &[&str] = &[
+    "bold",
+    "crossedout",
+    "dim",
+    "hidden",
+    "italic",
+    "rapidblink",
+    "reversed",
+    "slowblink",
+    "underlined",
+];
 
 fn parse_color_rgb(input: &str) -> Result<Color, ()> {
     if input.len() != 6 || input.chars().any(|ch| !ch.is_ascii_hexdigit()) {
@@ -115,12 +148,30 @@ impl<Ctx> cmdparse::Parser<Ctx> for StyleComponentParser {
         }
     }
 
-    fn complete<'a>(
-        &self,
-        _input: cmdparse::tokens::TokenStream<'a>,
-        _ctx: Ctx,
-    ) -> cmdparse::CompletionResult<'a> {
-        todo!()
+    fn complete<'a>(&self, input: TokenStream<'a>, _ctx: Ctx) -> cmdparse::CompletionResult<'a> {
+        match input.take() {
+            Some(Ok((Token::Text(text), remaining))) if remaining.is_all_consumed() => {
+                let text = text.parse_string();
+                if let Some(color) = text
+                    .strip_prefix("fg:")
+                    .or_else(|| text.strip_prefix("bg:"))
+                {
+                    CompletionResult::new_final(true).add_suggestions(
+                        cmdparse::tokens::complete_variants(color, COLOR_NAMES).map(Cow::from),
+                    )
+                } else if let Some(modifier) = text.strip_prefix(&['+', '-'] as &[char]) {
+                    CompletionResult::new_final(true).add_suggestions(
+                        cmdparse::tokens::complete_variants(modifier, MODIFIER_NAMES)
+                            .map(Cow::from),
+                    )
+                } else {
+                    CompletionResult::new_final(true)
+                }
+            }
+            Some(Ok((Token::Text(_), remaining))) => CompletionResult::new(remaining, true),
+            Some(Ok((Token::Attribute(_), _))) => CompletionResult::new(input, false),
+            Some(Err(_)) | None => CompletionResult::new_final(false),
+        }
     }
 }
 
@@ -151,8 +202,10 @@ pub type StyleParser = cmdparse::parsers::TransformParser<
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::StyleParser;
-    use cmdparse::parse_parser;
+    use cmdparse::{complete_parser, parse_parser};
     use tui::style::{Color, Modifier, Style};
 
     #[test]
@@ -231,6 +284,33 @@ mod tests {
                 .unwrap_err()
                 .to_string(),
             "cannot parse \"bg:abcdef-bold\" (invalid color)"
+        );
+    }
+
+    #[test]
+    fn completion() {
+        macro_rules! btreeset {
+            [$($item:literal),*] => { BTreeSet::from([$($item.into()),*]) }
+        }
+        assert_eq!(
+            complete_parser::<(), StyleParser>("fg:light", ()),
+            btreeset!["blue", "cyan", "green", "magenta", "red", "yellow"]
+        );
+        assert_eq!(
+            complete_parser::<(), StyleParser>("bg:light", ()),
+            btreeset!["blue", "cyan", "green", "magenta", "red", "yellow"]
+        );
+        assert_eq!(
+            complete_parser::<(), StyleParser>("+r", ()),
+            btreeset!["apidblink", "eversed"]
+        );
+        assert_eq!(
+            complete_parser::<(), StyleParser>("-r", ()),
+            btreeset!["apidblink", "eversed"]
+        );
+        assert_eq!(
+            complete_parser::<(), StyleParser>("unknown", ()),
+            btreeset![]
         );
     }
 }

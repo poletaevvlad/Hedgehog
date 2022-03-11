@@ -54,7 +54,7 @@ impl StatusBar {
 
     // These arrays must remain sorted
     const COMPLETION_FIRST: &'static [&'static str] =
-        &[".command", ".confirmation", ".empty", "status"];
+        &[".command", ".confirmation", ".empty", ".status"];
     const COMPLETION_COMMAND: &'static [&'static str] = &[".prompt"];
     const COMPLETION_STATUS: &'static [&'static str] =
         &[".label", ":error", ":information", ":warning"];
@@ -540,15 +540,13 @@ impl Player {
         ":playing",
         ":stopped",
     ];
-    const COMPLETION_LAST: &'static [&'static str] =
-        &[".episode", ".feed", ".progress", ".status", ".timing"];
 
     fn completion_candidates(input: &[&str]) -> &'static [&'static str] {
         match input {
-            [modifiers @ .., _] if modifiers.iter().all(|item| item.starts_with(':')) => {
+            [_] => Player::COMPLETION_FIRST,
+            [modifier, last] if modifier.starts_with(':') && last.starts_with('.') => {
                 Player::COMPLETION_FIRST
             }
-            [.., _last] => Player::COMPLETION_LAST,
             _ => &[],
         }
     }
@@ -623,8 +621,11 @@ impl Selector {
         }
     }
 
+    const COMPLETION_FIRST: &'static [&'static str] = &["empty", "list", "player", "statusbar"];
+
     fn completion_candidates(input: &[&str]) -> &'static [&'static str] {
         match input {
+            [_] => Selector::COMPLETION_FIRST,
             ["statusbar", rest @ ..] => StatusBar::completion_candidates(rest),
             ["list", rest @ ..] => List::completion_candidates(rest),
             ["empty", rest @ ..] => Empty::completion_candidates(rest),
@@ -723,77 +724,75 @@ impl From<Player> for Selector {
     }
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::{Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar};
-    use crate::{
-        status::Severity,
-        theming::{selectors::PlayerItem, EmptyItem},
-    };
+    use crate::status::Severity;
+    use crate::theming::{selectors::PlayerItem, EmptyItem};
+    use cmdparse::parse;
     use hedgehog_player::state::PlaybackStatus;
 
     #[test]
     fn parse_selectors() {
         assert_eq!(
-            "statusbar.status".parse(),
+            parse::<(), Selector>("statusbar.status", ()),
             Ok(Selector::StatusBar(StatusBar::Status(None, false)))
         );
         assert_eq!(
-            "statusbar.status:warning".parse(),
+            parse::<(), Selector>("statusbar.status:warning", ()),
             Ok(Selector::StatusBar(StatusBar::Status(
                 Some(Severity::Warning),
                 false
             )))
         );
-        assert_eq!("list.divider".parse(), Ok(Selector::List(List::Divider)));
         assert_eq!(
-            Selector::parse_cmd_full("list.divider").unwrap(),
-            Selector::List(List::Divider)
+            parse::<(), Selector>("list.divider", ()),
+            Ok(Selector::List(List::Divider))
         );
         assert_eq!(
-            "empty".parse(),
+            parse::<(), Selector>("empty", ()),
             Ok(Selector::Empty(Empty {
                 focused: false,
                 item: None
             }))
         );
         assert_eq!(
-            "empty.title".parse(),
+            parse::<(), Selector>("empty.title", ()),
             Ok(Selector::Empty(Empty {
                 focused: false,
                 item: Some(EmptyItem::Title)
             }))
         );
         assert_eq!(
-            "empty:focused".parse(),
+            parse::<(), Selector>("empty:focused", ()),
             Ok(Selector::Empty(Empty {
                 focused: true,
                 item: None
             }))
         );
         assert_eq!(
-            "empty:focused.title".parse(),
+            parse::<(), Selector>("empty:focused.title", ()),
             Ok(Selector::Empty(Empty {
                 focused: true,
                 item: Some(EmptyItem::Title)
             }))
         );
         assert_eq!(
-            "player.timing".parse(),
+            parse::<(), Selector>("player.timing", ()),
             Ok(Selector::Player(Player {
                 status: None,
                 subitem: Some(PlayerItem::Timing),
             }))
         );
         assert_eq!(
-            "player:paused".parse(),
+            parse::<(), Selector>("player:paused", ()),
             Ok(Selector::Player(Player {
                 status: Some(PlaybackStatus::Paused),
                 subitem: None,
             }))
         );
         assert_eq!(
-            "player:buffering.status".parse(),
+            parse::<(), Selector>("player:buffering.status", ()),
             Ok(Selector::Player(Player {
                 status: Some(PlaybackStatus::Buffering),
                 subitem: Some(PlayerItem::Status),
@@ -802,28 +801,20 @@ mod tests {
     }
 
     #[test]
-    fn parse_cmd_selector() {
-        assert_eq!(
-            Selector::parse_cmd("statusbar.status").unwrap(),
-            (Selector::StatusBar(StatusBar::Status(None, false)), "")
-        );
-    }
-
-    #[test]
     fn parse_item_state() {
         assert_eq!(
-            "list.item".parse(),
+            parse::<(), Selector>("list.item", ()),
             Ok(Selector::List(List::Item(ListItem::default())))
         );
         assert_eq!(
-            "list.item:episode-error".parse(),
+            parse::<(), Selector>("list.item:episode-error", ()),
             Ok(Selector::List(List::Item(ListItem {
                 state: Some(ListState::EpisodeError),
                 ..Default::default()
             })))
         );
         assert_eq!(
-            "list.item:focused:selected".parse(),
+            parse::<(), Selector>("list.item:focused:selected", ()),
             Ok(Selector::List(List::Item(ListItem {
                 focused: true,
                 selected: true,
@@ -831,14 +822,14 @@ mod tests {
             })))
         );
         assert_eq!(
-            "list.item:missing-title".parse(),
+            parse::<(), Selector>("list.item:missing-title", ()),
             Ok(Selector::List(List::Item(ListItem {
                 missing_title: true,
                 ..Default::default()
             })))
         );
         assert_eq!(
-            "list.item:selected.title".parse(),
+            parse::<(), Selector>("list.item:selected.title", ()),
             Ok(Selector::List(List::Item(ListItem {
                 selected: true,
                 column: Some(ListColumn::Title),
@@ -849,8 +840,64 @@ mod tests {
 
     #[test]
     fn parse_error() {
-        assert!("list.abcdef".parse::<Selector>().is_err());
-        assert!("list.divider.unknown".parse::<Selector>().is_err());
-        assert!("list.item:unknown".parse::<Selector>().is_err());
+        assert!(parse::<(), Selector>("list.abcdef", ()).is_err());
+        assert!(parse::<(), Selector>("list.divider.unknown", ()).is_err());
+        assert!(parse::<(), Selector>("list.item:unknown", ()).is_err());
     }
-}*/
+
+    #[test]
+    fn completion() {
+        macro_rules! assert_complete {
+            ($input:literal, [$($suggestion:literal),* $(,)?]) => {
+                assert_eq!(
+                    cmdparse::complete::<(), Selector>($input, ()),
+                    std::collections::BTreeSet::from([$($suggestion.into()),*]),
+                );
+            };
+        }
+
+        assert_complete!("s", ["tatusbar"]);
+        assert_complete!("statusbar.", ["empty", "command", "confirmation", "status"]);
+        assert_complete!("statusbar:", []);
+        assert_complete!("statusbar.command.", ["prompt"]);
+        assert_complete!("statusbar.command:", []);
+        assert_complete!("statusbar.status.", ["label"]);
+        assert_complete!("statusbar.status:", ["error", "warning", "information"]);
+        assert_complete!("statusbar.status:error.", ["label"]);
+        assert_complete!("statusbar.status:error:", []);
+        assert_complete!("statusbar.status:error.label.", []);
+        assert_complete!("statusbar.status:error.label:", []);
+
+        assert_complete!("l", ["ist"]);
+        assert_complete!("list.", ["divider", "item"]);
+        assert_complete!("list.item.d", ["etails", "ate", "uration"]);
+        assert_complete!(
+            "list.item:episode-",
+            ["error", "new", "started", "finished"]
+        );
+        assert_complete!(
+            "list.item:episode-error:focused:episode-",
+            ["error", "new", "started", "finished"]
+        );
+        assert_complete!("list.item.date.", []);
+        assert_complete!("list.item.date:", []);
+
+        assert_complete!("e", ["mpty"]);
+        assert_complete!("empty.", ["title", "subtitle"]);
+        assert_complete!("empty:", []);
+
+        assert_complete!("p", ["layer"]);
+        assert_complete!(
+            "player.",
+            ["episode", "feed", "progress", "status", "timing"]
+        );
+        assert_complete!("player:", ["buffering", "paused", "playing", "stopped"]);
+        assert_complete!("player.status:", []);
+        assert_complete!("player.status.", []);
+        assert_complete!("player:paused:", []);
+        assert_complete!(
+            "player:paused.",
+            ["episode", "feed", "progress", "status", "timing"]
+        );
+    }
+}

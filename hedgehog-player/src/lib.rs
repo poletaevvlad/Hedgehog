@@ -257,7 +257,7 @@ pub enum PlaybackCommand {
     Pause,
     Resume,
     TogglePause,
-    #[cmd(transparent)]
+    #[cmd(transparent_no_error)]
     Seek(#[cmd(parser = "DurationParser")] Duration),
     #[cmd(rename = "seek")]
     SeekRelative(SeekOffset),

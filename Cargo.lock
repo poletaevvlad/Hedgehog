@@ -441,7 +441,7 @@ dependencies = [
 [[package]]
 name = "cmdparse"
 version = "0.1.0"
-source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#f52990187af1a55aa1c644be439525f85dee062f"
+source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#462ea10af4578391b3574c419d25dd5a6c85c003"
 dependencies = [
  "cmdparse-derive",
 ]
@@ -449,7 +449,7 @@ dependencies = [
 [[package]]
 name = "cmdparse-derive"
 version = "0.1.0"
-source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#f52990187af1a55aa1c644be439525f85dee062f"
+source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#462ea10af4578391b3574c419d25dd5a6c85c003"
 dependencies = [
  "linked-hash-map",
  "proc-macro2",

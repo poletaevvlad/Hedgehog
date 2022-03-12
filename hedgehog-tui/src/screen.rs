@@ -1019,6 +1019,15 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         self.command = None;
                         self.invalidate(ctx);
                     }
+                    CommandActionResult::Complete => {
+                        let command_str =
+                            command_state.as_str_before_cursor(&self.commands_history);
+                        let completion: Vec<_> = cmdparse::complete::<_, Command>(command_str, ())
+                            .into_iter()
+                            .collect();
+                        command_state.set_completions(completion);
+                        self.invalidate(ctx);
+                    }
                     CommandActionResult::Submit => {
                         let command_str = command_state.as_str(&self.commands_history).to_string();
                         if let Err(error) = self.commands_history.push(&command_str) {

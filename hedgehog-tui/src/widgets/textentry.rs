@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use tui::backend::Backend;
 use tui::buffer;
@@ -51,7 +53,6 @@ impl Buffer {
         self.text.is_empty()
     }
 
-    #[cfg(test)]
     pub(crate) fn cursor_position(&self) -> usize {
         self.cursor_position
     }
@@ -217,6 +218,19 @@ impl Buffer {
             key!(Delete, CONTROL) => self.delete(Direction::Forward, Amount::Word),
             _ => false,
         }
+    }
+
+    pub(crate) fn insert(&mut self, text: &str) -> Range<usize> {
+        self.text.insert_str(self.cursor_position, text);
+        let range = self.cursor_position..(self.cursor_position + text.len());
+        self.cursor_position += text.len();
+        range
+    }
+
+    pub(crate) fn replace(&mut self, range: Range<usize>, text: &str) -> Range<usize> {
+        self.text.replace_range(range.clone(), text);
+        self.cursor_position = range.start + text.len();
+        range.start..self.cursor_position
     }
 }
 
@@ -550,6 +564,32 @@ mod tests {
             assert!(buffer.delete(Direction::Backward, Amount::Word));
             assert_eq!(buffer.as_str(), "");
             assert!(!buffer.delete(Direction::Forward, Amount::Word));
+        }
+
+        #[test]
+        fn insertion() {
+            let mut buffer = Buffer::new("abcdef".to_string(), 3);
+            assert_eq!(buffer.insert("-ins-"), 3..8);
+            assert_eq!(buffer.as_str(), "abc-ins-def");
+            assert_eq!(buffer.cursor_position, 8);
+
+            let mut buffer = Buffer::new("абвгде".to_string(), 6);
+            assert_eq!(buffer.insert("-вкл-"), 6..14);
+            assert_eq!(buffer.as_str(), "абв-вкл-где");
+            assert_eq!(buffer.cursor_position, 14);
+        }
+
+        #[test]
+        fn replacement() {
+            let mut buffer = Buffer::new("abc-ins-def".to_string(), 8);
+            assert_eq!(buffer.replace(3..8, "-replaced-"), 3..13);
+            assert_eq!(buffer.as_str(), "abc-replaced-def");
+            assert_eq!(buffer.cursor_position, 13);
+
+            let mut buffer = Buffer::new("абв-вкл-где".to_string(), 14);
+            assert_eq!(buffer.replace(6..14, "-замен-"), 6..18);
+            assert_eq!(buffer.as_str(), "абв-замен-где");
+            assert_eq!(buffer.cursor_position, 18);
         }
     }
 

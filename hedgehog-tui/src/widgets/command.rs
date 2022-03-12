@@ -3,16 +3,34 @@ use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::theming::{self, Theme};
 use crossterm::event::Event;
+use std::borrow::Cow;
+use std::ops::Range;
 use tui::backend::Backend;
 use tui::layout::Rect;
 use tui::style::Style;
 use tui::text::Span;
 use tui::Frame;
 
-#[derive(Debug)]
+pub(crate) struct CompletionState {
+    completions: Vec<Cow<'static, str>>,
+    index: usize,
+    range: Range<usize>,
+}
+
 pub(crate) struct CommandState {
     buffer: Buffer,
     history_index: Option<usize>,
+    completion: Option<CompletionState>,
+}
+
+impl Default for CommandState {
+    fn default() -> Self {
+        Self {
+            buffer: Buffer::default(),
+            history_index: None,
+            completion: None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -21,6 +39,7 @@ pub(crate) enum CommandActionResult {
     Update,
     Clear,
     Submit,
+    Complete,
 }
 
 impl CommandState {
@@ -30,19 +49,41 @@ impl CommandState {
             .unwrap_or_else(|| self.buffer.as_str())
     }
 
+    pub(crate) fn as_str_before_cursor<'a>(&'a self, history: &'a CommandsHistory) -> &'a str {
+        let as_str = self.as_str(history);
+        &as_str[..self.buffer.cursor_position()]
+    }
+
+    pub(crate) fn set_completions(&mut self, completions: Vec<Cow<'static, str>>) {
+        if completions.is_empty() {
+            self.completion = None;
+            return;
+        }
+        self.completion = Some(CompletionState {
+            range: self.buffer.insert(&completions[0]),
+            index: 0,
+            completions,
+        });
+    }
+
     pub(crate) fn handle_event(
         &mut self,
         event: Event,
         history: &CommandsHistory,
     ) -> CommandActionResult {
         match event {
-            key!('c', CONTROL) | key!(Esc) => CommandActionResult::Clear,
+            key!('c', CONTROL) | key!(Esc) => {
+                self.completion = None;
+                CommandActionResult::Clear
+            }
             key!(Backspace) | key!('h', CONTROL)
                 if self.buffer.is_empty() && self.history_index.is_none() =>
             {
+                self.completion = None;
                 CommandActionResult::Clear
             }
             key!(Up) | key!(Down) => {
+                self.completion = None;
                 let history_index = self.history_index.as_ref();
                 let found_index = match event {
                     key!(Up) => {
@@ -69,10 +110,27 @@ impl CommandState {
                 }
             }
             key!(Enter) if self.buffer.is_empty() && self.history_index.is_none() => {
+                self.completion = None;
                 CommandActionResult::Clear
             }
-            key!(Enter) => CommandActionResult::Submit,
+            key!(Enter) => {
+                self.completion = None;
+                CommandActionResult::Submit
+            }
+            key!(Tab) => {
+                if let Some(completion) = &mut self.completion {
+                    completion.index = (completion.index + 1) % completion.completions.len();
+                    completion.range = self.buffer.replace(
+                        completion.range.clone(),
+                        &completion.completions[completion.index],
+                    );
+                    CommandActionResult::Update
+                } else {
+                    CommandActionResult::Complete
+                }
+            }
             event if Buffer::is_editing_event(event) => {
+                self.completion = None;
                 let history_str = self.history_index.and_then(|index| history.get(index));
                 if let Some(string) = history_str {
                     self.buffer = Buffer::from(string.to_string());
@@ -84,15 +142,6 @@ impl CommandState {
                 }
             }
             _ => CommandActionResult::None,
-        }
-    }
-}
-
-impl Default for CommandState {
-    fn default() -> Self {
-        CommandState {
-            buffer: Buffer::default(),
-            history_index: None,
         }
     }
 }

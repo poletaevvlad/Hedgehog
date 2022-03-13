@@ -168,6 +168,19 @@ impl Buffer {
         }
     }
 
+    pub(crate) fn set_display_position(&mut self, mut position: u16) {
+        self.cursor_position = self.display_offset as usize;
+        let visible_text = &self.text[(self.cursor_position)..];
+        for ch in visible_text.chars() {
+            let ch_width = ch.width().unwrap_or(0) as u16;
+            if ch_width > position {
+                break;
+            }
+            position -= ch_width;
+            self.cursor_position += ch.len_utf8();
+        }
+    }
+
     pub(crate) fn is_editing_event(event: Event) -> bool {
         matches!(
             event,
@@ -590,6 +603,36 @@ mod tests {
             assert_eq!(buffer.replace(6..14, "-замен-"), 6..18);
             assert_eq!(buffer.as_str(), "абв-замен-где");
             assert_eq!(buffer.cursor_position, 18);
+        }
+
+        #[test]
+        fn setting_display_position() {
+            macro_rules! assert_set_position {
+                ($buffer:ident, $display_position:expr, $cursor_position:expr) => {
+                    $buffer.set_display_position($display_position);
+                    assert_eq!($buffer.cursor_position, $cursor_position);
+                };
+            }
+
+            let mut buffer = Buffer::new("012345".to_string(), 0);
+            assert_set_position!(buffer, 0, 0);
+            assert_set_position!(buffer, 1, 1);
+            assert_set_position!(buffer, 6, 6);
+            assert_set_position!(buffer, 7, 6);
+
+            let mut buffer = Buffer::new("---345".to_string(), 3);
+            buffer.display_offset = 3;
+            assert_set_position!(buffer, 0, 3);
+            assert_set_position!(buffer, 1, 4);
+            assert_set_position!(buffer, 2, 5);
+            assert_set_position!(buffer, 3, 6);
+            assert_set_position!(buffer, 4, 6);
+
+            let mut buffer = Buffer::new("こにちは".to_string(), 0);
+            assert_set_position!(buffer, 0, 0);
+            assert_set_position!(buffer, 1, 0);
+            assert_set_position!(buffer, 2, 3);
+            assert_set_position!(buffer, 3, 3);
         }
     }
 

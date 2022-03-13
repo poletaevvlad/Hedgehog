@@ -19,7 +19,7 @@ use crate::widgets::status::StatusView;
 use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
-use crossterm::event::Event;
+use crossterm::event::{self, Event};
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
@@ -235,6 +235,7 @@ impl UI {
             let area = f.size();
             let (area, status_area) = split_bottom(area, 1);
             let (area, player_area) = split_bottom(area, 1);
+            self.layout.set_command_entry(status_area);
             self.layout.set_player_status(player_area);
 
             match self.library.focus {
@@ -854,7 +855,7 @@ impl Actor for UI {
                 ctx.address().recipient(),
             ));
 
-        ctx.add_stream(crossterm::event::EventStream::new());
+        ctx.add_stream(event::EventStream::new());
 
         self.init_rc(ctx);
         if let Err(error) = self.commands_history.load_file(self.app_env.history_path()) {
@@ -865,12 +866,8 @@ impl Actor for UI {
     }
 }
 
-impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
-    fn handle(
-        &mut self,
-        item: crossterm::Result<crossterm::event::Event>,
-        ctx: &mut Self::Context,
-    ) {
+impl StreamHandler<crossterm::Result<event::Event>> for UI {
+    fn handle(&mut self, item: crossterm::Result<event::Event>, ctx: &mut Self::Context) {
         let event = match item {
             Ok(Event::Resize(_, height)) => {
                 let lib_height = height.saturating_sub(2) as usize;
@@ -893,7 +890,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                     self.command = Some(CommandState::default());
                     self.invalidate(ctx);
                 }
-                crossterm::event::Event::Key(key_event) => {
+                event::Event::Key(key_event) => {
                     let command = self
                         .key_mapping
                         .get(key_event.into(), Some(self.library.focus));
@@ -901,7 +898,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         self.handle_command(command, ctx);
                     }
                 }
-                crossterm::event::Event::Mouse(event) => {
+                event::Event::Mouse(event) => {
                     let event = match self.mouse_state.handle_event(event) {
                         Some(event) => event,
                         None => return,
@@ -945,6 +942,7 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                         ctx,
                                     );
                                 }
+                                MouseHitResult::CommandEntry(_) => (),
                             }
                             self.invalidate(ctx);
                         }
@@ -985,6 +983,10 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                                         ctx,
                                     );
                                 }
+                                MouseHitResult::CommandEntry(_) => {
+                                    self.clear_status(ctx);
+                                    self.command = Some(CommandState::default());
+                                }
                             }
                             self.invalidate(ctx);
                         }
@@ -1011,8 +1013,24 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                 }
                 _ => (),
             },
-            Some(ref mut command_state) => {
-                match command_state.handle_event(event, &self.commands_history) {
+            Some(ref mut command_state) => match event {
+                event::Event::Mouse(event::MouseEvent {
+                    kind:
+                        event::MouseEventKind::Down(event::MouseButton::Left)
+                        | event::MouseEventKind::Drag(event::MouseButton::Left)
+                        | event::MouseEventKind::Up(event::MouseButton::Left),
+                    row,
+                    column,
+                    ..
+                }) => {
+                    if let Some(MouseHitResult::CommandEntry(offset)) =
+                        self.layout.hit_test_at(row, column)
+                    {
+                        command_state.set_display_position(offset.saturating_sub(1) as u16);
+                        self.invalidate(ctx);
+                    }
+                }
+                event => match command_state.handle_event(event, &self.commands_history) {
                     CommandActionResult::None => (),
                     CommandActionResult::Update => self.invalidate(ctx),
                     CommandActionResult::Clear => {
@@ -1041,8 +1059,8 @@ impl StreamHandler<crossterm::Result<crossterm::event::Event>> for UI {
                         }
                         self.invalidate(ctx);
                     }
-                }
-            }
+                },
+            },
         }
     }
 }

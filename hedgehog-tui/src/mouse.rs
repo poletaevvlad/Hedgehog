@@ -11,6 +11,7 @@ pub(crate) struct WidgetPositions {
     feeds_list: Option<Rect>,
     search_list: Option<Rect>,
     player_status: Option<Rect>,
+    command_entry: Option<Rect>,
 }
 
 pub(crate) enum MouseHitResult {
@@ -18,6 +19,7 @@ pub(crate) enum MouseHitResult {
     EpisodesRow(usize),
     SearchRow(usize),
     Player,
+    CommandEntry(usize),
 }
 
 impl WidgetPositions {
@@ -46,6 +48,13 @@ impl WidgetPositions {
                 return Some(MouseHitResult::Player);
             }
         }
+        if let Some(command_entry) = self.command_entry {
+            if rect_contains(&command_entry, row, column) {
+                return Some(MouseHitResult::CommandEntry(
+                    (column - command_entry.x) as usize,
+                ));
+            }
+        }
         None
     }
 
@@ -63,6 +72,10 @@ impl WidgetPositions {
 
     pub(crate) fn set_player_status(&mut self, rect: Rect) {
         self.player_status = Some(rect);
+    }
+
+    pub(crate) fn set_command_entry(&mut self, rect: Rect) {
+        self.command_entry = Some(rect);
     }
 }
 

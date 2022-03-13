@@ -144,6 +144,10 @@ impl CommandState {
             _ => CommandActionResult::None,
         }
     }
+
+    pub(crate) fn set_display_position(&mut self, position: u16) {
+        self.buffer.set_display_position(position);
+    }
 }
 
 pub(crate) struct CommandEditor<'a> {

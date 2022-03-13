@@ -5,6 +5,7 @@ pub mod model;
 pub mod opml;
 mod rss_client;
 pub mod search;
+mod search_query;
 mod sqlite;
 pub mod status_writer;
 mod tests;

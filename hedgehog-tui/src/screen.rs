@@ -149,9 +149,7 @@ pub(crate) enum Command {
         bool,
     ),
     #[cmd(alias = "s")]
-    Search(
-        /*#[cmd(parse_with = "cmd_parser::string_parse_all")]*/ String,
-    ),
+    Search(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     SearchAdd,
 
     Refresh,

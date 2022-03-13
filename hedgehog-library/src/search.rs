@@ -1,3 +1,4 @@
+pub use crate::search_query::SearchQueryParser;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]

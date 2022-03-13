@@ -441,7 +441,7 @@ dependencies = [
 [[package]]
 name = "cmdparse"
 version = "0.1.0"
-source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#462ea10af4578391b3574c419d25dd5a6c85c003"
+source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#814527ab3e2664a65485f9eb81605beaed18044c"
 dependencies = [
  "cmdparse-derive",
 ]
@@ -449,7 +449,7 @@ dependencies = [
 [[package]]
 name = "cmdparse-derive"
 version = "0.1.0"
-source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#462ea10af4578391b3574c419d25dd5a6c85c003"
+source = "git+ssh://git@github.com/poletaevvlad/cmdparse.git?branch=main#814527ab3e2664a65485f9eb81605beaed18044c"
 dependencies = [
  "linked-hash-map",
  "proc-macro2",
@@ -468,9 +468,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6888e10551bb93e424d8df1d07f1a8b4fceb0001a3a4b048bfc47554946f47b3"
+checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
 dependencies = [
  "core-foundation-sys",
  "libc",

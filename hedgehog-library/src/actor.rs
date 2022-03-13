@@ -1,7 +1,7 @@
 use crate::datasource::{DataProvider, DbResult, NewFeedMetadata, QueryError};
 use crate::model::{
-    EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, FeedError, FeedId, FeedStatus, FeedSummary,
+    Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
+    EpisodesListMetadata, Feed, FeedError, FeedId, FeedStatus, FeedSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::EpisodesQuery;
@@ -97,6 +97,30 @@ impl Handler<EpisodePlaybackDataRequest> for Library {
         _ctx: &mut Self::Context,
     ) -> Self::Result {
         self.data_provider.get_episode_playback_data(msg.0)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "DbResult<Option<Episode>>")]
+pub struct EpisodeRequest(pub EpisodeId);
+
+impl Handler<EpisodeRequest> for Library {
+    type Result = DbResult<Option<Episode>>;
+
+    fn handle(&mut self, msg: EpisodeRequest, _ctx: &mut Self::Context) -> Self::Result {
+        self.data_provider.get_episode(msg.0)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "DbResult<Option<Feed>>")]
+pub struct FeedRequest(pub FeedId);
+
+impl Handler<FeedRequest> for Library {
+    type Result = DbResult<Option<Feed>>;
+
+    fn handle(&mut self, msg: FeedRequest, _ctx: &mut Self::Context) -> Self::Result {
+        self.data_provider.get_feed(msg.0)
     }
 }
 

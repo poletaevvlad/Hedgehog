@@ -11,9 +11,9 @@ pub mod status_writer;
 mod tests;
 
 pub use actor::{
-    EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
-    FeedSummariesRequest, FeedUpdateError, FeedUpdateNotification, FeedUpdateRequest,
-    FeedUpdateResult, Library, UpdateQuery,
+    EpisodePlaybackDataRequest, EpisodeRequest, EpisodeSummariesRequest,
+    EpisodesListMetadataRequest, FeedRequest, FeedSummariesRequest, FeedUpdateError,
+    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library, UpdateQuery,
 };
 pub use datasource::{EpisodesQuery, NewFeedMetadata, QueryError};
 pub use sqlite::SqliteDataProvider;

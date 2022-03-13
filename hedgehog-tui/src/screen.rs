@@ -23,8 +23,8 @@ use crossterm::event::{self, Event};
 use crossterm::{terminal, QueueableCommand};
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
-    EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus, EpisodesListMetadata,
-    FeedId, FeedSummary, FeedView, Identifiable,
+    Episode, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
+    EpisodesListMetadata, Feed, FeedId, FeedSummary, FeedView, Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
@@ -151,8 +151,15 @@ pub(crate) enum Command {
     #[cmd(alias = "s")]
     Search(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     SearchAdd,
+    OpenLink(LinkType),
 
     Refresh,
+}
+
+#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
+pub(crate) enum LinkType {
+    Feed,
+    Episode,
 }
 
 #[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
@@ -622,6 +629,50 @@ impl UI {
                     }
                 }
             }
+            Command::OpenLink(LinkType::Feed) => {
+                if let Some(FeedView::Feed(feed_id)) = self.selected_feed {
+                    ctx.spawn(
+                        wrap_future(
+                            self.library_actor
+                                .send(hedgehog_library::FeedRequest(feed_id)),
+                        )
+                        .map(move |result, actor: &mut UI, ctx| {
+                            if let Some(Some(Feed {
+                                link: Some(link), ..
+                            })) = actor.handle_response_error(result, ctx)
+                            {
+                                actor.open_browser(&link, ctx);
+                            }
+                        }),
+                    );
+                }
+            }
+            Command::OpenLink(LinkType::Episode) => {
+                if let Some(episode_id) =
+                    self.library.episodes.selection().map(|episode| episode.id)
+                {
+                    ctx.spawn(
+                        wrap_future(
+                            self.library_actor
+                                .send(hedgehog_library::EpisodeRequest(episode_id)),
+                        )
+                        .map(move |result, actor: &mut UI, ctx| {
+                            if let Some(Some(Episode {
+                                link: Some(link), ..
+                            })) = actor.handle_response_error(result, ctx)
+                            {
+                                actor.open_browser(&link, ctx);
+                            }
+                        }),
+                    );
+                }
+            }
+        }
+    }
+
+    fn open_browser(&mut self, url: &str, ctx: &mut <UI as Actor>::Context) {
+        if let Err(error) = webbrowser::open(url) {
+            self.handle_error(error, ctx);
         }
     }
 

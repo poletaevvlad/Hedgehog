@@ -21,6 +21,7 @@ cmdparse = { git = "ssh://git@github.com/poletaevvlad/cmdparse.git", branch = "m
 directories = "4.0"
 clap = "~2.27.0"
 cluFlock = "1.2"
+webbrowser = "0.6.0"
 
 [dev-dependencies]
 tempfile = "3.2"

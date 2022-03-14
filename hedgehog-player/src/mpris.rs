@@ -4,7 +4,7 @@ use crate::state::PlaybackState;
 use crate::volume::Volume;
 use crate::{
     ActorCommand, PlaybackCommand, PlaybackMetadata, Player, PlayerNotification, SeekDirection,
-    State, VolumeCommand, VolumeQueryRequest,
+    SeekOffset, State, VolumeCommand, VolumeQueryRequest,
 };
 use actix::fut::wrap_future;
 use actix::prelude::*;
@@ -217,7 +217,10 @@ fn build_player_interface(
             };
             mpris_ctx
                 .player
-                .do_send(PlaybackCommand::SeekRelative(seek_direction, duration));
+                .do_send(PlaybackCommand::SeekRelative(SeekOffset(
+                    seek_direction,
+                    duration,
+                )));
             Ok(())
         },
     );

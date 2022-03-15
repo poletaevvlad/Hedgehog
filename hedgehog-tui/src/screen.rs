@@ -20,7 +20,7 @@ use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use crossterm::event::{self, Event};
-use crossterm::{terminal, QueueableCommand};
+use crossterm::QueueableCommand;
 use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
     Episode, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
@@ -45,7 +45,6 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::Duration;
 use tui::backend::CrosstermBackend;
-use tui::Terminal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, cmdparse::Parsable)]
 pub(crate) enum FocusedPane {
@@ -173,7 +172,7 @@ pub(crate) struct CommandConfirmation {
 pub(crate) struct UI {
     app_env: super::AppEnvironment,
 
-    terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
+    terminal: tui::Terminal<CrosstermBackend<std::io::Stdout>>,
     invalidation_request: Option<SpawnHandle>,
     status_clear_request: Option<SpawnHandle>,
     layout: WidgetPositions,
@@ -199,7 +198,7 @@ pub(crate) struct UI {
 impl UI {
     pub(crate) fn new(
         size: (u16, u16),
-        terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
+        terminal: tui::Terminal<CrosstermBackend<std::io::Stdout>>,
         library_actor: Addr<Library>,
         player_actor: Addr<Player>,
         status_writer_actor: Addr<StatusWriter>,
@@ -305,17 +304,24 @@ impl UI {
         <String as std::fmt::Write>::write_str(&mut title, "hedgehog").unwrap();
 
         let mut stdout = stdout();
-        stdout.queue(terminal::SetTitle(title)).unwrap();
+        stdout.queue(crossterm::terminal::SetTitle(title)).unwrap();
         stdout.flush().unwrap();
     }
 
-    fn invalidate(&mut self, ctx: &mut <Self as Actor>::Context) {
+    fn invalidate_later(&mut self, ctx: &mut <Self as Actor>::Context) {
         if let Some(handle) = self.invalidation_request.take() {
             ctx.cancel_future(handle);
         }
         let future = wrap_future(sleep(Duration::from_millis(1)))
             .map(|_result, actor: &mut UI, _ctx| actor.render());
         self.invalidation_request = Some(ctx.spawn(future));
+    }
+
+    fn invalidate(&mut self, ctx: &mut <Self as Actor>::Context) {
+        if let Some(handle) = self.invalidation_request.take() {
+            ctx.cancel_future(handle);
+        }
+        self.render();
     }
 
     fn handle_command(&mut self, command: Command, ctx: &mut <Self as Actor>::Context) {
@@ -334,7 +340,7 @@ impl UI {
                     }
                     FocusedPane::ErrorsLog => self.status.scroll(command),
                 }
-                self.invalidate(ctx);
+                self.invalidate_later(ctx);
             }
             Command::SetFocus(focused_pane) => {
                 if self.library.focus != focused_pane {
@@ -426,44 +432,44 @@ impl UI {
                 } else {
                     return;
                 };
-                self.invalidate(ctx);
+                self.invalidate_later(ctx);
 
-                let future = self
-                    .library_actor
-                    .send(EpisodePlaybackDataRequest(episode_id))
-                    .into_actor(self)
-                    .map(move |result, actor, ctx| {
-                        if let Some(playback_data) = actor.handle_response_error(result, ctx) {
-                            actor.library.playing_episode = Some(playback_data.clone());
-                            actor.playback_state = PlaybackState::new_started(
+                let future = wrap_future(
+                    self.library_actor
+                        .send(EpisodePlaybackDataRequest(episode_id)),
+                )
+                .map(move |result, actor: &mut UI, ctx| {
+                    if let Some(playback_data) = actor.handle_response_error(result, ctx) {
+                        actor.library.playing_episode = Some(playback_data.clone());
+                        actor.playback_state = PlaybackState::new_started(
+                            playback_data.position,
+                            playback_data.duration,
+                        );
+                        actor
+                            .player_actor
+                            .do_send(hedgehog_player::PlaybackCommand::Play(
+                                playback_data.media_url,
                                 playback_data.position,
-                                playback_data.duration,
-                            );
-                            actor
-                                .player_actor
-                                .do_send(hedgehog_player::PlaybackCommand::Play(
-                                    playback_data.media_url,
-                                    playback_data.position,
-                                    Some(PlaybackMetadata {
-                                        episode_id: playback_data.id.as_i64(),
-                                        episode_title: playback_data.episode_title,
-                                        feed_title: playback_data.feed_title,
-                                    }),
-                                ));
-                            actor
-                                .library
-                                .episodes
-                                .update_data::<selection::DoNotUpdate, _>(|data| {
-                                    let episode = data
-                                        .find(|item| item.id == episode_id)
-                                        .and_then(|index| data.item_at_mut(index));
-                                    if let Some(episode) = episode {
-                                        episode.status = EpisodeSummaryStatus::Started;
-                                    }
-                                });
-                            actor.invalidate(ctx);
-                        }
-                    });
+                                Some(PlaybackMetadata {
+                                    episode_id: playback_data.id.as_i64(),
+                                    episode_title: playback_data.episode_title,
+                                    feed_title: playback_data.feed_title,
+                                }),
+                            ));
+                        actor
+                            .library
+                            .episodes
+                            .update_data::<selection::DoNotUpdate, _>(|data| {
+                                let episode = data
+                                    .find(|item| item.id == episode_id)
+                                    .and_then(|index| data.item_at_mut(index));
+                                if let Some(episode) = episode {
+                                    episode.status = EpisodeSummaryStatus::Started;
+                                }
+                            });
+                        actor.invalidate(ctx);
+                    }
+                });
                 ctx.spawn(future);
             }
             Command::Playback(command) => self.player_actor.do_send(command),
@@ -579,7 +585,7 @@ impl UI {
                         let url = item.feed_url.clone();
                         self.library.focus = FocusedPane::FeedsList;
                         self.handle_command(Command::AddFeed(url), ctx);
-                        self.invalidate(ctx);
+                        self.invalidate_later(ctx);
                     }
                 }
             }
@@ -796,7 +802,7 @@ impl UI {
                 });
             self.library.episodes_list_metadata = None;
         }
-        self.invalidate(ctx);
+        self.invalidate_later(ctx);
     }
 
     fn perform_search(&mut self, query: String, ctx: &mut <UI as Actor>::Context) {
@@ -861,10 +867,8 @@ impl UI {
 
     fn load_feeds(&mut self, ctx: &mut <UI as Actor>::Context) {
         ctx.spawn(
-            self.library_actor
-                .send(FeedSummariesRequest)
-                .into_actor(self)
-                .map(move |data, actor, ctx| {
+            wrap_future(self.library_actor.send(FeedSummariesRequest)).map(
+                move |data, actor: &mut UI, ctx| {
                     if let Some(data) = actor.handle_response_error(data, ctx) {
                         actor
                             .library
@@ -880,7 +884,8 @@ impl UI {
                         actor.library.feeds_loaded = true;
                         actor.invalidate(ctx);
                     }
-                }),
+                },
+            ),
         );
     }
 }
@@ -993,7 +998,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                                 }
                                 MouseHitResult::CommandEntry(_) => (),
                             }
-                            self.invalidate(ctx);
+                            self.invalidate_later(ctx);
                         }
                         MouseEventKind::Click(is_double) => {
                             match widget {
@@ -1081,7 +1086,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                 }
                 event => match command_state.handle_event(event, &self.commands_history) {
                     CommandActionResult::None => (),
-                    CommandActionResult::Update => self.invalidate(ctx),
+                    CommandActionResult::Update => self.invalidate_later(ctx),
                     CommandActionResult::Clear => {
                         self.command = None;
                         self.invalidate(ctx);
@@ -1156,8 +1161,8 @@ impl Handler<DataFetchingRequest> for UI {
         match msg {
             DataFetchingRequest::Episodes(query, range) => {
                 let request = EpisodeSummariesRequest::new(query, range.clone());
-                Box::pin(self.library_actor.send(request).into_actor(self).map(
-                    move |data, actor, ctx| {
+                Box::pin(wrap_future(self.library_actor.send(request)).map(
+                    move |data, actor: &mut UI, ctx| {
                         if let Some(episodes) = actor.handle_response_error(data, ctx) {
                             actor
                                 .library

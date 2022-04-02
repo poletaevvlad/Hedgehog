@@ -1,0 +1,696 @@
+hedgehog(1) -- podcast player and organizer
+===========================================
+
+
+## SYNOPSIS
+
+
+`hedgehog` [`--h`\|`--help`] [`--no-mouse`] [`--no-pidfile`] [`-V*`\|`*--version`]
+[`--config-path` <path>] [`--data-path` <paths>] [<subcommand> <arguments>...]
+
+
+
+## DESCRIPTION
+
+
+Hedgehog is a podcasts player and subscriptions management software that works
+within a terminal. Its features include:
+
+ * subscribing to RSS feeds and managing subscriptions;
+ * viewing and automatically updating the list of episodes from each feed;
+ * keeping track of the episodes' state: whether you played any episode, did
+   you finish listening to it or not, remembering when the playback stopped;
+ * playing episodes and controlling its playback: play/pause, seek, control
+   volume, etc.;
+ * searching for feeds online and subscribing to them;
+ * importing and exporting the list of feeds from/to other podcast management
+   software via OPML documents.
+
+The main interface of Hedgehog contains two panes: the list of feeds you are
+subscribed to (along with two special feeds with all episodes and with all new
+episodes) and the list of episodes within the selected feed. You can navigate
+between different panes using arrow and Tab keys or using a mouse cursor if
+your terminal emulator supports it. To start the playback of an episode, you
+can either select it and press `Enter` or double-click with a left mouse
+button.
+
+See [KEY MAPPING][] section of this manual for the list of default keybinding
+which can be reconfigured, and *commands* section for the list of all commands
+that Hedgehog supports.
+
+
+
+## OPTIONS
+
+
+* `--no-mouse`:
+  Disables the capacity of Hedgehog to read and handle mouse input. If not
+  present, you can select list items, start and control playback, change cursor
+  position in the command entry field, etc., but you won't be able to select
+  text in the terminal window.
+  
+* `--no-pidfile`:
+  By default, Hedgehog prevents two or more instances of the program from
+  running at the same time to prevent inconsistencies in the displayed data.
+  This flag prevents this behavior. Note that multiple instances are allowed to
+  be executed for different data directories.
+
+* `--data-path`:
+  Specifies the path from where episodes database, commands history and some
+  other files will be read. The default is `~/.local/share/hedgehog/` on
+  UNIX-compatible platforms and `%APPDATA%/hedgehog` on Windows. This location
+  can be backed-up and copied to another system.
+
+* `--config-path`:
+  Specifies a path or a set of paths where Hedgehog will search for the
+  configuration files: `rc` files and themes. These paths extend the set of
+  default paths. For more information on configuration, see the
+  [CONFIGURATION][] section of this manual.
+
+* `export` <file>:
+  A sub-command for exporting the list of podcast feeds managed by Hedgehog in
+  OPML format. This can be later imported into another podcast management
+  programs. <file> is a path to an XML file where the exported data will be
+  written or a dash (`-`) in which case the exported data will be written
+  to standard output.
+
+* `import` <file>:
+  Adds the set of podcast feeds to the database. Episodes from these feeds will
+  be fetched on the next launch. Duplicate feeds will be ignored. <file> is a
+  path to XML file in OPML format that will be read or a dash (`-`) in which
+  case the data will be read from the standard input.
+
+
+
+## COMMANDS
+
+
+You control Hedgehog TUI by issuing commands either directly (by pressing `:`,
+entering the name of a command and its arguments, and submitting it with the
+`Enter` key) or indirectly, by pressing a key combination mapped to a specific
+command. There are few exceptions, such as actions performed with a mouse or
+through the MPRIS interface.
+
+When entering commands manually, there are keys that have special meaning.
+Hedgehog tries to follow established conventions. These keys cannot be
+remapped, and you can find their list in the [COMMAND ENTRY KEY MAPPING][]
+subsection.
+
+The remaining of this section lists the supported commands and their
+description
+
+
+### NAVIGATION
+
+* `line first`:
+  Selects the first line in the current list.
+
+* `line last`:
+  Selects the last line in the current list.
+
+* `line page-up`:
+  Moves the selection up by an entire screen.
+
+* `line page-down`:
+  Moves the selection down by an entire screen.
+
+* `line move-by` <number>:
+  Moves the selection down (if <number> is positive) or up (if <number> is
+  negative) by the specific number of rows.
+
+* `line scroll-by` <number>:
+  Scrolls the current list down (if <number> is positive) or up (if <number> is
+  negative) by the specific number of rows and keeps the selected row. If after
+  scrolling, the selection is not visible, the closest visible row will be
+  selected (with some margin from the edge of a screen).
+
+* `focus` <pane-name>:
+  Sets the currently selected pane. The selected pane is highlighted in the UI
+  and all line commands listed above affect the list contained in this pane.
+  Possible values for <pane-name> are listed bellow.
+
+* `log`:
+  Opens the list of errors. This command is a shorthand for `focus log`.
+
+* `quit` or `q`:
+  Exits Hedgehog.
+    
+<pane-name> is an argument used by some commands and it names the section of
+the UI that is currently selected and is ready to handle users' interaction.
+The possible values for <pane-name> are:
+
+ * `feeds`: the list of feeds located on the right-hand side of the library view
+ * `episodes`: the list of the episodes in a feed;
+ * `search`: the list of search result. Search can be initiated using the
+   `search` command. When this pane is selected manually, Hedgehog shows
+   results from the previous search;
+ * `log`: the list of errors that occurred during the current session, these
+   errors include networking error, configuration issues, etc.; 
+
+
+### PLAYBACK
+
+* `play-current`:
+  Starts playback of the currently selected episode from the position when the
+  playback stopped before. If this episode was never played or if it was
+  finished, the playback starts from the beginning.
+
+* `stop`:
+  Immediately terminates playback. Playback then can be restarted only by
+  selecting the episode again.
+
+* `finish`:
+  Immediately terminates playback and marks the previously playing episode as
+  finished.
+
+* `pause`:
+  Pauses the playback. It can be then resumed using `resume` or
+  `toggle-pause` commands.
+
+* `resume`:
+  Resumes the playback from the current position.
+
+* `toggle-pause`:
+  Toggles between playing and paused states. This command is equivalent to
+  either `pause` or `resume` depending on the current state of the playback.
+
+* <duration>:
+  If the playback is active, changes the current position in the stream to the
+  specified <duration>. This action may cause a temporary break in the
+  playback due to buffering. The paused status of the playback won't be changed
+  by this command.
+
+  <duration> is specified in seconds, minutes and hours sepearated by colon.
+  Only seconds are required. For example `160`, `2:40`, and `0:02:40` are
+  equivalent. Leading zeros are allowed.
+
+* `seek` <signed-duration>:
+  If the playback is active, changes the current position in the stream by the
+  specified duration relative to the current position. The <signed-duration>
+  may be preceded by either `+` or `-` characters, which indicate whether the
+  seek operation will be performed forwards or backwards.
+
+* `rate` <real-number>:
+  Changes the playback rate of the current stream. If the argument equals 1.0,
+  the episode will be played at normal speed, any value less than 1.0 will
+  cause the playback will be slowed down, and if the value is greater than 1.0,
+  the playback will be sped up.
+
+* `mute`, `unmute`, `toggle-mute`:
+  Changes the muted status for the playback. The muted status does not affect
+  the current volume, when unmuting, the playback volume will be restored to
+  the previous value. `toggle-mute` variant of this command toggles between
+  muted and unmuted states.
+
+* `vol-set` <volume>:
+  Sets the volume to the specified value. <volume> must be a number between 0
+  and 100.
+
+* `vol-adjust` <signed-volume>:
+  Changes the current volume by a specified amount. **signed volume** has the
+  same unit as in the **vol-set** command: the range is -100 to 100.
+
+
+### SUBSCRIPTIONS MANAGEMENT
+
+* `add` <rss-url>:
+  Adds a new subscription. Hedgehog will try to fetch the feed metadata and
+  episodes list immediately after it finishes. Note, that <rss-url> must
+  point to the RSS feed, Hedgehog will not try to determine the URL of the RSS
+  feed from HTML page's metadata.
+
+* `delete-feed`:
+  Removes the feed and all its episodes. This action cannot be undone.
+
+* `update` [`--this`]:
+  Updates the feed metadata and the episodes list. If new episodes are found in
+  the feed, they will appear in the library marked "new". If `--this` attribute
+  is specified, then only the currently selected feed will be updated.
+  Otherwise, all feeds that hasn't been disabled will be updated.
+
+* `enable`, `disable`:
+  Enables or disables the feed. If you disable the feed, then it won't be
+  scheduled to be updated by neither the `update` command nor automatically on
+  launch.
+
+* `open-link feed`, `open-link episode`:
+  Opens the WWW URL specified in the feed or episode metadata respectingly in
+  the default browser.
+
+* `hide`:
+  Hides the currently selected episode from the episodes list. Note, that it
+  won't be deleted from the database. The hidden episodes aren't shown in the
+  library by default. This can be enabled by issuing command `set hidden true`.
+
+* `unhide`:
+  Removed the hidden status from the currently selected episode. To issue this
+  command, Hedgehog needs to be configured to show hidden episodes (using
+  command *set hidden true*; it can be reverted by issuing `set hidden false`)
+
+* `mark` <status> [`--all`] [`--if` <status-conditiol>]:
+  Changes the status of the episode. The <status> can be either `new`, `seen`,
+  or `finished`. By default, only the currently selected episode will be
+  affected. If `--all` attribute is specified, then all episodes in the
+  currently selected feed will be altered. In this case, it can be useful to
+  update only a subset of episodes for update, for example, you may want to
+  mark all new episodes in the new feed as seen. `--if` attribute specifies a
+  precondition for such update. `status-condition` can be either `new`, `seen`,
+  `finished`, `started`, or `error`.
+
+* `reverse`:
+  Changes the order of episodes in the selected feed. By default, episodes are
+  displayed in reverse chronological order (starting with the newest). This
+  command changes this order for a single feed. This preference is saved in the
+  database and will remain after the restart.
+
+* `search` <query> or `s` <query>:
+  Starts the search session. When this command is issued, Hedgehog performs a
+  search for podcast feeds online and `search` pane comes into focus.
+
+* `search-add`:
+  Subscribes to the currently selected feed in the search pane.
+
+
+### CONFIGURATION
+
+* `confirm` <prompt> <command> [`--default` <bool>]:
+  Displays confirmation prompt and askes the user for confirmation.
+  The <command> will be executed only on affirmative response. `--default`
+  attribute specifies the default behavior, whether the command will be
+  executed (if `true`) or not (`false`) when the `Enter` key is pressed.
+
+* `exec` <path>:
+  Reads the file at path and executes commands in it. Each command must be
+  specified on a separate line; empty lines or lines containing only comments
+  (starting with `#`) are ignored. All commands will be executed until the
+  first failure or until the end of the file is reached. 
+  
+  <path> can be either absolute or relative. If <path> is relative, Hedgehog
+  will try to find a file in any of the paths specified in the list of data
+  directories. See details in the **CONFIGURATION** section of the manual.
+
+* `map` <key> <command> [`--state` <pane>]:
+  Maps <command> to a specific key combination <key>. You can specify different
+  mapping for different states depending on which pane is currently selected.
+  If `--state` option is specified, than the key mapping will be active only if
+  this specific pane is selected. Mapping with a specific state have higher
+  precedence than mappings without one.
+
+* `unmap` <key> [`--state` <pane>]:
+  Removes the key mapping. See the documentation for the `map` command above
+  for the meaning behind `--state` attribute. Note that when unmapping the
+  key, you need to specify the same state as was specified when mapping:
+  `unmap` <key> without `--state` does not remove state-specific
+  keybindings.
+
+* `set` <option-name> <value>:
+: Updates the property controlling how Hedgehog looks like and behaves. The
+  list of properties is described in the [CONFIGURATION][] section of this
+  manual.
+
+`map` and `unmap` commands accepts <key> argument specified in the format
+similar to the one used by `vim` and some other software. Key specification
+consists of zero or more modifiers followed by the key's name. Allowed modifier
+are:
+
+ * `S` or `Shift` for the shift key,
+ * `C`, `Ctrl`, or `Control` for the control key,
+ * `A`, `Alt`, `M`, or `Meta` for the alt key.
+
+Most keys can be specified with a single character (such as numbers, Latin
+letters, etc.). The rest have aliases:
+
+ * `Left`, `Up`, `Right`, `Down` for arrow keys,
+ * `Enter`, `Return`, `CR` for the enter key,
+ * `BS`, `Backspace` for the backspace key,
+ * `Home`, `End`, `PageUp`, `PageDown` for common cursor position
+   manipulation keys,
+ * `Tab` for the tab key,
+ * `Del`, `Delete` for the delete key,
+ * `Esc` for the escape key,
+ * `Space` for the space key,
+ * `Bar` for the `|` key,
+ * `Minus` for the `-` key,
+ * `Insert` for the insert key,
+ * `Nul` for the character with code 0,
+ * `F1`, `F2`, ... for functional keys.
+
+Modifiers and keys and separated by dashes (`-`), for example `C-c` for
+`Control+C`, `A-S-W` for `Alt+Shift+W`. Please note that keys are
+case-sensitive: if you include the Shift modifier, then the key should be
+uppercase if applicable (`S-A` is correct while `S-a` won't work).
+
+
+
+## CONFIGURATION
+
+
+Hedgehog is configured by executing the commands described in the [COMMANDS][]
+section of this manual. The effect of these commands lasts until Hedgehog
+restarts. In order for the configuration to persistent across restarts they
+should be inserted in the `rc` file in the config directory.
+
+Hedgehog considers multiple directories when loading its configuration: command
+lists and themes, in a way that is similar to how *PATH* environment variable
+is used by the operating system. The configuration path can be configured via
+`--data-path` CLI argument for Hedgehog executable or `HEDGEHOG_DATA`
+environment variables. Both these options append the set of directories to the
+default paths. The default paths are:
+
+ * `/usr/share/hedgehog` (only on UNIX-based OSes);
+ * the parent directory of the Hedgehog's executable (only on Windows);
+ * user's config directory: `~/.config/hedgehog` on UNIX-based OSes and
+   `\Users\<user>\AppData\Roaming` on Windows.
+
+When looking for a file to load (using `exec` or `theme load` command) Hedgehog
+searches for the existing file by iterating through data directories from the
+last one to the first one, meaning the directory specified by the user has the
+highest priority, and global configuration has the lowest.
+
+Exception to this rule is loading the startup commands. There is a special file
+named `rc` in the data directory. Hedgehog will execute commands in such files
+in all data directories in the opposite order: starting with the system-wide
+configuration followed by user-defined configuration files.
+
+Each configuration file (both `rc` file and themes) contains a series of
+commands, each located on a separate line. The interpreter ignores empty lines
+and comments (sections starting with `#`).
+
+
+### CONFIGURATION OPTIONS
+
+This section list options that can be set using the *set* command.
+
+* `date_format`:
+  The format of the publication date following the syntax of *strftime(3)*
+  function.
+
+* `label_playback_status_playing`:
+  The label displaying in the player status bar in playing state.
+
+* `label_playback_status_paused`:
+  The label displaying in the player status bar in paused state.
+
+* `label_playback_status_bufffering`:
+  The label displaying in the player status bar when the audio stream is
+  buffering.
+
+* `label_playback_status_none`:
+  The label displaying in the player status bar when no episode is playing.
+
+* `label_playback_status_none`:
+  The label displaying in the player status bar when no episode is playing.
+
+* `label_episode_new`:
+  Label displaying in the library when the episode is new.
+
+* `label_episode_seen`:
+  Label displaying in the library when the episode is not new but hasn't been
+  played. Episode can reach this status using `mark` command.
+
+* `label_episode_playing`:
+  Label displaying in the library when the episode is currently being played.
+
+* `label_episode_started`:
+  Label displaying in the library when the episode was started but not
+  completed and is not currently playing.
+
+* `label_episode_finished`:
+  Label displaying in the library when the episode was completed.
+
+* `label_episode_finished`:
+  Label displaying in the library when the previous playback attempt has failed
+  with an error.
+ 
+* `label_feed_error`:
+  Label displaying in the library list for feeds which could not be updated due
+  to an error.
+
+* `label_feed_updating`:
+  Label displaying in the library list for feeds that are currently being
+  loaded.
+
+* `label_feed_updating`:
+  Flag indicating whether enabled feeds should be updated on startup.
+
+* `show_episode_number`:
+  Flag indicating whether episode and season number should be displayed for
+  episodes in the library.
+ 
+* `hidden`:
+  lag indicating whether the episodes that are hidden using the *hide* command
+  should be visible in the library.
+
+* `progress_bar_width`:
+  the number of characters allocated to the progress indicator in the player
+  state bar.
+
+* `progress_bar_chars`:
+  a string, characters of which are used for the progress indicator.
+
+
+
+## THEMING
+
+
+Hedgehog allows extensive customization of colors and text styles for any
+component of its user interface. As with any other customization option,
+changing the visual style of the program is performed via issuing commands.
+Hedgehog supports a separate category of theming commands. They can be issued
+us subcommands of `theme` or loaded from a separate file via `theme load` (the
+`theme` prefix isn't used for commands in the theme file).
+
+
+### THEMING COMMANDS
+
+* `reset`:
+  Clears all styles. After this command is executed, all styling assigned to
+  any component in any state will be cleared.
+
+* `load` <file> [`--extend`]:
+  Reads a file and executes all theming commands from it. Note that <file>
+  can be either an absolute or relative path. In case of a relative path,
+  Hedgehog applies the same logic as for searching the configuration files but
+  with a small difference. Theme file may have a `.theme` extension. 
+  
+  Hedgehog will try to locate a file both with and without it, all existing
+  styling is cleared before a theme file is loaded. Inclusion of `--extend`
+  flag prevents this.
+
+* `set` <selector> <style>:
+  Applies the styling to a component identified by the <selector>. The syntax
+  of each argument is specified further.
+
+
+### STYLE SYNTAX
+
+Styles are specified using a special syntax where multiple modifiers separated
+by a single or multiple whitespace characters.
+
+* `fg:`<color>, `bg:`<color>:
+  Sets the foreground or background color of a component, respectively. The
+  color itself can be specified using any of three ways: a 24-bit RGB color in
+  hexadecimal form preceded by a percentage sign (`%FFFFFF` for white), an
+  8-bit xterm color preceded by a dollar sign (`$231` for `White/Grey100`) or
+  using a color's name (either `black`, `blue`, `cyan`, `darkgray`, `gray`,
+  `green`, `lightblue`, `lightcyan`, `lightgreen`, `lightmagenta`, `lightred`,
+  `lightyellow`, `magenta`, `red`, `white`, or `yellow`). There is a special
+  color identified by the keyword *reset` which corresponds to the terminal's
+  default background or foreground color. Please note that not all color modes
+  may be supported by your terminal emulator. Named colors may also be
+  overridden by the terminal's configuration.
+
+* `+`<modifier>, `-`<modifier>:
+: Adds or removes a modifier. A modifier is a special attribute of a terminal
+  cell that changes some of its visual characteristics. Removing a modifier is
+  useful when you want to override the existing styling of a component with
+  modifiers already applied. Note, that different terminal emulator may
+  interpret some modifiers differently or not support them at all.
+
+The modifiers list include:
+
+ * `bold` increases the text intensity,
+ * `crossedout` crosses the text,
+ * `dim` decreases the text intensity,
+ * `hidden` hides the text,
+ * `italic` emphasizes the text,
+ * `rapidblink` makes the text blinking (≥ 150 times per minute),
+ * `reversed` swaps background and foreground color,
+ * `slowblink` makes the text blinking (≤ 150 times per minute),
+ * `underlined` underlines the text.
+
+
+### SELECTOR SYNTAX
+
+A selector is a string that identifies a UI element in a specific state.
+Selectors follow any of the following forms:
+
+* `statusbar.empty`:
+  The status bar (the bottom row of the scrren) when it doesn't display any
+  content.
+
+* `statusbar.command`[`.prompt`]:
+  The status bar when it's used for command entry. `.prompt` is used for the
+  command's prompt (colon at the beginning) only.
+
+* `statusbar.confirmation`:
+  The status bar when it's used for prompting the user to confirm some action.
+
+* `statusbar.status`[`:error`|`:warning`|`:information`][`.label`]:
+  The status bar when it's used for displaying the status message. The status
+  can be of different severities (`error`, `warning` or `information`). 
+  The `label` is a short string placed before some messages (mostly errors).
+
+* `list.divider`:
+  The divider between two columns or rows in the library.
+
+* `list.item`(<item-state>)*[<item-component>]:
+  where <br> 
+  <item-state>=`:focused`|&#8203;`:selected`|&#8203;`:playing`<!--
+    -->|&#8203;`:hidden`|&#8203;`:missing-title`|&#8203;`:feed`<!--
+    -->|&#8203;`:feed-updating`|&#8203;`:feed-error`|&#8203;`:feed-special`<!--
+    -->|&#8203;`:episode`|&#8203;`:episode-error`|&#8203;`:episode-new`<!--
+    -->|&#8203;`:episode-started`|&#8203;`:episode-finished`|&#8203;`:search`<!--
+    -->|&#8203;`:log-entry` <br>
+  <item-component>=`.state`|&#8203;`.title`|&#8203;`.feed-title`<!--
+    -->|&#8203;`.episode-number`|&#8203;`.duration`|&#8203;`.date`<!--
+    -->|&#8203;`.loading`|&#8203;`.author`|&#8203;`.genre`<!--
+    -->|&#8203;`.episodes-count`|&#8203;`.new-count`|&#8203;`.details` <br><br>
+
+  The list item or its component. The list item can be in multiple states: It
+  can belong to a list that is focused (`:focused`), it can be selected
+  (`:selected`), it can describe an episode that is currently being played
+  (`:playing`), an episode that was hidden from the feed but is visible due to
+  value of `hidden` option, an episode or feed for which there is no title (for
+  example, it wasn't specified by the podcast's creator, or it wasn't loaded
+  yet, `:missing-title`). 
+
+  The rest of state options define an entry in a specific list and in a
+  context-specific state. Options starting with `:feed` describe list entries
+  in the list of feeds the user is subscribed to. More specific states allow
+  restricting styling for certain situations only: feeds that are in the
+  process of being updated (`:feed-updating`), if the previous attempt to
+  update it failed (`:feed-error`), and if the feed is special: either the list
+  of all episodes from all subscriptions or all new episodes (`:feed-special`).
+
+  Episode list entries (*:episodes*) can be selected by their state also:
+  episodes can be either new, meaning never played (`:episode-new`), started 
+  meaning that playback was started but stopped before the entirety of the 
+  episode was listened to (`:episode-started`), finised when the episode was
+  listened to until the end (`:episode-finished`), or playback failed due to an
+  error (`:episode-error`).
+
+  The search results entries and message log entries can be specified via 
+  `:search` and `:log-entry` respectingly.
+
+  Styling can be applied for the whole row or a specific part of it. For a
+  latter case you may extend this selector with a name of such part. Some of
+  these are used by many lists. These include the name of the feed or episode
+  (`.name`), a state indicator usually displayed on the right (`.state`), and
+  ellipsis that are displayed when the data is being loaded from the database
+  for more time than usual. Most though are list specific. The episodes list
+  includes an episode and season number (`.episode-number`), the name of a feed
+  where this episode is located (`.feed-title`), the duration of the episode
+  (`.duration`), the date when it was published (`.date`). Search result
+  entries include the name of the autor who publishes the podcast (`.author`),
+  its genre (`.genre`), the number of episodes in the feed (`.episodes-count`).
+  The list of feeds along with the title includes a number of new episodes
+  (`.new-count`). The log entry details are selected as `.details`.
+
+  This selector is also used for empty parts of the list.
+
+* `empty`[`:focused`][`.title`|`.subtitle`]:
+  The list with no entries. It usually contains a title (`.title`) and a text
+  describing why the lits is empty and what can be done to change that
+  (`.subtitle`). As is a regular list, the empty list can be in the focused
+  state (`:focused`). It's recommended that styling for lists and empty lists
+  match in regard to the focused state.
+
+* `player`[<player-status>][<player-element>]:
+  where <br>
+  <player-status>=`:buffering`\|`:paused`\|`:playing`\|`:stopped` <br>
+  <player-element>=`.episode`\|`.feed`\|`.progress`\|`.status`\|`.timing` <br><br>
+
+  The playback status bar on the second from the bottom line of the screen. It
+  consists of some parts which are (from left to right): status indicating the
+  current playback status (buffering, paused, etc., `.status`), the name of
+  the episode (`.episode`), the name of a feed containing the currently playing
+  episode (`.feed`), the progress bar (`.progress`), and the current position
+  within the stream along with its total duration (`.timing`).
+
+  The remaining options allow you to specify different styles depending on the
+  current state of the playback.
+
+Above, `[...]` denotes an optional part, `...|...` denotes that either of two
+or more options can be used, `(...)*` denotes the part that can repeat or not
+be present.
+
+Selectors can be specific, describing a single UI element in a specific state
+or be general, specifying many elements or not specifying a state. When the
+style is applied using a selector, it is applied to all components that can be
+described by it in the order the styling is set. For example styles for 
+`player.status` will override `player:playing.status`, so more specific styles
+should be specifed later than more general ones.
+
+
+
+## KEY MAPPING
+
+
+This section describes the default key mapping of Hedgehog. Note that any key
+mapping can be changed by custom configuration via *man* and *unmap* commands.
+
+ * `Up`, `k` moves the selection one row up,
+ * `Down`, `j` moves the selection one row down,
+ * `Home` moves to the first row in the list,
+ * `End` moves to the last row in the list,
+ * `PageUp` moves to the item one screen up,
+ * `PageDown` moves to the item one screen down,
+ * `Tab` toggles between feeds and episodes lists,
+ * `Enter` either focuses on the episodes list, start playing the episode, or
+   subscribe to the search result depending on the context,
+ * `Esc` returns to the library from either the error log or search results,
+ * `C-c`, `q` quits Hedgehog (includes confirmation),
+ * `Delete` deletes the currently selected feed (includes confirmation),
+ * `o` opens either podcast's or episode's Web URL,
+ * `f` stops playback and mark the episode as finished,
+ * `Right` moves forward by 5 seconds,
+ * `Left` moves backwards by 5 seconds,
+ * `c` toggles between paused and playing states,
+ * `m` toggles between muted and unmuted states,
+ * `Minus` decreases volume by 10%,
+ * `=`, `+`, `S-+` increases volume by 10%,
+ * `:` begins command entry (cannot be remapped).
+
+
+### COMMAND ENTRY KEY MAPPING
+
+The following are key combination available in the command entry mode. These
+cannot be remapped.
+
+ * `C-c`, `Esc` stops entry, discards the input,
+ * `Backspace`, `C-h` removes character before cursor,
+ * `Delete` removes character after cursor,
+ * `Up`, `Down` navigates through commands history,
+ * `Enter` stops entry, accepts and executes the command,
+ * `Tab` performs completion,
+ * `Left` moves cursor one character to the left,
+ * `Right` moves cursor one character to the right,
+ * `C-Left` moves cursor one word to the left,
+ * `C-Right` moves cursor one word to the right,
+ * `Home` moves cursor to the first character,
+ * `End` moves cursor to the last character,
+ * `Backspace`, `C-h` removes character before cursor,
+ * `Delete` removes character after cursor,
+ * `S-Backspace` removes all characters before the cursor,
+ * `S-Delete` removes all characters after the cursor,
+ * `A-Backspace`, `C-w` removes a word after cursor,
+ * `C-Delete` removes a word before cursor.
+
+
+## BUGS
+
+If you find a bug, you have a recommendation or suggestions for Hedgehog,
+please file an issue at <https://github.com/poletaevvlad/Hedgehog/issues>. If
+you wish to contribute to Hedgehog, you are welcome to participate in the
+development at <https://github.com/poletaevvlad/Hedgehog>

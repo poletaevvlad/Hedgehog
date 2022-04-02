@@ -40,12 +40,12 @@ impl Theme {
         match command {
             ThemeCommand::Reset => *self = Theme::default(),
             ThemeCommand::Set(selector, style) => self.set(selector, style),
-            ThemeCommand::Load(mut path, loading_option) => {
+            ThemeCommand::Load(mut path, reset) => {
                 path.set_extension("theme");
                 let theme_path = env.resolve_config(&path);
 
                 let snapshot = self.styles.clone();
-                if let ThemeLoadingMode::Reset = loading_option.unwrap_or_default() {
+                if reset {
                     *self = Theme::default();
                 }
                 let result: Result<(), cmdreader::Error> = (|| {
@@ -95,22 +95,13 @@ impl Default for Theme {
 }
 
 #[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
-pub(crate) enum ThemeLoadingMode {
-    Reset,
-    NoReset,
-}
-
-impl Default for ThemeLoadingMode {
-    fn default() -> Self {
-        ThemeLoadingMode::Reset
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
 pub(crate) enum ThemeCommand {
     Reset,
     Set(Selector, #[cmd(parser = "style_parser::StyleParser")] Style),
-    Load(PathBuf, Option<ThemeLoadingMode>),
+    Load(
+        PathBuf,
+        #[cmd(default = "true", attr(extend = "false"))] bool,
+    ),
 }
 
 #[cfg(test)]

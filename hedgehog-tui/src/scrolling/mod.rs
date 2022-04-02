@@ -127,6 +127,7 @@ impl<D: DataView> ScrollableList<D> {
 #[derive(Debug, Clone, Copy, PartialEq, cmdparse::Parsable)]
 pub(crate) enum ScrollAction {
     MoveBy(isize),
+    #[cmd(ignore)]
     MoveToVisible(usize),
     ScrollBy(isize),
     PageUp,

@@ -23,7 +23,7 @@ use directories::BaseDirs;
 use environment::AppEnvironment;
 use hedgehog_library::datasource::DataProvider;
 use hedgehog_library::status_writer::StatusWriter;
-use hedgehog_library::{opml, Library, SqliteDataProvider};
+use hedgehog_library::{opml, InMemoryCache, Library, SqliteDataProvider};
 use hedgehog_player::Player;
 use screen::UI;
 use std::fmt;
@@ -260,8 +260,9 @@ fn run_player(
 
     system.block_on(async {
         let library_arbiter = Arbiter::new();
-        let library =
-            Library::start_in_arbiter(&library_arbiter.handle(), |_| Library::new(data_provider));
+        let library = Library::start_in_arbiter(&library_arbiter.handle(), |_| {
+            Library::new(InMemoryCache::new(data_provider))
+        });
         let status_writer = StatusWriter::new(library.clone()).start();
 
         let player_arbiter = Arbiter::new();

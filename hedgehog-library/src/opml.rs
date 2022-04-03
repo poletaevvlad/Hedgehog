@@ -19,7 +19,7 @@ pub enum Error {
     Utf8(#[from] std::str::Utf8Error),
 }
 
-pub fn build_opml<W: io::Write, D: DataProvider>(write: W, data: &D) -> Result<(), Error> {
+pub fn build_opml<W: io::Write, D: DataProvider>(write: W, data: &mut D) -> Result<(), Error> {
     let mut writer = quick_xml::Writer::new_with_indent(write, b' ', 2);
     writer.write_event(Event::Decl(BytesDecl::new(b"1.0", Some(b"utf-8"), None)))?;
     writer.write_event(Event::Start(
@@ -95,7 +95,7 @@ pub fn parse_opml<R: io::BufRead>(reader: R) -> Result<OpmlEntries<R>, Error> {
     }
 }
 
-pub fn import_opml<R: io::BufRead, D: DataProvider>(reader: R, data: &D) -> Result<(), Error> {
+pub fn import_opml<R: io::BufRead, D: DataProvider>(reader: R, data: &mut D) -> Result<(), Error> {
     let entries = parse_opml(reader)?;
     for entry in entries {
         data.create_feed_pending(&entry?)?;
@@ -197,10 +197,10 @@ mod tests {
 
     #[test]
     fn test_build_opml_empty() {
-        let data_provider = SqliteDataProvider::connect(":memory:").unwrap();
+        let mut data_provider = SqliteDataProvider::connect(":memory:").unwrap();
 
         let mut buffer = Vec::<u8>::new();
-        build_opml(Cursor::new(&mut buffer), &data_provider).unwrap();
+        build_opml(Cursor::new(&mut buffer), &mut data_provider).unwrap();
 
         let xml = String::from_utf8(buffer).unwrap();
         assert_eq!(&xml, include_str!("./test_data/opml/empty.opml").trim_end());
@@ -253,7 +253,7 @@ mod tests {
         writer.close().unwrap();
 
         let mut buffer = Vec::<u8>::new();
-        build_opml(Cursor::new(&mut buffer), &data_provider).unwrap();
+        build_opml(Cursor::new(&mut buffer), &mut data_provider).unwrap();
 
         let xml = String::from_utf8(buffer).unwrap();
         assert_eq!(

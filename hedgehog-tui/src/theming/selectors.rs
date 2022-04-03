@@ -895,6 +895,9 @@ mod tests {
         assert_complete!("player.status:", []);
         assert_complete!("player.status.", []);
         assert_complete!("player:paused:", []);
-        assert_complete!("player:paused.", []);
+        assert_complete!(
+            "player:paused.",
+            ["episode", "feed", "progress", "status", "timing"]
+        );
     }
 }

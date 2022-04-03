@@ -56,7 +56,7 @@ impl SqliteDataProvider {
 }
 
 impl DataProvider for SqliteDataProvider {
-    fn get_feed(&self, id: FeedId) -> DbResult<Option<crate::model::Feed>> {
+    fn get_feed(&mut self, id: FeedId) -> DbResult<Option<crate::model::Feed>> {
         let mut statement = self.connection.prepare( "SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
@@ -77,7 +77,7 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>> {
+    fn get_feed_summaries(&mut self) -> DbResult<Vec<FeedSummary>> {
         let mut select = self
             .connection
             .prepare(
@@ -100,7 +100,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn get_feed_opml_entries(&self) -> DbResult<Vec<crate::model::FeedOMPLEntry>> {
+    fn get_feed_opml_entries(&mut self) -> DbResult<Vec<crate::model::FeedOMPLEntry>> {
         let mut select = self
             .connection
             .prepare("SELECT title, source, link FROM feeds")?;
@@ -114,7 +114,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn get_update_sources(&self, query: UpdateQuery) -> DbResult<Vec<(FeedId, String)>> {
+    fn get_update_sources(&mut self, query: UpdateQuery) -> DbResult<Vec<(FeedId, String)>> {
         match query {
             UpdateQuery::Single(feed_id) => {
                 let mut statement = self
@@ -145,7 +145,7 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_new_episodes_count(
-        &self,
+        &mut self,
         feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>> {
         let mut sql = "
@@ -174,7 +174,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(results)
     }
 
-    fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
+    fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
             self.connection.prepare("SELECT feed_id, episode_number, season_number, title, description, link, status, position, duration, publication_date, media_url FROM episodes WHERE id = :id")?;
         let result = statement.query_row(named_params! {":id": episode_id}, |row| {
@@ -199,7 +199,10 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData> {
+    fn get_episode_playback_data(
+        &mut self,
+        episode_id: EpisodeId,
+    ) -> DbResult<EpisodePlaybackData> {
         let mut statement = self
             .connection
             .prepare(
@@ -221,7 +224,10 @@ impl DataProvider for SqliteDataProvider {
             .map_err(QueryError::from)
     }
 
-    fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata> {
+    fn get_episodes_list_metadata(
+        &mut self,
+        query: EpisodesQuery,
+    ) -> DbResult<EpisodesListMetadata> {
         let mut sql =
             "SELECT COUNT(ep.id), MAX(ep.season_number), MAX(ep.episode_number), MAX(ep.duration),
                     SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END), feeds.reversed
@@ -249,7 +255,7 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_episode_summaries(
-        &self,
+        &mut self,
         request: EpisodesQuery,
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
@@ -298,7 +304,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(rows)?)
     }
 
-    fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize> {
+    fn count_episodes(&mut self, query: EpisodesQuery) -> DbResult<usize> {
         let mut sql = "SELECT COUNT(id) FROM episodes AS ep".to_string();
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
@@ -308,7 +314,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(count)
     }
 
-    fn create_feed_pending(&self, data: &NewFeedMetadata) -> DbResult<Option<FeedId>> {
+    fn create_feed_pending(&mut self, data: &NewFeedMetadata) -> DbResult<Option<FeedId>> {
         let mut exists_statement = self
             .connection
             .prepare("SELECT true FROM feeds WHERE source = :source")?;
@@ -331,7 +337,7 @@ impl DataProvider for SqliteDataProvider {
             .map_err(Into::into)
     }
 
-    fn delete_feed(&self, id: FeedId) -> DbResult<()> {
+    fn delete_feed(&mut self, id: FeedId) -> DbResult<()> {
         let mut statement = self
             .connection
             .prepare("DELETE FROM feeds WHERE id = :id")?;
@@ -339,7 +345,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
-    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()> {
+    fn set_feed_status(&mut self, feed_id: FeedId, status: FeedStatus) -> DbResult<()> {
         let (status, error) = status.db_view();
         self.connection
             .prepare("UPDATE feeds SET status = :status, error_code = :error_code WHERE id = :id")?
@@ -347,7 +353,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
-    fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()> {
+    fn set_feed_enabled(&mut self, feed_id: FeedId, enabled: bool) -> DbResult<()> {
         let mut statement = self
             .connection
             .prepare("UPDATE feeds SET enabled = :enabled WHERE id = :id")?;
@@ -355,7 +361,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
-    fn reverse_feed_order(&self, feed_id: FeedId) -> DbResult<()> {
+    fn reverse_feed_order(&mut self, feed_id: FeedId) -> DbResult<()> {
         let mut statement = self
             .connection
             .prepare("UPDATE feeds SET reversed = NOT reversed WHERE id = :feed_id")?;
@@ -364,7 +370,7 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn set_episode_status(
-        &self,
+        &mut self,
         query: EpisodesQuery,
         status: EpisodeStatus,
     ) -> DbResult<HashSet<FeedId>> {
@@ -389,7 +395,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(feed_ids_set)
     }
 
-    fn set_episode_hidden(&self, query: EpisodesQuery, hidden: bool) -> DbResult<()> {
+    fn set_episode_hidden(&mut self, query: EpisodesQuery, hidden: bool) -> DbResult<()> {
         let mut sql = "UPDATE episodes AS ep SET hidden = :hidden".to_string();
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
@@ -635,7 +641,7 @@ mod tests {
 
     #[test]
     fn does_not_create_duplicate() {
-        let provider = SqliteDataProvider::connect(":memory:").unwrap();
+        let mut provider = SqliteDataProvider::connect(":memory:").unwrap();
         let id1 = provider
             .create_feed_pending(&NewFeedMetadata::new(
                 "http://example.com/feed.xml".to_string(),

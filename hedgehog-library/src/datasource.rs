@@ -18,7 +18,7 @@ pub enum QueryError {
 
 pub type DbResult<T> = Result<T, QueryError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EpisodesQuery {
     pub(crate) episode_id: Option<EpisodeId>,
     pub(crate) feed_id: Option<FeedId>,
@@ -111,35 +111,41 @@ impl NewFeedMetadata {
 }
 
 pub trait DataProvider: Unpin {
-    fn get_feed(&self, id: FeedId) -> DbResult<Option<Feed>>;
-    fn get_feed_summaries(&self) -> DbResult<Vec<FeedSummary>>;
-    fn get_feed_opml_entries(&self) -> DbResult<Vec<FeedOMPLEntry>>;
-    fn get_update_sources(&self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>>;
-    fn get_new_episodes_count(&self, feed_ids: HashSet<FeedId>)
-        -> DbResult<HashMap<FeedId, usize>>;
+    fn get_feed(&mut self, id: FeedId) -> DbResult<Option<Feed>>;
+    fn get_feed_summaries(&mut self) -> DbResult<Vec<FeedSummary>>;
+    fn get_feed_opml_entries(&mut self) -> DbResult<Vec<FeedOMPLEntry>>;
+    fn get_update_sources(&mut self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>>;
+    fn get_new_episodes_count(
+        &mut self,
+        feed_ids: HashSet<FeedId>,
+    ) -> DbResult<HashMap<FeedId, usize>>;
 
-    fn get_episode(&self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
-    fn get_episode_playback_data(&self, episode_id: EpisodeId) -> DbResult<EpisodePlaybackData>;
-    fn get_episodes_list_metadata(&self, query: EpisodesQuery) -> DbResult<EpisodesListMetadata>;
+    fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
+    fn get_episode_playback_data(&mut self, episode_id: EpisodeId)
+        -> DbResult<EpisodePlaybackData>;
+    fn get_episodes_list_metadata(
+        &mut self,
+        query: EpisodesQuery,
+    ) -> DbResult<EpisodesListMetadata>;
     fn get_episode_summaries(
-        &self,
+        &mut self,
         query: EpisodesQuery,
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>>;
-    fn count_episodes(&self, query: EpisodesQuery) -> DbResult<usize>;
+    fn count_episodes(&mut self, query: EpisodesQuery) -> DbResult<usize>;
 
-    fn create_feed_pending(&self, data: &NewFeedMetadata) -> DbResult<Option<FeedId>>;
-    fn delete_feed(&self, id: FeedId) -> DbResult<()>;
-    fn set_feed_status(&self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
-    fn set_feed_enabled(&self, feed_id: FeedId, enabled: bool) -> DbResult<()>;
-    fn reverse_feed_order(&self, feed_id: FeedId) -> DbResult<()>;
+    fn create_feed_pending(&mut self, data: &NewFeedMetadata) -> DbResult<Option<FeedId>>;
+    fn delete_feed(&mut self, id: FeedId) -> DbResult<()>;
+    fn set_feed_status(&mut self, feed_id: FeedId, status: FeedStatus) -> DbResult<()>;
+    fn set_feed_enabled(&mut self, feed_id: FeedId, enabled: bool) -> DbResult<()>;
+    fn reverse_feed_order(&mut self, feed_id: FeedId) -> DbResult<()>;
 
     fn set_episode_status(
-        &self,
+        &mut self,
         query: EpisodesQuery,
         status: EpisodeStatus,
     ) -> DbResult<HashSet<FeedId>>;
-    fn set_episode_hidden(&self, query: EpisodesQuery, hidden: bool) -> DbResult<()>;
+    fn set_episode_hidden(&mut self, query: EpisodesQuery, hidden: bool) -> DbResult<()>;
 
     fn writer<'a>(&'a mut self, feed_id: FeedId) -> DbResult<Box<dyn EpisodeWriter + 'a>>;
 }

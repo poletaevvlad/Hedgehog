@@ -157,7 +157,7 @@ fn main() {
         };
 
         data_dir.push("episodes");
-        let data_provider = SqliteDataProvider::connect(&data_dir)?;
+        let mut data_provider = SqliteDataProvider::connect(&data_dir)?;
         data_dir.pop();
 
         let mut environment = AppEnvironment::new_with_data_path(data_dir);
@@ -185,8 +185,8 @@ fn main() {
         }
 
         match cli_args.subcommand() {
-            ("export", Some(args)) => run_export(&data_provider, args),
-            ("import", Some(args)) => run_import(&data_provider, args),
+            ("export", Some(args)) => run_export(&mut data_provider, args),
+            ("import", Some(args)) => run_import(&mut data_provider, args),
             _ => run_player(data_provider, &cli_args, environment),
         }
     })();
@@ -197,8 +197,8 @@ fn main() {
     }
 }
 
-fn run_export<P: DataProvider>(
-    data_provider: &P,
+fn run_export<D: DataProvider>(
+    data_provider: &mut D,
     args: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let output = args.value_of("output");
@@ -217,7 +217,7 @@ fn run_export<P: DataProvider>(
 }
 
 fn run_import<P: DataProvider>(
-    data_provider: &P,
+    data_provider: &mut P,
     args: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let file = args.value_of("file").expect("arg is required");

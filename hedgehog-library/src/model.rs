@@ -206,7 +206,7 @@ impl EpisodeStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, cmdparse::Parsable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, cmdparse::Parsable, Hash)]
 pub enum EpisodeSummaryStatus {
     New,
     #[cmd(rename = "seen")]
@@ -297,7 +297,7 @@ pub struct EpisodePlaybackData {
     pub feed_title: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EpisodesListMetadata {
     pub items_count: usize,
     pub max_season_number: Option<i64>,

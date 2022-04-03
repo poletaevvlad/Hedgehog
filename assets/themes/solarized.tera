@@ -1,0 +1,45 @@
+{% import "macros" as macros %}
+# This theme is based on Solarized theme developed by Ethan Schoonover
+# See the specification: https://ethanschoonover.com/colophon/
+
+set list.divider bg:%{{ macros::sol_color(name="base1") }} fg:%{{ macros::sol_color(name="base1") }}
+set list.item bg:%{{ macros::sol_color(name="base2") }} fg:%{{ macros::sol_color(name="base01") }}
+set list.item:focused bg:%{{ macros::sol_color(name="base3") }}
+set list.item.title fg:%{{ macros::sol_color(name="base02") }}
+set list.item:feed-special fg:%{{ macros::sol_color(name="base02") }} +bold
+set list.item:focused.title fg:%{{ macros::sol_color(name="base03") }}
+set list.item:focused:feed-special fg:%{{ macros::sol_color(name="base03") }}
+set list.item:selected bg:%{{ color_mix(fg=macros::sol_color(name="base1"), bg=macros::sol_color(name="base2"), f=0.5) }} fg:%{{ macros::sol_color(name="base02") }}
+set list.item:focused:selected bg:%{{ macros::sol_color(name="base0") }}
+set list.item:missing-title.title +italic
+set list.item:hidden.title fg:%{{ macros::sol_color(name="base00") }}
+
+{{ macros::sol_highlight_column(column=".new-count", highlight_color=macros::sol_color(name="yellow")) }}
+{{ macros::sol_highlight_column(column=":episode-new.state", highlight_color=macros::sol_color(name="yellow")) }}
+{{ macros::sol_highlight_column(column=":episode-started.state", highlight_color=macros::sol_color(name="green")) }}
+{{ macros::sol_highlight_column(column=":episode-error.state", highlight_color=macros::sol_color(name="red")) }}
+set list.item:selected:focused.state +bold
+set list.item:selected:search.title +bold
+set list.item:selected:log-entry.title +bold
+
+set empty bg:%{{ macros::sol_color(name="base2") }} fg:%{{ macros::sol_color(name="base02") }}
+set empty.title fg:%{{ macros::sol_color(name="base03") }} +bold
+set empty:focused bg:%{{ macros::sol_color(name="base3") }}
+
+set player bg:%{{ macros::sol_color(name="base1") }} fg:%{{ macros::sol_color(name="base03") }}
+set player.timing bg:%{{ macros::sol_color(name="base0") }}
+set player.progress bg:%{{ macros::sol_color(name="base0") }}
+set player.feed fg:%{{ macros::sol_color(name="base02") }}
+set player.status bg:%{{ macros::sol_color(name="base0") }} +bold
+set player:playing.status bg:%{{ macros::sol_color(name="green") }}
+set player:paused.status bg:%{{ macros::sol_color(name="blue") }}
+set player:buffering.status bg:%{{ macros::sol_color(name="red") }}
+
+set statusbar.empty bg:%{{ macros::sol_color(name="base2") }}
+set statusbar.command bg:%{{ macros::sol_color(name="base2") }} fg:%{{ macros::sol_color(name="base02") }}
+set statusbar.status bg:%{{ macros::sol_color(name="base2") }}
+set statusbar.status:error fg:%{{ macros::sol_color(name="red") }}
+set statusbar.status:warning fg:%{{ macros::sol_color(name="yellow") }}
+set statusbar.status:information fg:%{{ macros::sol_color(name="cyan") }}
+set statusbar.status.label +bold
+set statusbar.confirmation bg:%{{ macros::sol_color(name="base2") }} fg:%{{ macros::sol_color(name="base02") }}

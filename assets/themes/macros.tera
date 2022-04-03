@@ -1,0 +1,43 @@
+{% macro var(name) -%}
+  {% if name is starting_with("$") -%}
+    {% set name = name | trim_start_matches(pat="$") -%}
+    {{ variables[name] }}
+  {%- else -%}
+    {{ name }}
+  {%- endif %}
+{%- endmacro %}
+
+{% macro gb_list_row(selector, bg, fg, include_special=false) -%}
+set {{ selector }} bg:%{{ bg }} fg:%{{ color_mix(fg=fg, bg=bg, f=0.4) }} bg:%{{ bg }}
+set {{ selector }}.title fg:%{{ fg }}
+{%- if include_special %}
+set {{ selector }}:feed-special fg:%{{ fg }}
+{%- endif %}
+{%- endmacro %}
+
+{% macro gb_highlight_column(selector, column, color) -%}
+set {{ selector }}.{{ column }} fg:%{{ color }}
+set {{ selector }}:selected.{{ column }} fg:%{{ color }}
+{%- endmacro %}
+
+{% macro gb_player_state(state, color, colors) -%}
+set player:{{ state }} bg:%{{ color_mix(fg=self::var(name=colors.player), bg=color, f=0.2) }}
+set player:{{ state }}.status bg:%{{ color }}
+set player:{{ state }}.progress fg:%{{ self::var(name=colors.text[0]) }} bg:%{{ color_mix(fg=self::var(name=colors.player), bg=color, f=0.4) }}
+{%- endmacro %}
+
+{% macro sol_color(name) -%}
+  {% if variant == "dark" and inversion is containing(name) -%}
+    {{ colors[inversion[name]] }}
+  {%- else -%}
+    {{ colors[name] }}
+  {%- endif %}
+{%- endmacro %}
+
+{% macro sol_highlight_column(column, highlight_color) -%}
+set list.item{{ column }} fg:%{{ highlight_color }}
+set list.item:selected{{ column }} fg:%{{ self::sol_color(name="base02") }}
+set list.item:selected:focused{{ column }} fg:%{{ self::sol_color(name="base03") }} +bold
+{%- endmacro %}
+
+

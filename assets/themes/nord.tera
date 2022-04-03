@@ -1,0 +1,52 @@
+{% import "macros" as macros %}
+{% set colors = variants[variant] -%}
+
+# This teme is based on the Nord color scheme developed by Arctic Ice Studio
+# Details: https://www.nordtheme.com/
+
+set list.divider bg:%{{ macros::var(name=colors.divider) }} fg:%{{ macros::var(name=colors.divider) }}
+
+{%- set item_styles = ["", ":focused"] -%}
+{% for selector in item_styles -%}
+{% set index = loop.index0 -%}
+{% set text_color = macros::var(name=colors.text[index]) -%}
+{% set background_color = macros::var(name=colors.background[index]) %}
+set list.item{{selector}} bg:%{{ background_color }} fg:%{{ color_mix(fg=background_color, bg=text_color, f=0.7) }}
+set list.item{{selector}}:selected bg:%{{ macros::var(name=colors.highlight[index]) }}
+set list.item{{selector}}.title fg:%{{ text_color }}
+set list.item{{selector}}:feed-special fg:%{{ text_color }}
+set list.item{{selector}}:episode-finished.title fg:%{{ color_mix(fg=text_color, bg=background_color, f=0.4) }}
+set list.item{{selector}}:hidden.title fg:%{{ color_mix(fg=text_color, bg=background_color, f=0.6) }}
+set empty{{selector}} bg:%{{ background_color }} fg:%{{ text_color }}
+{%- endfor %}
+
+set empty.title +bold
+set list.item:feed-special +bold
+set list.item:missing-title.title +italic
+set list.item.new-count fg:%{{ variables.green }} +bold
+set list.item:episode-new.state fg:%{{ variables.green }} +bold
+set list.item:episode-error.state fg:%{{ variables.red }} +bold
+set list.item:episode:playing.state fg:%{{ variables.frost2 }} +bold
+set list.item:feed-error.state fg:%{{ variables.red }} +bold
+set list.item:episode-finished.state fg:%{{ variables.frost4 }} +bold
+set list.item:episode-started.state fg:%{{ variables.yellow }} +bold
+set list.item:playing.title fg:%{{ variables.frost2 }}
+
+set player bg:%{{ macros::var(name=colors.player[1]) }} fg:%{{ macros::var(name=colors.text[0]) }}
+set player.episode fg:%{{ macros::var(name=colors.text[1]) }}
+set player.progress bg:%{{ macros::var(name=colors.player[0]) }}
+set player.timing bg:%{{ macros::var(name=colors.player[0]) }}
+set player.status +bold
+set player:playing.status bg:%{{ variables.green }} fg:%{{ macros::var(name=colors.background[0]) }}
+set player:paused.status bg:%{{ variables.frost2 }} fg:%{{ macros::var(name=colors.background[0]) }}
+set player:buffering.status bg:%{{ variables.purple }} fg:%{{ macros::var(name=colors.background[0]) }}
+
+set statusbar.empty bg:%{{ macros::var(name=colors.background[1]) }}
+set statusbar.command bg:%{{ macros::var(name=colors.background[1]) }} fg:%{{ macros::var(name=colors.text[1] )}}
+set statusbar.command.prompt fg:%{{ macros::var(name=colors.text[0] )}}
+set statusbar.status bg:%{{ macros::var(name=colors.background[1]) }}
+set statusbar.status.label +bold
+set statusbar.status:error fg:%{{ variables.red }}
+set statusbar.status:warning fg:%{{ variables.yellow }}
+set statusbar.status:information fg:%{{ variables.frost3 }}
+set statusbar.confirmation bg:%{{ macros::var(name=colors.background[1]) }} fg:%{{ macros::var(name=colors.text[1]) }}

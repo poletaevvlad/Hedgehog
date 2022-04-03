@@ -1,0 +1,33 @@
+[[themes]]
+name = "default"
+input = "default.theme"
+
+[[themes]]
+name = "nord"
+input = "nord.tera"
+data = "nord.toml"
+extra = { variant = "dark" }
+
+[[themes]]
+name = "gruvbox-dark"
+input = "gruvbox.tera"
+data = "gruvbox.toml"
+extra = { variant = "dark" }
+
+[[themes]]
+name = "gruvbox-light"
+input = "gruvbox.tera"
+data = "gruvbox.toml"
+extra = { variant = "light" }
+
+[[themes]]
+name = "solarized-dark"
+input = "solarized.tera"
+data = "solarized.toml"
+extra = { variant = "dark" }
+
+[[themes]]
+name = "solarized-light"
+input = "solarized.tera"
+data = "solarized.toml"
+extra = { variant = "light" }

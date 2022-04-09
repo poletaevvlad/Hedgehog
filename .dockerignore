@@ -1,0 +1,9 @@
+/target
+/build
+/.github
+/.git
+/Dockerfile
+/LICENSE
+/Makefile
+/NOTICE
+/hedgehog.1*

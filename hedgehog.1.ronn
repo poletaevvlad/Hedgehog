@@ -357,9 +357,9 @@ is used by the operating system. The configuration path can be configured via
 environment variables. Both these options append the set of directories to the
 default paths. The default paths are:
 
- * `/usr/share/hedgehog` (only on UNIX-based OSes);
- * the parent directory of the Hedgehog's executable (only on Windows);
- * user's config directory: `~/.config/hedgehog` on UNIX-based OSes and
+ * `/usr/share/hedgehog` and `./usr/share/hedgehog` (only on UNIX-based OSes);
+ * the parent directory of the Hedgehog's executable (only on Windows); *
+   user's config directory: `~/.config/hedgehog` on UNIX-based OSes and
    `\Users\<user>\AppData\Roaming` on Windows.
 
 When looking for a file to load (using `exec` or `theme load` command) Hedgehog
@@ -477,7 +477,7 @@ us subcommands of `theme` or loaded from a separate file via `theme load` (the
   styling is cleared before a theme file is loaded. Inclusion of `--extend`
   flag prevents this.
 
-* `set` <selector> <style>:
+* `set` <selector> <style-modifiers>:
   Applies the styling to a component identified by the <selector>. The syntax
   of each argument is specified further.
 

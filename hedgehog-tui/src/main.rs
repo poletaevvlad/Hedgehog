@@ -26,6 +26,7 @@ use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, InMemoryCache, Library, SqliteDataProvider};
 use hedgehog_player::Player;
 use screen::UI;
+use std::env;
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{self, BufReader, SeekFrom};
@@ -164,6 +165,7 @@ fn main() {
 
         if cfg!(unix) {
             let _ = environment.push_config_path("/usr/share/hedgehog");
+            let _ = environment.push_config_path("./usr/share/hedgehog");
         } else if cfg!(windows) {
             if let Ok(mut exe_path) = std::env::current_exe() {
                 exe_path.pop();

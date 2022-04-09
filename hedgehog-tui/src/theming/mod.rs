@@ -12,21 +12,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tui::style::Style;
 
-#[derive(Debug, Clone, Copy)]
-struct OverridableStyle {
-    style: Style,
-    inherited: bool,
-}
-
-impl Default for OverridableStyle {
-    fn default() -> Self {
-        OverridableStyle {
-            style: Style::default(),
-            inherited: false,
-        }
-    }
-}
-
 pub(crate) struct Theme {
     styles: HashMap<Selector, Style>,
 }

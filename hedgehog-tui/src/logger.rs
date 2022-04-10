@@ -30,25 +30,29 @@ impl Severity {
 
 enum LogTarget {
     Default,
+    CommandsHistory,
+    Command,
+    KeyMapping,
+    DBus,
+    Actix,
+    Volume,
     Player,
     Playback,
-    Database,
-    Update,
-    Actix,
-    Command,
-    IO,
+    Sql,
 }
 
 impl LogTarget {
     fn from_str(name: &str) -> Self {
         match name {
+            "commands_history" => LogTarget::CommandsHistory,
+            "command" => LogTarget::Command,
+            "key_mapping" => LogTarget::KeyMapping,
+            "dbus" => LogTarget::DBus,
+            "actix" => LogTarget::Actix,
+            "volume" => LogTarget::Volume,
             "player" => LogTarget::Player,
             "playback" => LogTarget::Playback,
-            "database" => LogTarget::Database,
-            "update" => LogTarget::Update,
-            "actix" => LogTarget::Actix,
-            "command" => LogTarget::Command,
-            "io" => LogTarget::IO,
+            "sql" => LogTarget::Sql,
             _ => LogTarget::Default,
         }
     }
@@ -75,7 +79,7 @@ impl LogEntry {
     pub(crate) fn display_ttl(&self) -> Option<Duration> {
         match self.target {
             LogTarget::Playback => Some(TTL_LONG),
-            LogTarget::Update | LogTarget::Command => Some(TTL_SHORT),
+            LogTarget::KeyMapping | LogTarget::Command | LogTarget::Volume => Some(TTL_SHORT),
             _ => None,
         }
     }
@@ -87,13 +91,15 @@ impl LogEntry {
     pub(crate) fn variant_label(&self) -> Option<&'static str> {
         match self.target {
             LogTarget::Default => None,
-            LogTarget::Player => None,
-            LogTarget::Playback => Some("Playback error"),
-            LogTarget::Database => Some("Internal erorr (database)"),
-            LogTarget::Update => Some("Update error"),
-            LogTarget::Actix => Some("Internal error"),
+            LogTarget::CommandsHistory => Some("Command history error"),
             LogTarget::Command => Some("Invalid command"),
-            LogTarget::IO => Some("I/O error"),
+            LogTarget::KeyMapping => None,
+            LogTarget::DBus => Some("MPRIS/DBus error"),
+            LogTarget::Actix => Some("Internal error"),
+            LogTarget::Volume => None,
+            LogTarget::Player => Some("Internal audio player error"),
+            LogTarget::Playback => todo!(),
+            LogTarget::Sql => Some("Internal database error"),
         }
     }
 

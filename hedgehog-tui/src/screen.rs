@@ -1296,19 +1296,6 @@ impl Handler<FeedUpdateNotification> for UI {
     }
 }
 
-#[cfg(feature = "mpris")]
-impl Handler<hedgehog_player::mpris::MprisError> for UI {
-    type Result = ();
-
-    fn handle(
-        &mut self,
-        msg: hedgehog_player::mpris::MprisError,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
-        log::error!(target: "dbus", "{}", msg);
-    }
-}
-
 impl Handler<LogEntry> for UI {
     type Result = ();
 

@@ -7,6 +7,7 @@ edition = "2018"
 gstreamer-base = "0.17"
 actix = "0.12"
 cmdparse = "0.1"
+log = "0.4"
 
 # MPIRS
 dbus= { git = "https://github.com/poletaevvlad/dbus-rs", branch = "async-prop-get-all-no-response", optional = true }

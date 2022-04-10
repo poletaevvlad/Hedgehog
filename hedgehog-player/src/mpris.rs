@@ -98,7 +98,6 @@ impl fmt::Display for MprisError {
 }
 
 pub struct MprisPlayer {
-    error_handler: Recipient<MprisError>,
     player: Addr<Player>,
     playback_state: Arc<RwLock<PlayerState>>,
     connection: Option<Arc<SyncConnection>>,
@@ -106,9 +105,8 @@ pub struct MprisPlayer {
 }
 
 impl MprisPlayer {
-    pub fn new(player: Addr<Player>, error_handler: Recipient<MprisError>) -> Self {
+    pub fn new(player: Addr<Player>) -> Self {
         MprisPlayer {
-            error_handler,
             player,
             playback_state: Arc::new(RwLock::new(PlayerState::default())),
             connection: None,
@@ -129,8 +127,8 @@ impl Actor for MprisPlayer {
         ctx.spawn(
             wrap_future(async {
                 let (resource, connection) = match connection::new_session_sync() {
-                    Ok(conn) => conn,
-                    Err(error) => return Err(MprisError(error)),
+                    Ok(result) => result,
+                    Err(error) => return Err(error),
                 };
                 let arbiter = Arbiter::current();
 
@@ -192,9 +190,7 @@ impl Actor for MprisPlayer {
                     actor.connection = connection;
                     actor.dbus_callbacks = callbacks;
                 }
-                Err(error) => {
-                    let _ = actor.error_handler.do_send(error);
-                }
+                Err(error) => log::error!(target: "dbus", "{}", error),
             }),
         );
 

@@ -1312,6 +1312,7 @@ dependencies = [
  "dbus-crossroads",
  "dbus-tokio",
  "gstreamer-base",
+ "log",
 ]
 
 [[package]]

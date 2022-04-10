@@ -292,11 +292,11 @@ fn run_player(
         .start();
 
         log::set_max_level(log::LevelFilter::Info);
-        log::set_boxed_logger(Box::new(ActorLogger::new(ui_addr.clone().recipient())))
+        log::set_boxed_logger(Box::new(ActorLogger::new(ui_addr.recipient())))
             .expect("Logger cannot be set more then once");
 
         if !args.is_present("no_mpris") {
-            run_mpris(player, ui_addr, player_arbiter.handle());
+            run_mpris(player, player_arbiter.handle());
         }
     });
     system.run()?;
@@ -310,10 +310,10 @@ fn run_player(
 }
 
 #[cfg(feature = "mpris")]
-fn run_mpris(player: Addr<Player>, ui: Addr<UI>, arbiter: ArbiterHandle) {
+fn run_mpris(player: Addr<Player>, arbiter: ArbiterHandle) {
     use hedgehog_player::mpris::MprisPlayer;
-    MprisPlayer::start_in_arbiter(&arbiter, |_| MprisPlayer::new(player, ui.recipient()));
+    MprisPlayer::start_in_arbiter(&arbiter, |_| MprisPlayer::new(player));
 }
 
 #[cfg(not(feature = "mpris"))]
-fn run_mpris(_player: Addr<Player>, _ui: Addr<UI>, _arbiter: ArbiterHandle) {}
+fn run_mpris(_player: Addr<Player>, _arbiter: ArbiterHandle) {}

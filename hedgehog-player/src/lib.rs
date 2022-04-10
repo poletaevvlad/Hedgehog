@@ -31,7 +31,6 @@ impl State {
 pub struct Player {
     element: Option<gst::Element>,
     subscribers: Vec<Recipient<PlayerNotification>>,
-    error_listener: Option<Recipient<PlayerErrorNotification>>,
     reported_volume: Option<Option<Volume>>,
     state: Option<State>,
     required_seek: Option<Duration>,
@@ -53,7 +52,6 @@ impl Player {
             element: Some(element),
             reported_volume: None,
             subscribers: Vec::new(),
-            error_listener: None,
             state: None,
             required_seek: None,
             seek_position: None,
@@ -64,7 +62,6 @@ impl Player {
         Player {
             element: None,
             subscribers: Vec::new(),
-            error_listener: None,
             reported_volume: None,
             state: None,
             required_seek: None,
@@ -72,13 +69,13 @@ impl Player {
         }
     }
 
-    fn emit_error(&mut self, error: GstError) {
-        if let Some(ref listener) = self.error_listener {
-            if let Err(SendError::Closed(_)) = listener.do_send(PlayerErrorNotification(error)) {
-                self.error_listener = None;
-            }
-        }
-    }
+    // fn emit_error(&mut self, error: GstError) {
+    //     if let Some(ref listener) = self.error_listener {
+    //         if let Err(SendError::Closed(_)) = listener.do_send(PlayerErrorNotification(error)) {
+    //             self.error_listener = None;
+    //         }
+    //     }
+    // }
 
     fn set_state(&mut self, state: Option<State>) {
         self.state = state;
@@ -88,7 +85,7 @@ impl Player {
     fn notify_subscribers(&mut self, notification: PlayerNotification) {
         for subscriber in &self.subscribers {
             if let Err(error) = subscriber.do_send(notification.clone()) {
-                self.emit_error(GstError::from_err(error));
+                log::error!(target: "actix", "{}", error);
                 return;
             }
         }
@@ -109,7 +106,10 @@ impl Actor for Player {
             let message = match (volume, muted) {
                 (Ok(_), Ok(true)) => InternalEvent::VolumeChanged(None),
                 (Ok(volume), Ok(false)) => InternalEvent::VolumeChanged(Some(volume)),
-                (Err(error), _) | (_, Err(error)) => InternalEvent::Error(error),
+                (Err(error), _) | (_, Err(error)) => {
+                    log::error!(target: "player", "{}", error);
+                    return;
+                }
             };
             addr.do_send(message);
         }
@@ -133,10 +133,7 @@ impl Actor for Player {
                 gst::MessageType::DurationChanged,
             ]));
         } else {
-            ctx.address()
-                .do_send(InternalEvent::Error(GstError::from_str(
-                    "element does not have a bus",
-                )));
+            log::error!(target: "player", "Element does not have a bus");
         }
 
         ctx.address().do_send(TimerTick);
@@ -153,7 +150,6 @@ impl Actor for Player {
 #[rtype(result = "()")]
 pub enum ActorCommand {
     Subscribe(Recipient<PlayerNotification>),
-    SubscribeErrors(Recipient<PlayerErrorNotification>),
 }
 
 impl Handler<ActorCommand> for Player {
@@ -162,7 +158,6 @@ impl Handler<ActorCommand> for Player {
     fn handle(&mut self, msg: ActorCommand, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
             ActorCommand::Subscribe(recipient) => self.subscribers.push(recipient),
-            ActorCommand::SubscribeErrors(recipient) => self.error_listener = Some(recipient),
         }
     }
 }
@@ -439,7 +434,7 @@ impl Handler<PlaybackCommand> for Player {
         })();
 
         if let Err(error) = result {
-            self.emit_error(error);
+            log::error!(target: "player", "{}", error);
         }
     }
 }
@@ -469,7 +464,7 @@ impl Handler<VolumeCommand> for Player {
         };
 
         if let Err(error) = result {
-            self.emit_error(error);
+            log::error!(target: "player", "{}", error);
         }
     }
 }
@@ -501,7 +496,6 @@ impl Handler<VolumeQueryRequest> for Player {
 #[rtype(result = "()")]
 enum InternalEvent {
     VolumeChanged(Option<Volume>),
-    Error(GstError),
 }
 
 impl Handler<InternalEvent> for Player {
@@ -517,7 +511,6 @@ impl Handler<InternalEvent> for Player {
                 }
                 self.reported_volume = Some(volume);
             }
-            InternalEvent::Error(error) => self.emit_error(error),
         }
     }
 }
@@ -531,11 +524,8 @@ pub enum PlayerNotification {
     DurationSet(Duration),
     PositionSet { position: Duration, seeked: bool },
     Eos,
+    Failure,
 }
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct PlayerErrorNotification(pub GstError);
 
 impl StreamHandler<gst::Message> for Player {
     fn handle(&mut self, item: gst::Message, ctx: &mut Self::Context) {
@@ -546,7 +536,13 @@ impl StreamHandler<gst::Message> for Player {
                     self.set_state(None);
                 }
                 gst::MessageView::Error(error) => {
-                    self.emit_error(GstError::from_err(error.error()));
+                    log::error!(target: "playback", "{}", error.error());
+                    if let Some(ref element) = self.element {
+                        if let Err(error) = element.set_state(gst::State::Null) {
+                            log::error!(target: "player", "{}", error);
+                        }
+                    }
+                    self.notify_subscribers(PlayerNotification::Failure);
                     self.set_state(None);
                 }
                 gst::MessageView::Buffering(buffering) => {

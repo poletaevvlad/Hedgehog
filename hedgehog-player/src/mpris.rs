@@ -440,7 +440,7 @@ impl Handler<PlayerNotification> for MprisPlayer {
                         }
                     }
                 }
-                PlayerNotification::Eos => {}
+                PlayerNotification::Eos | PlayerNotification::Failure => {}
             }
         }
     }

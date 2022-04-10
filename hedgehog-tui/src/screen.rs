@@ -36,8 +36,7 @@ use hedgehog_library::{
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
 use hedgehog_player::{
-    PlaybackCommand, PlaybackMetadata, Player, PlayerErrorNotification, PlayerNotification,
-    SeekDirection, SeekOffset,
+    PlaybackCommand, PlaybackMetadata, Player, PlayerNotification, SeekDirection, SeekOffset,
 };
 use std::collections::HashSet;
 use std::io::{stdout, Write};
@@ -856,10 +855,6 @@ impl Actor for UI {
             .do_send(hedgehog_player::ActorCommand::Subscribe(
                 ctx.address().recipient(),
             ));
-        self.player_actor
-            .do_send(hedgehog_player::ActorCommand::SubscribeErrors(
-                ctx.address().recipient(),
-            ));
         self.library_actor
             .do_send(hedgehog_library::FeedUpdateRequest::Subscribe(
                 ctx.address().recipient(),
@@ -1180,36 +1175,30 @@ impl Handler<PlayerNotification> for UI {
                         });
                 }
             }
+            PlayerNotification::Failure => {
+                if let Some(playing_episode) = self.library.playing_episode.take() {
+                    self.status_writer_actor
+                        .do_send(StatusWriterCommand::set_error(
+                            playing_episode.id,
+                            self.playback_state
+                                .timing()
+                                .map(|timing| timing.position)
+                                .unwrap_or_default(),
+                        ));
+                    self.library
+                        .episodes
+                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                            let episode = data
+                                .find(|item| item.id == playing_episode.id)
+                                .and_then(|index| data.item_at_mut(index));
+                            if let Some(episode) = episode {
+                                episode.status = EpisodeSummaryStatus::Error;
+                            }
+                        });
+                    self.invalidate(ctx);
+                }
+            }
             PlayerNotification::MetadataChanged(_) => {}
-        }
-    }
-}
-
-impl Handler<PlayerErrorNotification> for UI {
-    type Result = ();
-
-    fn handle(&mut self, _msg: PlayerErrorNotification, ctx: &mut Self::Context) -> Self::Result {
-        // TODO: self.handle_error(msg.0, ctx);
-        if let Some(playing_episode) = self.library.playing_episode.take() {
-            self.status_writer_actor
-                .do_send(StatusWriterCommand::set_error(
-                    playing_episode.id,
-                    self.playback_state
-                        .timing()
-                        .map(|timing| timing.position)
-                        .unwrap_or_default(),
-                ));
-            self.library
-                .episodes
-                .update_data::<selection::DoNotUpdate, _>(|data| {
-                    let episode = data
-                        .find(|item| item.id == playing_episode.id)
-                        .and_then(|index| data.item_at_mut(index));
-                    if let Some(episode) = episode {
-                        episode.status = EpisodeSummaryStatus::Error;
-                    }
-                });
-            self.invalidate(ctx);
         }
     }
 }

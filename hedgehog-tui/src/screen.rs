@@ -21,7 +21,6 @@ use actix::fut::wrap_future;
 use actix::prelude::*;
 use crossterm::event::{self, Event};
 use crossterm::QueueableCommand;
-use hedgehog_library::datasource::QueryError;
 use hedgehog_library::model::{
     Episode, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedId, FeedSummary, FeedView, Identifiable,
@@ -428,8 +427,8 @@ impl UI {
                     self.library_actor
                         .send(EpisodePlaybackDataRequest(episode_id)),
                 )
-                .map(move |result, actor: &mut UI, ctx| {
-                    if let Some(playback_data) = actor.handle_response_error(result) {
+                .map(move |result, actor: &mut UI, ctx| match result {
+                    Ok(Some(playback_data)) => {
                         actor.library.playing_episode = Some(playback_data.clone());
                         actor.playback_state = PlaybackState::new_started(
                             playback_data.position,
@@ -458,6 +457,10 @@ impl UI {
                                 }
                             });
                         actor.invalidate(ctx);
+                    }
+                    Ok(None) => {}
+                    Err(error) => {
+                        log::error!(target: "actix", "{}", error);
                     }
                 });
                 ctx.spawn(future);
@@ -627,11 +630,14 @@ impl UI {
                                 .send(hedgehog_library::FeedRequest(feed_id)),
                         )
                         .map(move |result, actor: &mut UI, _ctx| {
-                            if let Some(Some(Feed {
-                                link: Some(link), ..
-                            })) = actor.handle_response_error(result)
-                            {
-                                actor.open_browser(&link);
+                            match result {
+                                Ok(Some(Feed {
+                                    link: Some(link), ..
+                                })) => {
+                                    actor.open_browser(&link);
+                                }
+                                Ok(_) => {}
+                                Err(error) => log::error!(target: "actix", "{}", error),
                             }
                         }),
                     );
@@ -647,11 +653,14 @@ impl UI {
                                 .send(hedgehog_library::EpisodeRequest(episode_id)),
                         )
                         .map(move |result, actor: &mut UI, _ctx| {
-                            if let Some(Some(Episode {
-                                link: Some(link), ..
-                            })) = actor.handle_response_error(result)
-                            {
-                                actor.open_browser(&link);
+                            match result {
+                                Ok(Some(Episode {
+                                    link: Some(link), ..
+                                })) => {
+                                    actor.open_browser(&link);
+                                }
+                                Ok(_) => {}
+                                Err(error) => log::error!(target: "actix", "{}", error),
                             }
                         }),
                     );
@@ -711,13 +720,19 @@ impl UI {
                 .send(EpisodesListMetadataRequest(query.clone())),
         )
         .then(|result, actor: &mut UI, _ctx| {
-            let result = actor.handle_response_error(result).map(|metadata| {
-                let range = actor.library.episodes.data().initial_range(
-                    metadata.items_count,
-                    actor.library.episodes.viewport().range(),
-                );
-                (metadata, range)
-            });
+            let result = match result {
+                Ok(metadata) => {
+                    let range = actor.library.episodes.data().initial_range(
+                        metadata.items_count,
+                        actor.library.episodes.viewport().range(),
+                    );
+                    Some((metadata, range))
+                }
+                Err(error) => {
+                    log::error!(target: "actix", "{}", error);
+                    None
+                }
+            };
             let library_actor = actor.library_actor.clone();
             wrap_future(async move {
                 match result {
@@ -748,14 +763,17 @@ impl UI {
                 let items_count = metadata.items_count;
                 actor.library.episodes_list_metadata = Some(metadata);
                 match episodes {
-                    Some((range, episodes)) => {
-                        if let Some(episodes) = actor.handle_response_error(episodes) {
+                    Some((range, episodes)) => match episodes {
+                        Ok(episodes) => {
                             update_data!(|data| {
                                 data.set_provider(new_provider);
                                 data.set_initial(items_count, episodes, range);
                             });
                         }
-                    }
+                        Err(error) => {
+                            log::error!(target: "actix", "{}", error);
+                        }
+                    },
                     None => {
                         update_data!(|data| {
                             data.set_provider(new_provider);
@@ -823,8 +841,8 @@ impl UI {
     fn load_feeds(&mut self, ctx: &mut <UI as Actor>::Context) {
         ctx.spawn(
             wrap_future(self.library_actor.send(FeedSummariesRequest)).map(
-                move |data, actor: &mut UI, ctx| {
-                    if let Some(data) = actor.handle_response_error(data) {
+                move |data, actor: &mut UI, ctx| match data {
+                    Ok(data) => {
                         actor
                             .library
                             .feeds
@@ -838,6 +856,9 @@ impl UI {
                         actor.update_current_feed(ctx);
                         actor.library.feeds_loaded = true;
                         actor.invalidate(ctx);
+                    }
+                    Err(error) => {
+                        log::error!(target: "error", "{}", error);
                     }
                 },
             ),
@@ -1088,19 +1109,6 @@ enum DataFetchingRequest {
     Episodes(EpisodesQuery, Range<usize>),
 }
 
-type LibraryQueryResult<T> = Result<Result<T, QueryError>, MailboxError>;
-
-impl UI {
-    fn handle_response_error<T>(&mut self, data: LibraryQueryResult<T>) -> Option<T> {
-        match data {
-            Err(err) => log::error!(target: "actix", "{}", err),
-            Ok(Err(err)) => log::error!("{}", err),
-            Ok(Ok(data)) => return Some(data),
-        }
-        None
-    }
-}
-
 impl Handler<DataFetchingRequest> for UI {
     type Result = ResponseActFuture<Self, ()>;
 
@@ -1109,8 +1117,8 @@ impl Handler<DataFetchingRequest> for UI {
             DataFetchingRequest::Episodes(query, range) => {
                 let request = EpisodeSummariesRequest::new(query, range.clone());
                 Box::pin(wrap_future(self.library_actor.send(request)).map(
-                    move |data, actor: &mut UI, ctx| {
-                        if let Some(episodes) = actor.handle_response_error(data) {
+                    move |data, actor: &mut UI, ctx| match data {
+                        Ok(episodes) => {
                             actor
                                 .library
                                 .episodes
@@ -1119,6 +1127,7 @@ impl Handler<DataFetchingRequest> for UI {
                                 });
                             actor.invalidate(ctx);
                         }
+                        Err(error) => log::error!(target: "actix", "{}", error),
                     },
                 ))
             }
@@ -1234,20 +1243,15 @@ impl Handler<FeedUpdateNotification> for UI {
                     self.refresh_episodes(ctx, false);
                 }
             }
-            FeedUpdateNotification::Error(_error) => (), /* TODO: self.handle_error(error, ctx) */
             FeedUpdateNotification::FeedAdded(feed) => {
                 self.library
                     .feeds
                     .update_data::<selection::Keep, _>(|feeds| feeds.push(FeedView::Feed(feed)));
                 self.update_current_feed(ctx);
             }
-            FeedUpdateNotification::DuplicateFeed => ()/* TODO: self.set_status(
-                CustomStatus::new("This podcast has already been added")
-                    .set_severity(Severity::Warning)
-                    .set_ttl(status::TTL_SHORT)
-                    .into(),
-                ctx,
-            )*/,
+            FeedUpdateNotification::DuplicateFeed => {
+                log::warn!("This podcast has already been added");
+            }
             FeedUpdateNotification::FeedDeleted(feed_id) => {
                 self.library
                     .feeds

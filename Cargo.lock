@@ -1290,6 +1290,7 @@ dependencies = [
  "chrono",
  "cmdparse",
  "httpmock",
+ "log",
  "pretty_assertions",
  "quick-xml 0.22.0",
  "reqwest",

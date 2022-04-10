@@ -1,4 +1,4 @@
-use crate::datasource::{DataProvider, DbResult, NewFeedMetadata, QueryError};
+use crate::datasource::{DataProvider, NewFeedMetadata, QueryError};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedError, FeedId, FeedStatus, FeedSummary,
@@ -35,7 +35,7 @@ impl Actor for Library {
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<Vec<EpisodeSummary>>")]
+#[rtype(result = "Vec<EpisodeSummary>")]
 pub struct EpisodeSummariesRequest {
     pub query: EpisodesQuery,
     pub range: Range<usize>,
@@ -48,79 +48,117 @@ impl EpisodeSummariesRequest {
 }
 
 impl Handler<EpisodeSummariesRequest> for Library {
-    type Result = DbResult<Vec<EpisodeSummary>>;
+    type Result = Vec<EpisodeSummary>;
 
     fn handle(&mut self, msg: EpisodeSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider
-            .get_episode_summaries(msg.query, msg.range)
+        let result = self
+            .data_provider
+            .get_episode_summaries(msg.query, msg.range);
+        match result {
+            Ok(summaries) => summaries,
+            Err(error) => {
+                log::error!(target: "sql", "cannot fetch episode summaries, {}", error);
+                Vec::new()
+            }
+        }
     }
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<EpisodesListMetadata>")]
+#[rtype(result = "EpisodesListMetadata")]
 pub struct EpisodesListMetadataRequest(pub EpisodesQuery);
 
 impl Handler<EpisodesListMetadataRequest> for Library {
-    type Result = DbResult<EpisodesListMetadata>;
+    type Result = EpisodesListMetadata;
 
     fn handle(
         &mut self,
         msg: EpisodesListMetadataRequest,
         _ctx: &mut Self::Context,
     ) -> Self::Result {
-        self.data_provider.get_episodes_list_metadata(msg.0)
+        match self.data_provider.get_episodes_list_metadata(msg.0) {
+            Ok(result) => result,
+            Err(error) => {
+                log::error!(target: "sql", "cannot fetch episodes list metadata, {}", error);
+                EpisodesListMetadata::default()
+            }
+        }
     }
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<Vec<FeedSummary>>")]
+#[rtype(result = "Vec<FeedSummary>")]
 pub struct FeedSummariesRequest;
 
 impl Handler<FeedSummariesRequest> for Library {
-    type Result = DbResult<Vec<FeedSummary>>;
+    type Result = Vec<FeedSummary>;
 
     fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider.get_feed_summaries()
+        match self.data_provider.get_feed_summaries() {
+            Ok(summaries) => summaries,
+            Err(error) => {
+                log::error!(target: "sql", "cannot fetch feed summaries, {}", error);
+                Vec::new()
+            }
+        }
     }
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<EpisodePlaybackData>")]
+#[rtype(result = "Option<EpisodePlaybackData>")]
 pub struct EpisodePlaybackDataRequest(pub EpisodeId);
 
 impl Handler<EpisodePlaybackDataRequest> for Library {
-    type Result = DbResult<EpisodePlaybackData>;
+    type Result = Option<EpisodePlaybackData>;
 
     fn handle(
         &mut self,
         msg: EpisodePlaybackDataRequest,
         _ctx: &mut Self::Context,
     ) -> Self::Result {
-        self.data_provider.get_episode_playback_data(msg.0)
+        match self.data_provider.get_episode_playback_data(msg.0) {
+            Ok(result) => result,
+            Err(error) => {
+                log::error!(target: "sql", "cannot get episode playback data, {}", error);
+                None
+            }
+        }
     }
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<Option<Episode>>")]
+#[rtype(result = "Option<Episode>")]
 pub struct EpisodeRequest(pub EpisodeId);
 
 impl Handler<EpisodeRequest> for Library {
-    type Result = DbResult<Option<Episode>>;
+    type Result = Option<Episode>;
 
     fn handle(&mut self, msg: EpisodeRequest, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider.get_episode(msg.0)
+        match self.data_provider.get_episode(msg.0) {
+            Ok(result) => result,
+            Err(error) => {
+                log::error!(target: "sql", "cannot fetch episode, {}", error);
+                None
+            }
+        }
     }
 }
 
 #[derive(Message)]
-#[rtype(result = "DbResult<Option<Feed>>")]
+#[rtype(result = "Option<Feed>")]
 pub struct FeedRequest(pub FeedId);
 
 impl Handler<FeedRequest> for Library {
-    type Result = DbResult<Option<Feed>>;
+    type Result = Option<Feed>;
 
     fn handle(&mut self, msg: FeedRequest, _ctx: &mut Self::Context) -> Self::Result {
-        self.data_provider.get_feed(msg.0)
+        match self.data_provider.get_feed(msg.0) {
+            Ok(result) => result,
+            Err(error) => {
+                log::error!(target: "sql", "cannot fetch feed, {}", error);
+                None
+            }
+        }
     }
 }
 
@@ -185,12 +223,10 @@ impl Library {
                     })(),
                     Err(err) => {
                         let new_status = FeedStatus::Error(err.as_feed_error());
-                        if let Err(db_error) =
+                        if let Err(error) =
                             library.data_provider.set_feed_status(feed_id, new_status)
                         {
-                            library.notify_update_listener(FeedUpdateNotification::Error(
-                                db_error.into(),
-                            ));
+                            log::error!(target: "sql", "cannot update, {}", error);
                         }
                         library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
                             feed_id,
@@ -201,7 +237,7 @@ impl Library {
                 };
 
                 if let Err(error) = result {
-                    library.notify_update_listener(FeedUpdateNotification::Error(error));
+                    log::error!(target: "sql", "cannot update, {}", error);
                 };
             });
             ctx.spawn(future);
@@ -238,7 +274,6 @@ pub enum FeedUpdateResult {
 pub enum FeedUpdateNotification {
     UpdateStarted(Vec<FeedId>),
     UpdateFinished(FeedId, FeedUpdateResult),
-    Error(FeedUpdateError),
     FeedAdded(FeedSummary),
     DuplicateFeed,
     FeedDeleted(FeedId),
@@ -275,7 +310,7 @@ impl Handler<FeedUpdateRequest> for Library {
                 match self.data_provider.get_update_sources(query) {
                     Ok(sources) => self.schedule_update(sources, ctx),
                     Err(error) => {
-                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                        log::error!(target: "sql", "cannot update, {}", error);
                     }
                 }
             }
@@ -287,7 +322,7 @@ impl Handler<FeedUpdateRequest> for Library {
                         return;
                     }
                     Err(error) => {
-                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                        log::error!(target: "sql", "cannot add feed, {}", error);
                         return;
                     }
                 };
@@ -304,7 +339,7 @@ impl Handler<FeedUpdateRequest> for Library {
                         self.notify_update_listener(FeedUpdateNotification::FeedDeleted(feed_id));
                     }
                     Err(error) => {
-                        self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                        log::error!(target: "sql", "cannot delete feed, {}", error);
                     }
                 }
             }
@@ -319,22 +354,22 @@ impl Handler<FeedUpdateRequest> for Library {
                     Ok(())
                 })();
                 if let Err(error) = result {
-                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                    log::error!(target: "sql", "cannot update status, {}", error);
                 }
             }
             FeedUpdateRequest::SetHidden(query, hidden) => {
                 if let Err(error) = self.data_provider.set_episode_hidden(query, hidden) {
-                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                    log::error!(target: "sql", "cannot update hidden flag, {}", error);
                 }
             }
             FeedUpdateRequest::SetFeedEnabled(feed_id, enabled) => {
                 if let Err(error) = self.data_provider.set_feed_enabled(feed_id, enabled) {
-                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                    log::error!(target: "sql", "cannot update enabled flag, {}", error);
                 }
             }
             FeedUpdateRequest::ReverseFeedOrder(feed_id) => {
                 if let Err(error) = self.data_provider.reverse_feed_order(feed_id) {
-                    self.notify_update_listener(FeedUpdateNotification::Error(error.into()));
+                    log::error!(target: "sql", "cannot reverse order, {}", error);
                 }
             }
         }

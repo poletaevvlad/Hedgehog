@@ -69,7 +69,7 @@ async fn adding_new_feed() {
     });
     let (library, mut reciever) = create_library().await;
 
-    let summaries = library.send(FeedSummariesRequest).await.unwrap().unwrap();
+    let summaries = library.send(FeedSummariesRequest).await.unwrap();
     assert_eq!(summaries.len(), 0);
 
     let source_url = format!("{}/feed.xml", mock_server.base_url());
@@ -95,7 +95,7 @@ async fn adding_new_feed() {
     assert!(updated_summary.has_title);
     assert_eq!(updated_summary.status, FeedStatus::Loaded);
 
-    let summaries = library.send(FeedSummariesRequest).await.unwrap().unwrap();
+    let summaries = library.send(FeedSummariesRequest).await.unwrap();
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0], updated_summary);
 }
@@ -129,7 +129,7 @@ async fn adding_new_feed_error() {
         FeedError::HttpError(StatusCode::from_u16(404).unwrap())
     );
 
-    let summaries = library.send(FeedSummariesRequest).await.unwrap().unwrap();
+    let summaries = library.send(FeedSummariesRequest).await.unwrap();
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].id, summary.id);
     assert_eq!(summaries[0].title, source_url);
@@ -169,7 +169,6 @@ async fn get_episode_summaries(
     let list_metadata = library
         .send(EpisodesListMetadataRequest(query.clone()))
         .await
-        .unwrap()
         .unwrap();
 
     let mut episodes = Vec::with_capacity(list_metadata.items_count);
@@ -181,7 +180,6 @@ async fn get_episode_summaries(
                 offset..(offset + 2),
             ))
             .await
-            .unwrap()
             .unwrap();
         assert!(page.len() <= 2);
         episodes.extend(page);
@@ -194,7 +192,6 @@ async fn get_episode_summaries(
             offset..(offset + 2),
         ))
         .await
-        .unwrap()
         .unwrap();
     assert!(empty_page.is_empty());
 

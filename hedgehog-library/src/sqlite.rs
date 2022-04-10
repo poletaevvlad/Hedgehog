@@ -202,26 +202,29 @@ impl DataProvider for SqliteDataProvider {
     fn get_episode_playback_data(
         &mut self,
         episode_id: EpisodeId,
-    ) -> DbResult<EpisodePlaybackData> {
+    ) -> DbResult<Option<EpisodePlaybackData>> {
         let mut statement = self
             .connection
             .prepare(
                 "SELECT episodes.media_url, episodes.position, episodes.duration, episodes.title, feeds.id, feeds.title
                 FROM episodes JOIN feeds ON feeds.id = episodes.feed_id
                 WHERE episodes.id = :id LIMIT 1")?;
-        statement
-            .query_row(named_params! {":id": episode_id}, |row| {
-                Ok(EpisodePlaybackData {
-                    id: episode_id,
-                    media_url: row.get(0)?,
-                    position: Duration::from_nanos(row.get(1)?),
-                    duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
-                    episode_title: row.get(3)?,
-                    feed_id: row.get(4)?,
-                    feed_title: row.get(5)?,
-                })
+        let result = statement.query_row(named_params! {":id": episode_id}, |row| {
+            Ok(EpisodePlaybackData {
+                id: episode_id,
+                media_url: row.get(0)?,
+                position: Duration::from_nanos(row.get(1)?),
+                duration: row.get::<_, Option<u64>>(2)?.map(Duration::from_nanos),
+                episode_title: row.get(3)?,
+                feed_id: row.get(4)?,
+                feed_title: row.get(5)?,
             })
-            .map_err(QueryError::from)
+        });
+        match result {
+            Ok(row) => Ok(Some(row)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(error) => Err(error.into()),
+        }
     }
 
     fn get_episodes_list_metadata(

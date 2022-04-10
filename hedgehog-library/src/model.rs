@@ -1,4 +1,5 @@
 use crate::{metadata::FeedMetadata, NewFeedMetadata};
+use actix::MessageResponse;
 use chrono::{DateTime, Utc};
 use rusqlite::types::{FromSql, ToSql};
 use std::fmt;
@@ -297,7 +298,7 @@ pub struct EpisodePlaybackData {
     pub feed_title: Option<String>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, MessageResponse)]
 pub struct EpisodesListMetadata {
     pub items_count: usize,
     pub max_season_number: Option<i64>,

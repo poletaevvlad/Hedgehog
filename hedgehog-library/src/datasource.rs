@@ -121,8 +121,10 @@ pub trait DataProvider: Unpin {
     ) -> DbResult<HashMap<FeedId, usize>>;
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
-    fn get_episode_playback_data(&mut self, episode_id: EpisodeId)
-        -> DbResult<EpisodePlaybackData>;
+    fn get_episode_playback_data(
+        &mut self,
+        episode_id: EpisodeId,
+    ) -> DbResult<Option<EpisodePlaybackData>>;
     fn get_episodes_list_metadata(
         &mut self,
         query: EpisodesQuery,

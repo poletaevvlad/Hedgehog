@@ -66,7 +66,7 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
     fn get_episode_playback_data(
         &mut self,
         episode_id: EpisodeId,
-    ) -> DbResult<EpisodePlaybackData> {
+    ) -> DbResult<Option<EpisodePlaybackData>> {
         self.data_provider.get_episode_playback_data(episode_id)
     }
 

@@ -4,11 +4,11 @@ use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
-    #[error("file reading error: {0}")]
+    #[error("cannot read file: {0}")]
     Io(#[from] io::Error),
 
     #[error("invalid command at line {1}: {0}")]
-    Parsing(#[source] crate::status::CommandError, usize),
+    Parsing(String, usize),
 }
 
 #[derive(Debug)]
@@ -44,7 +44,7 @@ impl CommandReader {
             return match cmdparse::parse::<_, Option<P>>(&self.buffer, ctx.clone()) {
                 Ok(Some(command)) => Ok(Some(command)),
                 Ok(None) => continue,
-                Err(error) => Err(Error::Parsing(error.into(), self.line_no)),
+                Err(error) => Err(Error::Parsing(error.to_string(), self.line_no)),
             };
         }
     }

@@ -3,11 +3,11 @@ mod environment;
 mod events;
 mod history;
 mod keymap;
+mod logger;
 mod mouse;
 mod options;
 mod screen;
 mod scrolling;
-mod status;
 mod theming;
 mod widgets;
 
@@ -25,6 +25,7 @@ use hedgehog_library::datasource::DataProvider;
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, InMemoryCache, Library, SqliteDataProvider};
 use hedgehog_player::Player;
+use logger::ActorLogger;
 use screen::UI;
 use std::env;
 use std::fmt;
@@ -275,10 +276,10 @@ fn run_player(
         let status_writer = StatusWriter::new(library.clone()).start();
 
         let player_arbiter = Arbiter::new();
-        let player = Player::start_in_arbiter(
-            &player_arbiter.handle(),
-            |_| /* TODO */ Player::init().unwrap(),
-        );
+        let player = Player::start_in_arbiter(&player_arbiter.handle(), |_| match Player::init() {
+            Ok(player) => player,
+            Err(_error) => Player::init_uninitialized(),
+        });
 
         let ui_addr = UI::new(
             (size.width, size.height),
@@ -289,6 +290,10 @@ fn run_player(
             env,
         )
         .start();
+
+        log::set_max_level(log::LevelFilter::Info);
+        log::set_boxed_logger(Box::new(ActorLogger::new(ui_addr.clone().recipient())))
+            .expect("Logger cannot be set more then once");
 
         if !args.is_present("no_mpris") {
             run_mpris(player, ui_addr, player_arbiter.handle());

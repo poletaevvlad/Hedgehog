@@ -29,7 +29,7 @@ impl State {
 }
 
 pub struct Player {
-    element: gst::Element,
+    element: Option<gst::Element>,
     subscribers: Vec<Recipient<PlayerNotification>>,
     error_listener: Option<Recipient<PlayerErrorNotification>>,
     reported_volume: Option<Option<Volume>>,
@@ -50,7 +50,7 @@ impl Player {
         set_property(&mut element, "flags", flags)?;
 
         Ok(Player {
-            element,
+            element: Some(element),
             reported_volume: None,
             subscribers: Vec::new(),
             error_listener: None,
@@ -58,6 +58,18 @@ impl Player {
             required_seek: None,
             seek_position: None,
         })
+    }
+
+    pub fn init_uninitialized() -> Self {
+        Player {
+            element: None,
+            subscribers: Vec::new(),
+            error_listener: None,
+            reported_volume: None,
+            state: None,
+            required_seek: None,
+            seek_position: None,
+        }
     }
 
     fn emit_error(&mut self, error: GstError) {
@@ -87,6 +99,10 @@ impl Actor for Player {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
+        let element = match &self.element {
+            Some(element) => element,
+            None => return,
+        };
         fn handle_volume_changed(element: &gst::Element, addr: &Addr<Player>) {
             let volume = get_property(element, "volume").map(Volume::from_linear);
             let muted = get_property(element, "mute");
@@ -99,18 +115,16 @@ impl Actor for Player {
         }
 
         let addr = ctx.address();
-        self.element
-            .connect_notify(Some("volume"), move |element, _| {
-                handle_volume_changed(element, &addr);
-            });
+        element.connect_notify(Some("volume"), move |element, _| {
+            handle_volume_changed(element, &addr);
+        });
 
         let addr = ctx.address();
-        self.element
-            .connect_notify(Some("mute"), move |element, _| {
-                handle_volume_changed(element, &addr);
-            });
+        element.connect_notify(Some("mute"), move |element, _| {
+            handle_volume_changed(element, &addr);
+        });
 
-        if let Some(bus) = self.element.bus() {
+        if let Some(bus) = element.bus() {
             ctx.add_stream(bus.stream_filtered(&[
                 gst::MessageType::Eos,
                 gst::MessageType::Error,
@@ -129,7 +143,9 @@ impl Actor for Player {
     }
 
     fn stopped(&mut self, _ctx: &mut Self::Context) {
-        let _ = self.element.set_state(gst::State::Null);
+        if let Some(element) = &self.element {
+            let _ = element.set_state(gst::State::Null);
+        }
     }
 }
 
@@ -269,17 +285,21 @@ impl Handler<PlaybackCommand> for Player {
     type Result = ();
 
     fn handle(&mut self, msg: PlaybackCommand, _ctx: &mut Self::Context) -> Self::Result {
+        if self.element.is_none() {
+            return;
+        }
         let result: Result<(), GstError> = (|| {
             match msg {
                 PlaybackCommand::Play(url, position, metadata) => {
                     self.set_state(Some(State::default()));
-                    self.element
+                    let element = self.element.as_ref().unwrap();
+                    element
                         .set_state(gst::State::Null)
                         .map_err(GstError::from_err)?;
-                    self.element
+                    element
                         .set_property("uri", url)
                         .map_err(GstError::from_err)?;
-                    self.element
+                    element
                         .set_state(gst::State::Playing)
                         .map_err(GstError::from_err)?;
                     self.required_seek = if position.is_zero() {
@@ -295,7 +315,8 @@ impl Handler<PlaybackCommand> for Player {
                 PlaybackCommand::Stop => {
                     if self.state.is_some() {
                         self.set_state(None);
-                        self.element
+                        let element = self.element.as_ref().unwrap();
+                        element
                             .set_state(gst::State::Null)
                             .map_err(GstError::from_err)?;
                     }
@@ -307,7 +328,8 @@ impl Handler<PlaybackCommand> for Player {
                                 is_paused: true,
                                 ..state
                             }));
-                            self.element
+                            let element = self.element.as_ref().unwrap();
+                            element
                                 .set_state(gst::State::Paused)
                                 .map_err(GstError::from_err)?;
                         }
@@ -320,7 +342,8 @@ impl Handler<PlaybackCommand> for Player {
                                 is_paused: false,
                                 ..state
                             }));
-                            self.element
+                            let element = self.element.as_ref().unwrap();
+                            element
                                 .set_state(gst::State::Playing)
                                 .map_err(GstError::from_err)?;
                         }
@@ -330,7 +353,8 @@ impl Handler<PlaybackCommand> for Player {
                     if let Some(state) = self.state {
                         let is_paused = !state.is_paused;
                         self.set_state(Some(State { is_paused, ..state }));
-                        self.element
+                        let element = self.element.as_ref().unwrap();
+                        element
                             .set_state(if is_paused {
                                 gst::State::Paused
                             } else {
@@ -341,7 +365,8 @@ impl Handler<PlaybackCommand> for Player {
                 }
                 PlaybackCommand::Seek(position) => {
                     if self.state.map(|state| state.is_started) == Some(true) {
-                        self.element
+                        let element = self.element.as_ref().unwrap();
+                        element
                             .seek_simple(
                                 gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
                                 gst::ClockTime::from_nseconds(position.as_nanos() as u64),
@@ -357,8 +382,9 @@ impl Handler<PlaybackCommand> for Player {
                 }
                 PlaybackCommand::SeekRelative(SeekOffset(direction, duration)) => {
                     if self.state.map(|state| state.is_started) == Some(true) {
+                        let element = self.element.as_ref().unwrap();
                         let current_position =
-                            self.element.query_position::<gst::ClockTime>().or_else(|| {
+                            element.query_position::<gst::ClockTime>().or_else(|| {
                                 self.seek_position
                                     .map(|pos| gst::ClockTime::from_nseconds(pos.as_nanos() as u64))
                             });
@@ -369,7 +395,7 @@ impl Handler<PlaybackCommand> for Player {
                                 SeekDirection::Forward => current_position.saturating_add(delta),
                                 SeekDirection::Backward => current_position.saturating_sub(delta),
                             };
-                            self.element
+                            element
                                 .seek_simple(
                                     gst::SeekFlags::TRICKMODE.union(gst::SeekFlags::FLUSH),
                                     new_position,
@@ -387,14 +413,15 @@ impl Handler<PlaybackCommand> for Player {
                 }
                 PlaybackCommand::SetRate(speed) => {
                     if self.state.map(|state| state.is_started) == Some(true) {
+                        let element = self.element.as_ref().unwrap();
                         let current_position =
-                            self.element.query_position::<gst::ClockTime>().or_else(|| {
+                            element.query_position::<gst::ClockTime>().or_else(|| {
                                 self.seek_position
                                     .map(|pos| gst::ClockTime::from_nseconds(pos.as_nanos() as u64))
                             });
 
                         if let Some(current_position) = current_position {
-                            self.element
+                            element
                                 .seek(
                                     speed,
                                     gst::SeekFlags::FLUSH,
@@ -424,17 +451,19 @@ impl Handler<VolumeCommand> for Player {
         if self.state.is_none() {
             return;
         }
+        let element = match self.element {
+            Some(ref mut element) => element,
+            None => return,
+        };
         let result = match msg {
-            VolumeCommand::SetMuted(muted) => set_property(&mut self.element, "mute", muted),
-            VolumeCommand::ToggleMute => get_property(&self.element, "mute")
-                .and_then(|muted: bool| set_property(&mut self.element, "mute", !muted)),
-            VolumeCommand::SetVolume(new_volume) => {
-                set_property(&mut self.element, "volume", new_volume)
-            }
+            VolumeCommand::SetMuted(muted) => set_property(element, "mute", muted),
+            VolumeCommand::ToggleMute => get_property(element, "mute")
+                .and_then(|muted: bool| set_property(element, "mute", !muted)),
+            VolumeCommand::SetVolume(new_volume) => set_property(element, "volume", new_volume),
             VolumeCommand::AdjustVolume(delta) => {
-                get_property(&self.element, "volume").and_then(|volume| {
+                get_property(element, "volume").and_then(|volume| {
                     let volume = Volume::from_linear(volume).add_cubic(delta);
-                    set_property(&mut self.element, "volume", volume)
+                    set_property(element, "volume", volume)
                 })
             }
         };
@@ -453,8 +482,12 @@ impl Handler<VolumeQueryRequest> for Player {
     type Result = Result<Option<Volume>, GstError>;
 
     fn handle(&mut self, _msg: VolumeQueryRequest, _ctx: &mut Self::Context) -> Self::Result {
-        let volume = get_property(&self.element, "volume");
-        let muted = get_property(&self.element, "mute");
+        let element = match &self.element {
+            Some(element) => element,
+            None => return Ok(None),
+        };
+        let volume = get_property(element, "volume");
+        let muted = get_property(element, "mute");
         match (volume, muted) {
             (Ok(volume), Ok(false)) => Ok(Some(Volume::from_linear(volume))),
             (Ok(_), Ok(true)) => Ok(None),
@@ -526,8 +559,12 @@ impl StreamHandler<gst::Message> for Player {
                     }
                 }
                 gst::MessageView::StateChanged(state_changed) => {
+                    let element = match &self.element {
+                        Some(element) => element,
+                        None => return,
+                    };
                     if state_changed.pending() == gst::State::VoidPending
-                        && state_changed.src().as_ref() == Some(self.element.upcast_ref())
+                        && state_changed.src().as_ref() == Some(element.upcast_ref())
                     {
                         #[allow(clippy::collapsible_if)]
                         if !state.is_started && state_changed.current() == gst::State::Playing {
@@ -566,7 +603,11 @@ impl Handler<TimerTick> for Player {
 
     fn handle(&mut self, _msg: TimerTick, ctx: &mut Self::Context) -> Self::Result {
         if let Some(true) = self.state.as_ref().map(State::is_playing) {
-            if let Some(position) = self.element.query_position::<gst::ClockTime>() {
+            if let Some(position) = self
+                .element
+                .as_ref()
+                .and_then(|element| element.query_position::<gst::ClockTime>())
+            {
                 let position = Duration::from_nanos(position.nseconds());
                 self.notify_subscribers(PlayerNotification::PositionSet {
                     position,

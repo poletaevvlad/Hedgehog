@@ -2,7 +2,7 @@ use super::{
     layout::{shrink_h, split_left, split_top},
     list::ListItemRenderingDelegate,
 };
-use crate::{status::StatusLogEntry, theming};
+use crate::{logger::LogEntry, theming};
 use tui::widgets::{Paragraph, Widget, Wrap};
 use unicode_width::UnicodeWidthStr;
 
@@ -17,7 +17,7 @@ impl<'t> ErrorLogRowRenderer<'t> {
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for ErrorLogRowRenderer<'t> {
-    type Item = (&'a StatusLogEntry, bool);
+    type Item = (&'a LogEntry, bool);
 
     fn render_item(
         &self,
@@ -35,14 +35,12 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for ErrorLogRowRenderer<'t> {
         let style = self.theme.get(theming::List::Item(item_selector));
         buf.set_style(area, style);
 
-        let status = item.status();
-
-        let label = status
+        let label = item
             .variant_label()
-            .unwrap_or_else(|| match status.severity() {
-                crate::status::Severity::Error => "Error",
-                crate::status::Severity::Warning => "Warning",
-                crate::status::Severity::Information => "Information",
+            .unwrap_or_else(|| match item.severity() {
+                crate::logger::Severity::Error => "Error",
+                crate::logger::Severity::Warning => "Warning",
+                crate::logger::Severity::Information => "Information",
             });
         buf.set_stringn(
             area.x + 1,
@@ -70,7 +68,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for ErrorLogRowRenderer<'t> {
             return;
         }
 
-        let paragraph = Paragraph::new(status.to_string())
+        let paragraph = Paragraph::new(item.message())
             .wrap(Wrap { trim: true })
             .style(self.theme.get(theming::List::Item(
                 item_selector.with_column(theming::ListColumn::Details),

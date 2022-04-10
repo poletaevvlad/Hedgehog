@@ -92,7 +92,7 @@ pub(crate) enum ThemeCommand {
 #[cfg(test)]
 mod tests {
     use super::{List, ListColumn, ListItem, ListState, StatusBar, Theme};
-    use crate::status::Severity;
+    use crate::logger::Severity;
     use tui::style::{Color, Modifier, Style};
 
     #[test]

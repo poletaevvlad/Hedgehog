@@ -1,4 +1,4 @@
-use crate::status::Severity;
+use crate::logger::Severity;
 use cmdparse::error::{ParseError, UnrecognizedToken};
 use cmdparse::tokens::{Token, TokenStream};
 use cmdparse::{CompletionResult, ParseResult};
@@ -727,7 +727,7 @@ impl From<Player> for Selector {
 #[cfg(test)]
 mod tests {
     use super::{Empty, List, ListColumn, ListItem, ListState, Player, Selector, StatusBar};
-    use crate::status::Severity;
+    use crate::logger::Severity;
     use crate::theming::{selectors::PlayerItem, EmptyItem};
     use cmdparse::parse;
     use hedgehog_player::state::PlaybackStatus;

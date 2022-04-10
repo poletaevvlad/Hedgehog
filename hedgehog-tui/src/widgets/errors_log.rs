@@ -1,14 +1,14 @@
 use super::{empty::EmptyView, errors_log_row::ErrorLogRowRenderer, list::List};
-use crate::{scrolling::ScrollableList, status::StatusLog, theming};
+use crate::{logger::LogHistory, scrolling::ScrollableList, theming};
 use tui::widgets::Widget;
 
 pub struct ErrorsLogWidget<'a> {
-    log: &'a ScrollableList<StatusLog>,
+    log: &'a ScrollableList<LogHistory>,
     theme: &'a theming::Theme,
 }
 
 impl<'a> ErrorsLogWidget<'a> {
-    pub(crate) fn new(log: &'a ScrollableList<StatusLog>, theme: &'a theming::Theme) -> Self {
+    pub(crate) fn new(log: &'a ScrollableList<LogHistory>, theme: &'a theming::Theme) -> Self {
         ErrorsLogWidget { log, theme }
     }
 }

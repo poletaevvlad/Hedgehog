@@ -23,6 +23,7 @@ directories = "4.0"
 clap = "~2.27.0"
 cluFlock = "1.2"
 webbrowser = "0.6.0"
+log = { version = "0.4", features = ["std"] }
 
 [dev-dependencies]
 tempfile = "3.2"

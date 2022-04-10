@@ -2,11 +2,11 @@ use crate::cmdreader::CommandReader;
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
+use crate::logger::{LogEntry, LogHistory};
 use crate::mouse::{MouseEventKind, MouseHitResult, MouseState, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
-use crate::status::{self, CustomStatus, HedgehogError, Severity, Status, StatusLog};
 use crate::theming::{Theme, ThemeCommand};
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
@@ -15,7 +15,7 @@ use crate::widgets::library::LibraryWidget;
 use crate::widgets::player_state::PlayerState;
 use crate::widgets::search_results::SearchResults;
 use crate::widgets::split_bottom;
-use crate::widgets::status::StatusView;
+use crate::widgets::status::LogEntryView;
 use actix::clock::sleep;
 use actix::fut::wrap_future;
 use actix::prelude::*;
@@ -174,7 +174,7 @@ pub(crate) struct UI {
 
     terminal: tui::Terminal<CrosstermBackend<std::io::Stdout>>,
     invalidation_request: Option<SpawnHandle>,
-    status_clear_request: Option<SpawnHandle>,
+    log_display_clear_request: Option<SpawnHandle>,
     layout: WidgetPositions,
     mouse_state: MouseState,
 
@@ -189,7 +189,7 @@ pub(crate) struct UI {
     selected_feed: Option<FeedView<FeedId>>,
     playback_state: PlaybackState,
 
-    status: ScrollableList<StatusLog>,
+    log_history: ScrollableList<LogHistory>,
     command: Option<CommandState>,
     commands_history: CommandsHistory,
     confirmation: Option<CommandConfirmation>,
@@ -210,7 +210,7 @@ impl UI {
             invalidation_request: None,
             layout: WidgetPositions::default(),
             mouse_state: MouseState::default(),
-            status_clear_request: None,
+            log_display_clear_request: None,
             library_actor,
             player_actor,
             status_writer_actor,
@@ -222,8 +222,8 @@ impl UI {
             selected_feed: None,
             playback_state: PlaybackState::default(),
 
-            status: ScrollableList::new(
-                StatusLog::default(),
+            log_history: ScrollableList::new(
+                LogHistory::default(),
                 size.1.saturating_sub(2) as usize / 3,
                 1,
             ),
@@ -258,7 +258,7 @@ impl UI {
                     f.render_widget(widget, area);
                 }
                 FocusedPane::ErrorsLog => {
-                    let widget = ErrorsLogWidget::new(&self.status, &self.theme);
+                    let widget = ErrorsLogWidget::new(&self.log_history, &self.theme);
                     f.render_widget(widget, area);
                 }
             }
@@ -280,7 +280,8 @@ impl UI {
                 let confirmation = ConfirmationView::new(confirmation, &self.theme);
                 f.render_widget(confirmation, status_area);
             } else {
-                let status = StatusView::new(self.status.data().display_status(), &self.theme);
+                let status =
+                    LogEntryView::new(self.log_history.data().display_entry(), &self.theme);
                 f.render_widget(status, status_area);
             }
         };
@@ -338,7 +339,7 @@ impl UI {
                             list.scroll(command);
                         }
                     }
-                    FocusedPane::ErrorsLog => self.status.scroll(command),
+                    FocusedPane::ErrorsLog => self.log_history.scroll(command),
                 }
                 self.invalidate_later(ctx);
             }
@@ -353,27 +354,17 @@ impl UI {
                 let redefined = self.key_mapping.contains(key, state);
                 self.key_mapping.map(key, state, *command);
                 if redefined {
-                    self.set_status(
-                        CustomStatus::new("Key mapping redefined")
-                            .set_ttl(status::TTL_SHORT)
-                            .into(),
-                        ctx,
-                    );
+                    log::info!(target: "key_mapping", "Key mapping redefined");
                 }
             }
             Command::Unmap(key, state) => {
                 if !self.key_mapping.unmap(key, state) {
-                    self.set_status(
-                        CustomStatus::new("Key mapping is not defined")
-                            .set_ttl(status::TTL_SHORT)
-                            .into(),
-                        ctx,
-                    );
+                    log::info!(target: "key_mapping", "Key mapping is not defined");
                 }
             }
             Command::Theme(command) => {
-                if let Err(error) = self.theme.handle_command(command, &self.app_env) {
-                    self.handle_error(error, ctx);
+                if let Err(_error) = self.theme.handle_command(command, &self.app_env) {
+                    // self.handle_error(error, ctx);
                 } else {
                     self.invalidate(ctx);
                 }
@@ -382,8 +373,8 @@ impl UI {
                 let file_path = self.app_env.resolve_config(&path);
                 let mut reader = match CommandReader::open(file_path) {
                     Ok(reader) => reader,
-                    Err(error) => {
-                        self.handle_error(error, ctx);
+                    Err(_error) => {
+                        // self.handle_error(error, ctx);
                         return;
                     }
                 };
@@ -393,12 +384,12 @@ impl UI {
                         Ok(None) => break,
                         Ok(Some(command)) => {
                             self.handle_command(command, ctx);
-                            if self.status.data().has_errors() {
-                                return;
-                            }
+                            // if self.status.data().has_errors() {
+                            //     return;
+                            // }
                         }
-                        Err(error) => {
-                            self.handle_error(error, ctx);
+                        Err(_error) => {
+                            // self.handle_error(error, ctx);
                             return;
                         }
                     }
@@ -420,14 +411,14 @@ impl UI {
                     {
                         return;
                     }
-                    self.status
-                        .update_data::<selection::DoNotUpdate, _>(|data| {
-                            if let Some(status::ErrorType::Playback) =
-                                data.display_status().and_then(Status::error_type)
-                            {
-                                data.clear_display();
-                            }
-                        });
+                    // self.status
+                    //     .update_data::<selection::DoNotUpdate, _>(|data| {
+                    //         if let Some(status::ErrorType::Playback) =
+                    //             data.display_status().and_then(Status::error_type)
+                    //         {
+                    //             data.clear_display();
+                    //         }
+                    //     });
                     episode_id
                 } else {
                     return;
@@ -439,7 +430,7 @@ impl UI {
                         .send(EpisodePlaybackDataRequest(episode_id)),
                 )
                 .map(move |result, actor: &mut UI, ctx| {
-                    if let Some(playback_data) = actor.handle_response_error(result, ctx) {
+                    if let Some(playback_data) = actor.handle_response_error(result) {
                         actor.library.playing_episode = Some(playback_data.clone());
                         actor.playback_state = PlaybackState::new_started(
                             playback_data.position,
@@ -625,13 +616,7 @@ impl UI {
                         self.refresh_episodes(ctx, true);
                     }
                     None => {
-                        self.set_status(
-                            CustomStatus::new("Only individual podcasts' order can be reversed")
-                                .set_ttl(status::TTL_SHORT)
-                                .set_severity(Severity::Warning)
-                                .into(),
-                            ctx,
-                        );
+                        log::warn!("Only individual podcast's orders can be reversed");
                     }
                 }
             }
@@ -642,12 +627,12 @@ impl UI {
                             self.library_actor
                                 .send(hedgehog_library::FeedRequest(feed_id)),
                         )
-                        .map(move |result, actor: &mut UI, ctx| {
+                        .map(move |result, actor: &mut UI, _ctx| {
                             if let Some(Some(Feed {
                                 link: Some(link), ..
-                            })) = actor.handle_response_error(result, ctx)
+                            })) = actor.handle_response_error(result)
                             {
-                                actor.open_browser(&link, ctx);
+                                actor.open_browser(&link);
                             }
                         }),
                     );
@@ -662,12 +647,12 @@ impl UI {
                             self.library_actor
                                 .send(hedgehog_library::EpisodeRequest(episode_id)),
                         )
-                        .map(move |result, actor: &mut UI, ctx| {
+                        .map(move |result, actor: &mut UI, _ctx| {
                             if let Some(Some(Episode {
                                 link: Some(link), ..
-                            })) = actor.handle_response_error(result, ctx)
+                            })) = actor.handle_response_error(result)
                             {
-                                actor.open_browser(&link, ctx);
+                                actor.open_browser(&link);
                             }
                         }),
                     );
@@ -676,18 +661,19 @@ impl UI {
         }
     }
 
-    fn open_browser(&mut self, url: &str, ctx: &mut <UI as Actor>::Context) {
+    fn open_browser(&mut self, url: &str) {
+        log::info!("Opening '{}'", url);
         if let Err(error) = webbrowser::open(url) {
-            self.handle_error(error, ctx);
+            log::error!("{}", error);
         }
     }
 
     fn init_rc(&mut self, ctx: &mut <UI as Actor>::Context) {
         for path in self.app_env.resolve_rc("rc") {
             self.handle_command(Command::Exec(path.to_path_buf()), ctx);
-            if self.status.data().has_errors() {
-                break;
-            }
+            // if self.status.data().has_errors() {
+            //     break;
+            // }
         }
 
         self.library_actor
@@ -725,8 +711,8 @@ impl UI {
             self.library_actor
                 .send(EpisodesListMetadataRequest(query.clone())),
         )
-        .then(|result, actor: &mut UI, ctx| {
-            let result = actor.handle_response_error(result, ctx).map(|metadata| {
+        .then(|result, actor: &mut UI, _ctx| {
+            let result = actor.handle_response_error(result).map(|metadata| {
                 let range = actor.library.episodes.data().initial_range(
                     metadata.items_count,
                     actor.library.episodes.viewport().range(),
@@ -764,7 +750,7 @@ impl UI {
                 actor.library.episodes_list_metadata = Some(metadata);
                 match episodes {
                     Some((range, episodes)) => {
-                        if let Some(episodes) = actor.handle_response_error(episodes, ctx) {
+                        if let Some(episodes) = actor.handle_response_error(episodes) {
                             update_data!(|data| {
                                 data.set_provider(new_provider);
                                 data.set_initial(items_count, episodes, range);
@@ -827,40 +813,10 @@ impl UI {
         );
     }
 
-    fn handle_error(
-        &mut self,
-        error: impl HedgehogError + 'static,
-        ctx: &mut <UI as Actor>::Context,
-    ) {
-        self.status
-            .update_data::<selection::Keep, _>(|log| log.push(Status::error(error)));
-        self.invalidate(ctx);
-    }
-
-    fn set_status(&mut self, status: Status, ctx: &mut <UI as Actor>::Context) {
-        if let Some(handle) = self.status_clear_request.take() {
-            ctx.cancel_future(handle);
-        }
-        if let Some(duration) = status.ttl() {
-            self.status_clear_request = Some(ctx.spawn(wrap_future(sleep(duration)).map(
-                |_, actor: &mut UI, ctx| {
-                    actor.status_clear_request = None;
-                    actor
-                        .status
-                        .update_data::<selection::DoNotUpdate, _>(StatusLog::clear_display);
-                    actor.invalidate(ctx);
-                },
-            )));
-        }
-        self.status
-            .update_data::<selection::Keep, _>(|log| log.push(status));
-        self.invalidate(ctx);
-    }
-
-    fn clear_status(&mut self, ctx: &mut <UI as Actor>::Context) {
-        self.status
-            .update_data::<selection::Reset, _>(StatusLog::clear_display);
-        if let Some(handle) = self.status_clear_request.take() {
+    fn clear_log_display(&mut self, ctx: &mut <UI as Actor>::Context) {
+        self.log_history
+            .update_data::<selection::Reset, _>(LogHistory::clear_display);
+        if let Some(handle) = self.log_display_clear_request.take() {
             ctx.cancel_future(handle);
         }
     }
@@ -869,7 +825,7 @@ impl UI {
         ctx.spawn(
             wrap_future(self.library_actor.send(FeedSummariesRequest)).map(
                 move |data, actor: &mut UI, ctx| {
-                    if let Some(data) = actor.handle_response_error(data, ctx) {
+                    if let Some(data) = actor.handle_response_error(data) {
                         actor
                             .library
                             .feeds
@@ -913,7 +869,7 @@ impl Actor for UI {
 
         self.init_rc(ctx);
         if let Err(error) = self.commands_history.load_file(self.app_env.history_path()) {
-            self.handle_error(error, ctx);
+            log::error!(target: "commands_history", "{}", error);
         }
 
         self.invalidate(ctx);
@@ -926,7 +882,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
             Ok(Event::Resize(_, height)) => {
                 let lib_height = height.saturating_sub(2) as usize;
                 self.library.set_window_size(lib_height);
-                self.status.set_window_size(lib_height / 3);
+                self.log_history.set_window_size(lib_height / 3);
                 self.invalidate(ctx);
                 return;
             }
@@ -940,7 +896,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
         match self.command {
             None if self.confirmation.is_none() => match event {
                 key!(':') => {
-                    self.clear_status(ctx);
+                    self.clear_log_display(ctx);
                     self.command = Some(CommandState::default());
                     self.invalidate(ctx);
                 }
@@ -1038,7 +994,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                                     );
                                 }
                                 MouseHitResult::CommandEntry(_) => {
-                                    self.clear_status(ctx);
+                                    self.clear_log_display(ctx);
                                     self.command = Some(CommandState::default());
                                 }
                             }
@@ -1103,13 +1059,13 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                     CommandActionResult::Submit => {
                         let command_str = command_state.as_str(&self.commands_history).to_string();
                         if let Err(error) = self.commands_history.push(&command_str) {
-                            self.handle_error(error, ctx);
+                            log::error!(target: "commands_history", "{}", error);
                         }
                         self.command = None;
                         match cmdparse::parse::<_, Option<Command>>(&command_str, ()) {
                             Ok(Some(command)) => self.handle_command(command, ctx),
                             Ok(None) => {}
-                            Err(error) => self.handle_error(status::CommandError::from(error), ctx),
+                            Err(error) => log::error!(target: "command", "{}", error),
                         }
                         self.invalidate(ctx);
                     }
@@ -1140,14 +1096,10 @@ enum DataFetchingRequest {
 type LibraryQueryResult<T> = Result<Result<T, QueryError>, MailboxError>;
 
 impl UI {
-    fn handle_response_error<T>(
-        &mut self,
-        data: LibraryQueryResult<T>,
-        ctx: &mut <UI as Actor>::Context,
-    ) -> Option<T> {
+    fn handle_response_error<T>(&mut self, data: LibraryQueryResult<T>) -> Option<T> {
         match data {
-            Err(err) => self.handle_error(err, ctx),
-            Ok(Err(err)) => self.handle_error(err, ctx),
+            Err(err) => log::error!(target: "actix", "{}", err),
+            Ok(Err(err)) => log::error!("{}", err),
             Ok(Ok(data)) => return Some(data),
         }
         None
@@ -1163,7 +1115,7 @@ impl Handler<DataFetchingRequest> for UI {
                 let request = EpisodeSummariesRequest::new(query, range.clone());
                 Box::pin(wrap_future(self.library_actor.send(request)).map(
                     move |data, actor: &mut UI, ctx| {
-                        if let Some(episodes) = actor.handle_response_error(data, ctx) {
+                        if let Some(episodes) = actor.handle_response_error(data) {
                             actor
                                 .library
                                 .episodes
@@ -1184,9 +1136,12 @@ impl Handler<PlayerNotification> for UI {
 
     fn handle(&mut self, msg: PlayerNotification, ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            PlayerNotification::VolumeChanged(volume) => {
-                self.set_status(Status::VolumeChanged(volume), ctx);
-            }
+            PlayerNotification::VolumeChanged(volume) => match volume {
+                None => log::info!(target: "volume", "Playback muted"),
+                Some(volume) => {
+                    log::info!(target: "volume", "Volume: {:.0}%", volume.cubic() * 100.0);
+                }
+            },
             PlayerNotification::StateChanged(state) => {
                 self.playback_state.set_state(state);
                 if state.is_none() {
@@ -1233,8 +1188,8 @@ impl Handler<PlayerNotification> for UI {
 impl Handler<PlayerErrorNotification> for UI {
     type Result = ();
 
-    fn handle(&mut self, msg: PlayerErrorNotification, ctx: &mut Self::Context) -> Self::Result {
-        self.handle_error(msg.0, ctx);
+    fn handle(&mut self, _msg: PlayerErrorNotification, ctx: &mut Self::Context) -> Self::Result {
+        // TODO: self.handle_error(msg.0, ctx);
         if let Some(playing_episode) = self.library.playing_episode.take() {
             self.status_writer_actor
                 .do_send(StatusWriterCommand::set_error(
@@ -1290,20 +1245,20 @@ impl Handler<FeedUpdateNotification> for UI {
                     self.refresh_episodes(ctx, false);
                 }
             }
-            FeedUpdateNotification::Error(error) => self.handle_error(error, ctx),
+            FeedUpdateNotification::Error(_error) => (), /* TODO: self.handle_error(error, ctx) */
             FeedUpdateNotification::FeedAdded(feed) => {
                 self.library
                     .feeds
                     .update_data::<selection::Keep, _>(|feeds| feeds.push(FeedView::Feed(feed)));
                 self.update_current_feed(ctx);
             }
-            FeedUpdateNotification::DuplicateFeed => self.set_status(
+            FeedUpdateNotification::DuplicateFeed => ()/* TODO: self.set_status(
                 CustomStatus::new("This podcast has already been added")
                     .set_severity(Severity::Warning)
                     .set_ttl(status::TTL_SHORT)
                     .into(),
                 ctx,
-            ),
+            )*/,
             FeedUpdateNotification::FeedDeleted(feed_id) => {
                 self.library
                     .feeds
@@ -1350,6 +1305,30 @@ impl Handler<hedgehog_player::mpris::MprisError> for UI {
         msg: hedgehog_player::mpris::MprisError,
         ctx: &mut Self::Context,
     ) -> Self::Result {
-        self.handle_error(msg, ctx)
+        log::error!(target: "dbus", "{}", msg);
+    }
+}
+
+impl Handler<LogEntry> for UI {
+    type Result = ();
+
+    fn handle(&mut self, entry: LogEntry, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(handle) = self.log_display_clear_request.take() {
+            ctx.cancel_future(handle);
+        }
+        if let Some(duration) = entry.display_ttl() {
+            self.log_display_clear_request = Some(ctx.spawn(wrap_future(sleep(duration)).map(
+                |_, actor: &mut UI, ctx| {
+                    actor.log_display_clear_request = None;
+                    actor
+                        .log_history
+                        .update_data::<selection::DoNotUpdate, _>(LogHistory::clear_display);
+                    actor.invalidate(ctx);
+                },
+            )));
+        }
+        self.log_history
+            .update_data::<selection::Keep, _>(|log| log.push(entry));
+        self.invalidate(ctx);
     }
 }

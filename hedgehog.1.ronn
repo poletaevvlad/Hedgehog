@@ -5,8 +5,9 @@ hedgehog(1) -- podcast player and organizer
 ## SYNOPSIS
 
 
-`hedgehog` [`--h`\|`--help`] [`--no-mouse`] [`--no-pidfile`] [`-V*`\|`*--version`]
-[`--config-path` <path>] [`--data-path` <paths>] [<subcommand> <arguments>...]
+`hedgehog` [`--h`\|`--help`] [`--no-mouse`] [`--no-pidfile`] [`--no-mpris`]
+[`-V*`\|`*--version`] [`--config-path` <path>] [`--data-path` <paths>]
+[<subcommand> <arguments>...]
 
 
 
@@ -54,6 +55,12 @@ that Hedgehog supports.
   running at the same time to prevent inconsistencies in the displayed data.
   This flag prevents this behavior. Note that multiple instances are allowed to
   be executed for different data directories.
+
+* `--no-mpris`:
+  Disables Hedgehog's support for MPRIS protocol. This protocol allows third
+  party software to observe the state of playback and control it by sending 
+  messages through DBus. Note, that not all platforms support this functionality Hedgehog may be
+  compiled without it. In such cases this option won't be present.
 
 * `--data-path`:
   Specifies the path from where episodes database, commands history and some

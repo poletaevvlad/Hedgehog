@@ -55,7 +55,7 @@ impl fmt::Display for AlreadyRunningError {
 }
 
 fn main() {
-    let cli_args = clap::App::new("Hedgehog")
+    let mut cli_args_def = clap::App::new("Hedgehog")
         .version(clap::crate_version!())
         .about(clap::crate_description!())
         .subcommand(
@@ -105,8 +105,15 @@ fn main() {
             clap::Arg::with_name("no_pidfile")
                 .long("no-pidfile")
                 .help("Allow multiple instances to run concurrently on the same database"),
-        )
-        .get_matches();
+        );
+    if cfg!(feature = "mpris") {
+        cli_args_def = cli_args_def.arg(
+            clap::Arg::with_name("no_mpris")
+                .long("no-mpris")
+                .help("Disables an ability to control Hedgehog through MPRIS"),
+        );
+    }
+    let cli_args = cli_args_def.get_matches();
 
     let result = (|| {
         let base_dirs = BaseDirs::new().ok_or(CannotDetermineDataDirectory)?;
@@ -273,7 +280,9 @@ fn run_player(
             |_| /* TODO */ Player::init().unwrap(),
         );
 
-        run_mpris(player.clone(), player_arbiter.handle());
+        if !args.is_present("no_mpris") {
+            run_mpris(player.clone(), player_arbiter.handle());
+        }
 
         UI::new(
             (size.width, size.height),

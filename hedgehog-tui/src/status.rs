@@ -107,6 +107,9 @@ impl_hedgehog_error!(actix::MailboxError, ErrorType::Actix);
 impl_hedgehog_error!(hedgehog_library::QueryError, ErrorType::Database);
 impl_hedgehog_error!(std::io::Error, ErrorType::IO);
 
+#[cfg(feature = "mpris")]
+impl_hedgehog_error!(hedgehog_player::mpris::MprisError, ErrorType::IO);
+
 pub(crate) struct CustomStatus {
     text: Cow<'static, str>,
     severity: Severity,

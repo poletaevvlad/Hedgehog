@@ -280,19 +280,19 @@ fn run_player(
             |_| /* TODO */ Player::init().unwrap(),
         );
 
-        if !args.is_present("no_mpris") {
-            run_mpris(player.clone(), player_arbiter.handle());
-        }
-
-        UI::new(
+        let ui_addr = UI::new(
             (size.width, size.height),
             terminal,
             library,
-            player,
+            player.clone(),
             status_writer,
             env,
         )
         .start();
+
+        if !args.is_present("no_mpris") {
+            run_mpris(player, ui_addr, player_arbiter.handle());
+        }
     });
     system.run()?;
 
@@ -305,10 +305,10 @@ fn run_player(
 }
 
 #[cfg(feature = "mpris")]
-fn run_mpris(player: Addr<Player>, arbiter: ArbiterHandle) {
+fn run_mpris(player: Addr<Player>, ui: Addr<UI>, arbiter: ArbiterHandle) {
     use hedgehog_player::mpris::MprisPlayer;
-    MprisPlayer::start_in_arbiter(&arbiter, |_| MprisPlayer::new(player));
+    MprisPlayer::start_in_arbiter(&arbiter, |_| MprisPlayer::new(player, ui.recipient()));
 }
 
 #[cfg(not(feature = "mpris"))]
-fn run_mpris(_player: Addr<Player>, _arbiter: ArbiterHandle) {}
+fn run_mpris(_player: Addr<Player>, _ui: Addr<UI>, _arbiter: ArbiterHandle) {}

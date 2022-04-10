@@ -16,10 +16,10 @@ use dbus::MethodErr;
 use dbus_crossroads::{Crossroads, IfaceBuilder};
 use dbus_tokio::connection;
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::process;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use std::{error, fmt};
 
 type PropChangeCallback =
     Box<dyn Fn(&dbus::Path, &dyn RefArg) -> Option<dbus::Message> + Send + Sync>;
@@ -81,7 +81,24 @@ struct DBusCallbacks {
     seeked_signal: Box<dyn Fn(&dbus::Path, &(i64,)) -> dbus::Message + Send + Sync>,
 }
 
+#[derive(Debug, Message)]
+#[rtype(return = "()")]
+pub struct MprisError(dbus::Error);
+
+impl error::Error for MprisError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+impl fmt::Display for MprisError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 pub struct MprisPlayer {
+    error_handler: Recipient<MprisError>,
     player: Addr<Player>,
     playback_state: Arc<RwLock<PlayerState>>,
     connection: Option<Arc<SyncConnection>>,
@@ -89,8 +106,9 @@ pub struct MprisPlayer {
 }
 
 impl MprisPlayer {
-    pub fn new(player: Addr<Player>) -> Self {
+    pub fn new(player: Addr<Player>, error_handler: Recipient<MprisError>) -> Self {
         MprisPlayer {
+            error_handler,
             player,
             playback_state: Arc::new(RwLock::new(PlayerState::default())),
             connection: None,
@@ -110,7 +128,10 @@ impl Actor for MprisPlayer {
 
         ctx.spawn(
             wrap_future(async {
-                let (resource, connection) = connection::new_session_sync().unwrap();
+                let (resource, connection) = match connection::new_session_sync() {
+                    Ok(conn) => conn,
+                    Err(error) => return Err(MprisError(error)),
+                };
                 let arbiter = Arbiter::current();
 
                 arbiter.spawn(async {
@@ -121,7 +142,7 @@ impl Actor for MprisPlayer {
                 let name = format!("org.mpris.MediaPlayer2.hedgehog.instance{}", pid);
                 let name_request = connection.request_name(name, false, true, false);
                 if name_request.await.is_err() {
-                    return (None, None);
+                    return Ok((None, None));
                 }
 
                 let mut cr = Crossroads::new();
@@ -164,11 +185,16 @@ impl Actor for MprisPlayer {
                         true
                     }),
                 );
-                (callbacks, Some(connection))
+                Ok((callbacks, Some(connection)))
             })
-            .map(|(callbacks, connection), actor: &mut MprisPlayer, _ctx| {
-                actor.connection = connection;
-                actor.dbus_callbacks = callbacks;
+            .map(|result, actor: &mut MprisPlayer, _ctx| match result {
+                Ok((callbacks, connection)) => {
+                    actor.connection = connection;
+                    actor.dbus_callbacks = callbacks;
+                }
+                Err(error) => {
+                    let _ = actor.error_handler.do_send(error);
+                }
             }),
         );
 
@@ -326,8 +352,8 @@ enum PlaybackStatus {
     Stopped,
 }
 
-impl Display for PlaybackStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for PlaybackStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PlaybackStatus::Playing => f.write_str("Playing"),
             PlaybackStatus::Paused => f.write_str("Paused"),

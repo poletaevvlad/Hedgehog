@@ -1340,3 +1340,16 @@ impl Handler<FeedUpdateNotification> for UI {
         self.invalidate(ctx);
     }
 }
+
+#[cfg(feature = "mpris")]
+impl Handler<hedgehog_player::mpris::MprisError> for UI {
+    type Result = ();
+
+    fn handle(
+        &mut self,
+        msg: hedgehog_player::mpris::MprisError,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        self.handle_error(msg, ctx)
+    }
+}

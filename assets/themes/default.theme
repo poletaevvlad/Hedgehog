@@ -8,15 +8,17 @@ set statusbar.confirmation fg:yellow
 set list.item:feed-special +bold
 set list.item.new-count fg:yellow
 set list.item:missing-title.title +italic
-set list.item:selected +reversed
-set list.item +dim
-set list.item:focused -dim
 set list.item:search.title +bold
 set list.item:episode-new.state fg:yellow
 set list.item:episode-started.state fg:green
 set list.item:episode-finished.state fg:darkgray
 set list.item:episode-error.state fg:red
 set list.item:playing fg:blue
+set list.item +dim
+set list.item:selected +reversed fg:reset
+set list.item:focused -dim
+set list.item:selected.state +bold
+set list.item:selected.new-count +bold
 
 set player bg:darkgray fg:white
 set player.status +bold fg:black

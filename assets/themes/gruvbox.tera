@@ -43,6 +43,7 @@ set player:stopped.status bg:%{{ macros::var(name=colors.player_active) }} fg:%{
 set player.timing bg:%{{ macros::var(name=colors.player) }}
 
 set statusbar.empty bg:%{{ macros::var(name=colors.background[0]) }}
+set statusbar.command bg:%{{ macros::var(name=colors.background[0]) }} fg:%{{ macros::var(name=colors.text[1]) }}
 set statusbar.command.prompt fg:%{{ variables.yellow[variant1] }}
 set statusbar.status bg:%{{ macros::var(name=colors.background[0]) }}
 set statusbar.status:error fg:%{{ variables.red[variant1] }}

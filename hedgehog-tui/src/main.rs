@@ -202,7 +202,7 @@ fn main() {
     })();
 
     if let Err(error) = result {
-        eprintln!("Erorr: {}", error);
+        eprintln!("Error: {}", error);
         std::process::exit(1);
     }
 }

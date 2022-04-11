@@ -1,7 +1,7 @@
 mod selectors;
 mod style_parser;
 
-use crate::cmdreader::{self, CommandReader};
+use crate::cmdreader::CommandReader;
 use crate::environment::AppEnvironment;
 use selectors::StyleSelector;
 pub(crate) use selectors::{
@@ -17,14 +17,14 @@ pub(crate) struct Theme {
 }
 
 impl Theme {
-    pub(crate) fn handle_command(
-        &mut self,
-        command: ThemeCommand,
-        env: &AppEnvironment,
-    ) -> Result<(), cmdreader::Error> {
+    pub(crate) fn handle_command(&mut self, command: ThemeCommand, env: &AppEnvironment) -> bool {
         match command {
-            ThemeCommand::Reset => *self = Theme::default(),
-            ThemeCommand::Set(selector, style) => self.set(selector, style),
+            ThemeCommand::Reset => {
+                *self = Theme::default();
+            }
+            ThemeCommand::Set(selector, style) => {
+                self.set(selector, style);
+            }
             ThemeCommand::Load(mut path, reset) => {
                 path.set_extension("theme");
                 let theme_path = env.resolve_config(&path);
@@ -33,20 +33,35 @@ impl Theme {
                 if reset {
                     *self = Theme::default();
                 }
-                let result: Result<(), cmdreader::Error> = (|| {
-                    let mut reader = CommandReader::open(theme_path)?;
-                    while let Some(command) = reader.read(())? {
-                        self.handle_command(command, env)?;
+
+                let mut reader = match CommandReader::open(&theme_path) {
+                    Ok(reader) => reader,
+                    Err(err) => {
+                        log::error!(target: "io", "Cannot open theme {:?}. {}", theme_path, err);
+                        self.styles = snapshot;
+                        return false;
                     }
-                    Ok(())
-                })();
-                if let Err(error) = result {
-                    self.styles = snapshot;
-                    return Err(error);
+                };
+
+                loop {
+                    match reader.read(()) {
+                        Ok(Some(command)) => {
+                            if !self.handle_command(command, env) {
+                                self.styles = snapshot;
+                                return false;
+                            }
+                        }
+                        Ok(None) => break,
+                        Err(error) => {
+                            self.styles = snapshot;
+                            log::error!(target: "command", "Cannot parse {:?}. {}", theme_path, error);
+                            return false;
+                        }
+                    }
                 }
             }
         }
-        Ok(())
+        true
     }
 
     pub(crate) fn get(&self, selector: impl Into<Selector>) -> Style {

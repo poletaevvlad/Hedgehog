@@ -28,6 +28,7 @@ impl Severity {
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum LogTarget {
     Default,
     CommandsHistory,
@@ -39,6 +40,7 @@ enum LogTarget {
     Player,
     Playback,
     Sql,
+    Io,
 }
 
 impl LogTarget {
@@ -53,6 +55,7 @@ impl LogTarget {
             "player" => LogTarget::Player,
             "playback" => LogTarget::Playback,
             "sql" => LogTarget::Sql,
+            "io" => LogTarget::Io,
             _ => LogTarget::Default,
         }
     }
@@ -79,7 +82,7 @@ impl LogEntry {
     pub(crate) fn display_ttl(&self) -> Option<Duration> {
         match self.target {
             LogTarget::Playback => Some(TTL_LONG),
-            LogTarget::KeyMapping | LogTarget::Command | LogTarget::Volume => Some(TTL_SHORT),
+            LogTarget::KeyMapping | LogTarget::Volume => Some(TTL_SHORT),
             _ => None,
         }
     }
@@ -100,6 +103,7 @@ impl LogEntry {
             LogTarget::Player => Some("Internal audio player error"),
             LogTarget::Playback => todo!(),
             LogTarget::Sql => Some("Internal database error"),
+            LogTarget::Io => Some("I/O error"),
         }
     }
 
@@ -177,6 +181,14 @@ impl LogHistory {
 
     pub(crate) fn clear_display(&mut self) {
         self.display = None;
+    }
+
+    pub(crate) fn clear_playback_display_error(&mut self) {
+        if let Some(entry) = self.display_entry() {
+            if entry.target == LogTarget::Playback {
+                self.display = None;
+            }
+        }
     }
 }
 

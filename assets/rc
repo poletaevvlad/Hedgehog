@@ -31,4 +31,3 @@ map Minus vol-adjust -10
 map = vol-adjust +10
 map S-+ vol-adjust +10
 map + vol-adjust +10
-

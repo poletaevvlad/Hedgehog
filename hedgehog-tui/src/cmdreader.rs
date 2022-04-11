@@ -4,10 +4,10 @@ use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
-    #[error("cannot read file: {0}")]
+    #[error("{0}")]
     Io(#[from] io::Error),
 
-    #[error("invalid command at line {1}: {0}")]
+    #[error("Invalid command at line {1}: {0}")]
     Parsing(String, usize),
 }
 

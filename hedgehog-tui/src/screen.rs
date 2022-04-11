@@ -323,7 +323,7 @@ impl UI {
         self.render();
     }
 
-    fn handle_command(&mut self, command: Command, ctx: &mut <Self as Actor>::Context) {
+    fn handle_command(&mut self, command: Command, ctx: &mut <Self as Actor>::Context) -> bool {
         match command {
             Command::Cursor(command) => {
                 match &mut self.library.focus {
@@ -361,19 +361,19 @@ impl UI {
                 }
             }
             Command::Theme(command) => {
-                if let Err(_error) = self.theme.handle_command(command, &self.app_env) {
-                    // self.handle_error(error, ctx);
-                } else {
+                if self.theme.handle_command(command, &self.app_env) {
                     self.invalidate(ctx);
+                } else {
+                    return false;
                 }
             }
             Command::Exec(path) => {
                 let file_path = self.app_env.resolve_config(&path);
-                let mut reader = match CommandReader::open(file_path) {
+                let mut reader = match CommandReader::open(&file_path) {
                     Ok(reader) => reader,
-                    Err(_error) => {
-                        // self.handle_error(error, ctx);
-                        return;
+                    Err(error) => {
+                        log::error!(target: "io", "Cannot open {:?}. {}", file_path, error);
+                        return false;
                     }
                 };
 
@@ -381,14 +381,13 @@ impl UI {
                     match reader.read(()) {
                         Ok(None) => break,
                         Ok(Some(command)) => {
-                            self.handle_command(command, ctx);
-                            // if self.status.data().has_errors() {
-                            //     return;
-                            // }
+                            if !self.handle_command(command, ctx) {
+                                return false;
+                            }
                         }
-                        Err(_error) => {
-                            // self.handle_error(error, ctx);
-                            return;
+                        Err(error) => {
+                            log::error!(target: "command", "Cannot parse {:?}. {}", file_path, error);
+                            return false;
                         }
                     }
                 }
@@ -407,19 +406,15 @@ impl UI {
                             .as_ref()
                             .map(|episode| episode.id)
                     {
-                        return;
+                        return true;
                     }
-                    // self.status
-                    //     .update_data::<selection::DoNotUpdate, _>(|data| {
-                    //         if let Some(status::ErrorType::Playback) =
-                    //             data.display_status().and_then(Status::error_type)
-                    //         {
-                    //             data.clear_display();
-                    //         }
-                    //     });
+                    self.log_history
+                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                            data.clear_playback_display_error();
+                        });
                     episode_id
                 } else {
-                    return;
+                    return true;
                 };
                 self.invalidate_later(ctx);
 
@@ -667,6 +662,7 @@ impl UI {
                 }
             }
         }
+        true
     }
 
     fn open_browser(&mut self, url: &str) {
@@ -677,11 +673,15 @@ impl UI {
     }
 
     fn init_rc(&mut self, ctx: &mut <UI as Actor>::Context) {
+        let mut rc_found = false;
         for path in self.app_env.resolve_rc("rc") {
-            self.handle_command(Command::Exec(path.to_path_buf()), ctx);
-            // if self.status.data().has_errors() {
-            //     break;
-            // }
+            rc_found = true;
+            if !self.handle_command(Command::Exec(path.to_path_buf()), ctx) {
+                break;
+            }
+        }
+        if !rc_found {
+            log::error!("Cannot find rc file. Please check your installation.");
         }
 
         self.library_actor
@@ -1079,7 +1079,9 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                         }
                         self.command = None;
                         match cmdparse::parse::<_, Option<Command>>(&command_str, ()) {
-                            Ok(Some(command)) => self.handle_command(command, ctx),
+                            Ok(Some(command)) => {
+                                self.handle_command(command, ctx);
+                            }
                             Ok(None) => {}
                             Err(error) => log::error!(target: "command", "{}", error),
                         }

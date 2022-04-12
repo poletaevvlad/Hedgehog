@@ -377,10 +377,19 @@ impl DataProvider for SqliteDataProvider {
         query: EpisodesQuery,
         status: EpisodeStatus,
     ) -> DbResult<HashSet<FeedId>> {
+        let mut sql = "SELECT DISTINCT ep.feed_id FROM episodes AS ep ".to_string();
+        query.build_where_clause(&mut sql);
+        let where_params = EpisodeQueryParams::from_query(query.clone());
+        let mut statement = self.connection.prepare(&sql)?;
+        let feed_ids = statement.query_map(&*where_params.as_sql_params(), |row| row.get(0))?;
+        let mut feed_ids_set = HashSet::new();
+        for feed_id in feed_ids {
+            feed_ids_set.insert(feed_id?);
+        }
+
         let mut sql =
             "UPDATE episodes AS ep SET status = :new_status, position = :position ".to_string();
         query.build_where_clause(&mut sql);
-        sql.push_str(" RETURNING episodes.feed_id");
         let mut statement = self.connection.prepare(&sql)?;
 
         let (status, position) = status.db_view();
@@ -389,12 +398,8 @@ impl DataProvider for SqliteDataProvider {
         let mut params = where_params.as_sql_params();
         params.push((":new_status", &status as &dyn rusqlite::ToSql));
         params.push((":position", &position as &dyn rusqlite::ToSql));
+        statement.execute(&*params)?;
 
-        let feed_ids = statement.query_map(&*params, |row| row.get(0))?;
-        let mut feed_ids_set = HashSet::new();
-        for feed_id in feed_ids {
-            feed_ids_set.insert(feed_id?);
-        }
         Ok(feed_ids_set)
     }
 
@@ -521,22 +526,29 @@ impl<'a> EpisodeWriter for SqliteEpisodeWriter<'a> {
             ON CONFLICT (feed_id, guid) DO UPDATE SET
             title = :title, description = :description, link = :link, duration = :duration, publication_date = :publication_date, 
             episode_number = :episode_number, season_number = :season_number, media_url = :media_url
-            WHERE feed_id = :feed_id AND guid = :guid
-            RETURNING id"
+            WHERE feed_id = :feed_id AND guid = :guid"
         )?;
-        statement
+        statement.execute(named_params! {
+            ":feed_id": self.feed_id,
+            ":guid": metadata.guid,
+            ":title": metadata.title,
+            ":description": metadata.description,
+            ":link": metadata.link,
+            ":duration": metadata.duration.map(|duration|duration.as_nanos() as u64),
+            ":publication_date": metadata.publication_date,
+            ":episode_number": metadata.episode_number,
+            ":season_number": metadata.season_number,
+            ":media_url": metadata.media_url
+        })?;
+
+        let mut id_statement = self.transaction.prepare(
+            "SELECT ep.id FROM episodes AS ep WHERE feed_id = :feed_id AND guid = :guid",
+        )?;
+        id_statement
             .query_row(
                 named_params! {
                     ":feed_id": self.feed_id,
                     ":guid": metadata.guid,
-                    ":title": metadata.title,
-                    ":description": metadata.description,
-                    ":link": metadata.link,
-                    ":duration": metadata.duration.map(|duration|duration.as_nanos() as u64),
-                    ":publication_date": metadata.publication_date,
-                    ":episode_number": metadata.episode_number,
-                    ":season_number": metadata.season_number,
-                    ":media_url": metadata.media_url
                 },
                 |row| row.get(0),
             )

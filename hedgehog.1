@@ -1,0 +1,489 @@
+.\" generated with Ronn-NG/v0.9.1
+.\" http://github.com/apjanke/ronn-ng/tree/0.9.1
+.TH "HEDGEHOG" "1" "April 2022" ""
+.SH "NAME"
+\fBhedgehog\fR \- podcast player and organizer
+.SH "SYNOPSIS"
+\fBhedgehog\fR [\fB\-\-h\fR|\fB\-\-help\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-no\-pidfile\fR] [\fB\-\-no\-mpris\fR] [\fB\-V*\fR|\fB*\-\-version\fR] [\fB\-\-config\-path\fR \fIpath\fR] [\fB\-\-data\-path\fR \fIpaths\fR] [\fIsubcommand\fR \fIarguments\fR\|\.\|\.\|\.]
+.SH "DESCRIPTION"
+Hedgehog is a podcasts player and subscriptions management software that works within a terminal\. Its features include:
+.IP "\[ci]" 4
+subscribing to RSS feeds and managing subscriptions;
+.IP "\[ci]" 4
+viewing and automatically updating the list of episodes from each feed;
+.IP "\[ci]" 4
+keeping track of the episodes\' state: whether you played any episode, did you finish listening to it or not, remembering when the playback stopped;
+.IP "\[ci]" 4
+playing episodes and controlling its playback: play/pause, seek, control volume, etc\.;
+.IP "\[ci]" 4
+searching for feeds online and subscribing to them;
+.IP "\[ci]" 4
+importing and exporting the list of feeds from/to other podcast management software via OPML documents\.
+.IP "" 0
+.P
+The main interface of Hedgehog contains two panes: the list of feeds you are subscribed to (along with two special feeds with all episodes and with all new episodes) and the list of episodes within the selected feed\. You can navigate between different panes using arrow and Tab keys or using a mouse cursor if your terminal emulator supports it\. To start the playback of an episode, you can either select it and press \fBEnter\fR or double\-click with a left mouse button\.
+.P
+See \fIKEY MAPPING\fR section of this manual for the list of default keybinding which can be reconfigured, and \fIcommands\fR section for the list of all commands that Hedgehog supports\.
+.SH "OPTIONS"
+.TP
+\fB\-\-no\-mouse\fR
+Disables the capacity of Hedgehog to read and handle mouse input\. If not present, you can select list items, start and control playback, change cursor position in the command entry field, etc\., but you won\'t be able to select text in the terminal window\.
+.TP
+\fB\-\-no\-pidfile\fR
+By default, Hedgehog prevents two or more instances of the program from running at the same time to prevent inconsistencies in the displayed data\. This flag prevents this behavior\. Note that multiple instances are allowed to be executed for different data directories\.
+.TP
+\fB\-\-no\-mpris\fR
+Disables Hedgehog\'s support for MPRIS protocol\. This protocol allows third party software to observe the state of playback and control it by sending messages through DBus\. Note, that not all platforms support this functionality Hedgehog may be compiled without it\. In such cases this option won\'t be present\.
+.TP
+\fB\-\-data\-path\fR
+Specifies the path from where episodes database, commands history and some other files will be read\. The default is \fB~/\.local/share/hedgehog/\fR on UNIX\-compatible platforms and \fB%APPDATA%/hedgehog\fR on Windows\. This location can be backed\-up and copied to another system\.
+.TP
+\fB\-\-config\-path\fR
+Specifies a path or a set of paths where Hedgehog will search for the configuration files: \fBrc\fR files and themes\. These paths extend the set of default paths\. For more information on configuration, see the \fICONFIGURATION\fR section of this manual\.
+.TP
+\fBexport\fR \fIfile\fR
+A sub\-command for exporting the list of podcast feeds managed by Hedgehog in OPML format\. This can be later imported into another podcast management programs\. \fIfile\fR is a path to an XML file where the exported data will be written or a dash (\fB\-\fR) in which case the exported data will be written to standard output\.
+.TP
+\fBimport\fR \fIfile\fR
+Adds the set of podcast feeds to the database\. Episodes from these feeds will be fetched on the next launch\. Duplicate feeds will be ignored\. \fIfile\fR is a path to XML file in OPML format that will be read or a dash (\fB\-\fR) in which case the data will be read from the standard input\.
+.SH "COMMANDS"
+You control Hedgehog TUI by issuing commands either directly (by pressing \fB:\fR, entering the name of a command and its arguments, and submitting it with the \fBEnter\fR key) or indirectly, by pressing a key combination mapped to a specific command\. There are few exceptions, such as actions performed with a mouse or through the MPRIS interface\.
+.P
+When entering commands manually, there are keys that have special meaning\. Hedgehog tries to follow established conventions\. These keys cannot be remapped, and you can find their list in the \fICOMMAND ENTRY KEY MAPPING\fR subsection\.
+.P
+The remaining of this section lists the supported commands and their description
+.SS "NAVIGATION"
+.TP
+\fBline first\fR
+Selects the first line in the current list\.
+.TP
+\fBline last\fR
+Selects the last line in the current list\.
+.TP
+\fBline page\-up\fR
+Moves the selection up by an entire screen\.
+.TP
+\fBline page\-down\fR
+Moves the selection down by an entire screen\.
+.TP
+\fBline move\-by\fR \fInumber\fR
+Moves the selection down (if \fInumber\fR is positive) or up (if \fInumber\fR is negative) by the specific number of rows\.
+.TP
+\fBline scroll\-by\fR \fInumber\fR
+Scrolls the current list down (if \fInumber\fR is positive) or up (if \fInumber\fR is negative) by the specific number of rows and keeps the selected row\. If after scrolling, the selection is not visible, the closest visible row will be selected (with some margin from the edge of a screen)\.
+.TP
+\fBfocus\fR \fIpane\-name\fR
+Sets the currently selected pane\. The selected pane is highlighted in the UI and all line commands listed above affect the list contained in this pane\. Possible values for \fIpane\-name\fR are listed bellow\.
+.TP
+\fBlog\fR
+Opens the list of errors\. This command is a shorthand for \fBfocus log\fR\.
+.TP
+\fBquit\fR or \fBq\fR
+Exits Hedgehog\.
+.P
+\fIpane\-name\fR is an argument used by some commands and it names the section of the UI that is currently selected and is ready to handle users\' interaction\. The possible values for \fIpane\-name\fR are:
+.IP "\[ci]" 4
+\fBfeeds\fR: the list of feeds located on the right\-hand side of the library view
+.IP "\[ci]" 4
+\fBepisodes\fR: the list of the episodes in a feed;
+.IP "\[ci]" 4
+\fBsearch\fR: the list of search result\. Search can be initiated using the \fBsearch\fR command\. When this pane is selected manually, Hedgehog shows results from the previous search;
+.IP "\[ci]" 4
+\fBlog\fR: the list of errors that occurred during the current session, these errors include networking error, configuration issues, etc\.;
+.IP "" 0
+.SS "PLAYBACK"
+.TP
+\fBplay\-current\fR
+Starts playback of the currently selected episode from the position when the playback stopped before\. If this episode was never played or if it was finished, the playback starts from the beginning\.
+.TP
+\fBstop\fR
+Immediately terminates playback\. Playback then can be restarted only by selecting the episode again\.
+.TP
+\fBfinish\fR
+Immediately terminates playback and marks the previously playing episode as finished\.
+.TP
+\fBpause\fR
+Pauses the playback\. It can be then resumed using \fBresume\fR or \fBtoggle\-pause\fR commands\.
+.TP
+\fBresume\fR
+Resumes the playback from the current position\.
+.TP
+\fBtoggle\-pause\fR
+Toggles between playing and paused states\. This command is equivalent to either \fBpause\fR or \fBresume\fR depending on the current state of the playback\.
+.TP
+\fIduration\fR
+If the playback is active, changes the current position in the stream to the specified \fIduration\fR\. This action may cause a temporary break in the playback due to buffering\. The paused status of the playback won\'t be changed by this command\.
+.IP
+\fIduration\fR is specified in seconds, minutes and hours sepearated by colon\. Only seconds are required\. For example \fB160\fR, \fB2:40\fR, and \fB0:02:40\fR are equivalent\. Leading zeros are allowed\.
+.TP
+\fBseek\fR \fIsigned\-duration\fR
+If the playback is active, changes the current position in the stream by the specified duration relative to the current position\. The \fIsigned\-duration\fR may be preceded by either \fB+\fR or \fB\-\fR characters, which indicate whether the seek operation will be performed forwards or backwards\.
+.TP
+\fBrate\fR \fIreal\-number\fR
+Changes the playback rate of the current stream\. If the argument equals 1\.0, the episode will be played at normal speed, any value less than 1\.0 will cause the playback will be slowed down, and if the value is greater than 1\.0, the playback will be sped up\.
+.TP
+\fBmute\fR, \fBunmute\fR, \fBtoggle\-mute\fR
+Changes the muted status for the playback\. The muted status does not affect the current volume, when unmuting, the playback volume will be restored to the previous value\. \fBtoggle\-mute\fR variant of this command toggles between muted and unmuted states\.
+.TP
+\fBvol\-set\fR \fIvolume\fR
+Sets the volume to the specified value\. \fIvolume\fR must be a number between 0 and 100\.
+.TP
+\fBvol\-adjust\fR \fIsigned\-volume\fR
+Changes the current volume by a specified amount\. \fBsigned volume\fR has the same unit as in the \fBvol\-set\fR command: the range is \-100 to 100\.
+.SS "SUBSCRIPTIONS MANAGEMENT"
+.TP
+\fBadd\fR \fIrss\-url\fR
+Adds a new subscription\. Hedgehog will try to fetch the feed metadata and episodes list immediately after it finishes\. Note, that \fIrss\-url\fR must point to the RSS feed, Hedgehog will not try to determine the URL of the RSS feed from HTML page\'s metadata\.
+.TP
+\fBdelete\-feed\fR
+Removes the feed and all its episodes\. This action cannot be undone\.
+.TP
+\fBupdate\fR [\fB\-\-this\fR]
+Updates the feed metadata and the episodes list\. If new episodes are found in the feed, they will appear in the library marked "new"\. If \fB\-\-this\fR attribute is specified, then only the currently selected feed will be updated\. Otherwise, all feeds that hasn\'t been disabled will be updated\.
+.TP
+\fBenable\fR, \fBdisable\fR
+Enables or disables the feed\. If you disable the feed, then it won\'t be scheduled to be updated by neither the \fBupdate\fR command nor automatically on launch\.
+.TP
+\fBopen\-link feed\fR, \fBopen\-link episode\fR
+Opens the WWW URL specified in the feed or episode metadata respectingly in the default browser\.
+.TP
+\fBhide\fR
+Hides the currently selected episode from the episodes list\. Note, that it won\'t be deleted from the database\. The hidden episodes aren\'t shown in the library by default\. This can be enabled by issuing command \fBset hidden true\fR\.
+.TP
+\fBunhide\fR
+Removed the hidden status from the currently selected episode\. To issue this command, Hedgehog needs to be configured to show hidden episodes (using command \fIset hidden true\fR; it can be reverted by issuing \fBset hidden false\fR)
+.TP
+\fBmark\fR \fIstatus\fR [\fB\-\-all\fR] [\fB\-\-if\fR \fIstatus\-conditiol\fR]
+Changes the status of the episode\. The \fIstatus\fR can be either \fBnew\fR, \fBseen\fR, or \fBfinished\fR\. By default, only the currently selected episode will be affected\. If \fB\-\-all\fR attribute is specified, then all episodes in the currently selected feed will be altered\. In this case, it can be useful to update only a subset of episodes for update, for example, you may want to mark all new episodes in the new feed as seen\. \fB\-\-if\fR attribute specifies a precondition for such update\. \fBstatus\-condition\fR can be either \fBnew\fR, \fBseen\fR, \fBfinished\fR, \fBstarted\fR, or \fBerror\fR\.
+.TP
+\fBreverse\fR
+Changes the order of episodes in the selected feed\. By default, episodes are displayed in reverse chronological order (starting with the newest)\. This command changes this order for a single feed\. This preference is saved in the database and will remain after the restart\.
+.TP
+\fBsearch\fR \fIquery\fR or \fBs\fR \fIquery\fR
+Starts the search session\. When this command is issued, Hedgehog performs a search for podcast feeds online and \fBsearch\fR pane comes into focus\.
+.TP
+\fBsearch\-add\fR
+Subscribes to the currently selected feed in the search pane\.
+.SS "CONFIGURATION"
+.TP
+\fBconfirm\fR \fIprompt\fR \fIcommand\fR [\fB\-\-default\fR \fIbool\fR]
+Displays confirmation prompt and askes the user for confirmation\. The \fIcommand\fR will be executed only on affirmative response\. \fB\-\-default\fR attribute specifies the default behavior, whether the command will be executed (if \fBtrue\fR) or not (\fBfalse\fR) when the \fBEnter\fR key is pressed\.
+.TP
+\fBexec\fR \fIpath\fR
+Reads the file at path and executes commands in it\. Each command must be specified on a separate line; empty lines or lines containing only comments (starting with \fB#\fR) are ignored\. All commands will be executed until the first failure or until the end of the file is reached\.
+.IP
+\fIpath\fR can be either absolute or relative\. If \fIpath\fR is relative, Hedgehog will try to find a file in any of the paths specified in the list of data directories\. See details in the \fBCONFIGURATION\fR section of the manual\.
+.TP
+\fBmap\fR \fIkey\fR \fIcommand\fR [\fB\-\-state\fR \fIpane\fR]
+Maps \fIcommand\fR to a specific key combination \fIkey\fR\. You can specify different mapping for different states depending on which pane is currently selected\. If \fB\-\-state\fR option is specified, than the key mapping will be active only if this specific pane is selected\. Mapping with a specific state have higher precedence than mappings without one\.
+.TP
+\fBunmap\fR \fIkey\fR [\fB\-\-state\fR \fIpane\fR]
+Removes the key mapping\. See the documentation for the \fBmap\fR command above for the meaning behind \fB\-\-state\fR attribute\. Note that when unmapping the key, you need to specify the same state as was specified when mapping: \fBunmap\fR \fIkey\fR without \fB\-\-state\fR does not remove state\-specific keybindings\.
+.TP
+
+.TP
+\fBset\fR \fIoption\-name\fR \fIvalue\fR:
+Updates the property controlling how Hedgehog looks like and behaves\. The list of properties is described in the \fICONFIGURATION\fR section of this manual\.
+
+.P
+\fBmap\fR and \fBunmap\fR commands accepts \fIkey\fR argument specified in the format similar to the one used by \fBvim\fR and some other software\. Key specification consists of zero or more modifiers followed by the key\'s name\. Allowed modifier are:
+.IP "\[ci]" 4
+\fBS\fR or \fBShift\fR for the shift key,
+.IP "\[ci]" 4
+\fBC\fR, \fBCtrl\fR, or \fBControl\fR for the control key,
+.IP "\[ci]" 4
+\fBA\fR, \fBAlt\fR, \fBM\fR, or \fBMeta\fR for the alt key\.
+.IP "" 0
+.P
+Most keys can be specified with a single character (such as numbers, Latin letters, etc\.)\. The rest have aliases:
+.IP "\[ci]" 4
+\fBLeft\fR, \fBUp\fR, \fBRight\fR, \fBDown\fR for arrow keys,
+.IP "\[ci]" 4
+\fBEnter\fR, \fBReturn\fR, \fBCR\fR for the enter key,
+.IP "\[ci]" 4
+\fBBS\fR, \fBBackspace\fR for the backspace key,
+.IP "\[ci]" 4
+\fBHome\fR, \fBEnd\fR, \fBPageUp\fR, \fBPageDown\fR for common cursor position manipulation keys,
+.IP "\[ci]" 4
+\fBTab\fR for the tab key,
+.IP "\[ci]" 4
+\fBDel\fR, \fBDelete\fR for the delete key,
+.IP "\[ci]" 4
+\fBEsc\fR for the escape key,
+.IP "\[ci]" 4
+\fBSpace\fR for the space key,
+.IP "\[ci]" 4
+\fBBar\fR for the \fB|\fR key,
+.IP "\[ci]" 4
+\fBMinus\fR for the \fB\-\fR key,
+.IP "\[ci]" 4
+\fBInsert\fR for the insert key,
+.IP "\[ci]" 4
+\fBNul\fR for the character with code 0,
+.IP "\[ci]" 4
+\fBF1\fR, \fBF2\fR, \|\.\|\.\|\. for functional keys\.
+.IP "" 0
+.P
+Modifiers and keys and separated by dashes (\fB\-\fR), for example \fBC\-c\fR for \fBControl+C\fR, \fBA\-S\-W\fR for \fBAlt+Shift+W\fR\. Please note that keys are case\-sensitive: if you include the Shift modifier, then the key should be uppercase if applicable (\fBS\-A\fR is correct while \fBS\-a\fR won\'t work)\.
+.SH "CONFIGURATION"
+Hedgehog is configured by executing the commands described in the \fICOMMANDS\fR section of this manual\. The effect of these commands lasts until Hedgehog restarts\. In order for the configuration to persistent across restarts they should be inserted in the \fBrc\fR file in the config directory\.
+.P
+Hedgehog considers multiple directories when loading its configuration: command lists and themes, in a way that is similar to how \fIPATH\fR environment variable is used by the operating system\. The configuration path can be configured via \fB\-\-data\-path\fR CLI argument for Hedgehog executable or \fBHEDGEHOG_DATA\fR environment variables\. Both these options append the set of directories to the default paths\. The default paths are:
+.IP "\[ci]" 4
+\fB/usr/share/hedgehog\fR and \fB\./usr/share/hedgehog\fR (only on UNIX\-based OSes);
+.IP "\[ci]" 4
+the parent directory of the Hedgehog\'s executable (only on Windows); * user\'s config directory: \fB~/\.config/hedgehog\fR on UNIX\-based OSes and \fB\eUsers\e<user>\eAppData\eRoaming\fR on Windows\.
+.IP "" 0
+.P
+When looking for a file to load (using \fBexec\fR or \fBtheme load\fR command) Hedgehog searches for the existing file by iterating through data directories from the last one to the first one, meaning the directory specified by the user has the highest priority, and global configuration has the lowest\.
+.P
+Exception to this rule is loading the startup commands\. There is a special file named \fBrc\fR in the data directory\. Hedgehog will execute commands in such files in all data directories in the opposite order: starting with the system\-wide configuration followed by user\-defined configuration files\.
+.P
+Each configuration file (both \fBrc\fR file and themes) contains a series of commands, each located on a separate line\. The interpreter ignores empty lines and comments (sections starting with \fB#\fR)\.
+.SS "CONFIGURATION OPTIONS"
+This section list options that can be set using the \fIset\fR command\.
+.TP
+\fBdate_format\fR
+The format of the publication date following the syntax of \fIstrftime(3)\fR function\.
+.TP
+\fBlabel_playback_status_playing\fR
+The label displaying in the player status bar in playing state\.
+.TP
+\fBlabel_playback_status_paused\fR
+The label displaying in the player status bar in paused state\.
+.TP
+\fBlabel_playback_status_bufffering\fR
+The label displaying in the player status bar when the audio stream is buffering\.
+.TP
+\fBlabel_playback_status_none\fR
+The label displaying in the player status bar when no episode is playing\.
+.TP
+\fBlabel_playback_status_none\fR
+The label displaying in the player status bar when no episode is playing\.
+.TP
+\fBlabel_episode_new\fR
+Label displaying in the library when the episode is new\.
+.TP
+\fBlabel_episode_seen\fR
+Label displaying in the library when the episode is not new but hasn\'t been played\. Episode can reach this status using \fBmark\fR command\.
+.TP
+\fBlabel_episode_playing\fR
+Label displaying in the library when the episode is currently being played\.
+.TP
+\fBlabel_episode_started\fR
+Label displaying in the library when the episode was started but not completed and is not currently playing\.
+.TP
+\fBlabel_episode_finished\fR
+Label displaying in the library when the episode was completed\.
+.TP
+\fBlabel_episode_finished\fR
+Label displaying in the library when the previous playback attempt has failed with an error\.
+.TP
+\fBlabel_feed_error\fR
+Label displaying in the library list for feeds which could not be updated due to an error\.
+.TP
+\fBlabel_feed_updating\fR
+Label displaying in the library list for feeds that are currently being loaded\.
+.TP
+\fBlabel_feed_updating\fR
+Flag indicating whether enabled feeds should be updated on startup\.
+.TP
+\fBshow_episode_number\fR
+Flag indicating whether episode and season number should be displayed for episodes in the library\.
+.TP
+\fBhidden\fR
+lag indicating whether the episodes that are hidden using the \fIhide\fR command should be visible in the library\.
+.TP
+\fBprogress_bar_width\fR
+the number of characters allocated to the progress indicator in the player state bar\.
+.TP
+\fBprogress_bar_chars\fR
+a string, characters of which are used for the progress indicator\.
+.SH "THEMING"
+Hedgehog allows extensive customization of colors and text styles for any component of its user interface\. As with any other customization option, changing the visual style of the program is performed via issuing commands\. Hedgehog supports a separate category of theming commands\. They can be issued us subcommands of \fBtheme\fR or loaded from a separate file via \fBtheme load\fR (the \fBtheme\fR prefix isn\'t used for commands in the theme file)\.
+.SS "THEMING COMMANDS"
+.TP
+\fBreset\fR
+Clears all styles\. After this command is executed, all styling assigned to any component in any state will be cleared\.
+.TP
+\fBload\fR \fIfile\fR [\fB\-\-extend\fR]
+Reads a file and executes all theming commands from it\. Note that \fIfile\fR can be either an absolute or relative path\. In case of a relative path, Hedgehog applies the same logic as for searching the configuration files but with a small difference\. Theme file may have a \fB\.theme\fR extension\.
+.IP
+Hedgehog will try to locate a file both with and without it, all existing styling is cleared before a theme file is loaded\. Inclusion of \fB\-\-extend\fR flag prevents this\.
+.TP
+\fBset\fR \fIselector\fR \fIstyle\-modifiers\fR
+Applies the styling to a component identified by the \fIselector\fR\. The syntax of each argument is specified further\.
+.SS "STYLE SYNTAX"
+Styles are specified using a special syntax where multiple modifiers separated by a single or multiple whitespace characters\.
+.TP
+\fBfg:\fR\fIcolor\fR, \fBbg:\fR\fIcolor\fR
+Sets the foreground or background color of a component, respectively\. The color itself can be specified using any of three ways: a 24\-bit RGB color in hexadecimal form preceded by a percentage sign (\fB%FFFFFF\fR for white), an 8\-bit xterm color preceded by a dollar sign (\fB$231\fR for \fBWhite/Grey100\fR) or using a color\'s name (either \fBblack\fR, \fBblue\fR, \fBcyan\fR, \fBdarkgray\fR, \fBgray\fR, \fBgreen\fR, \fBlightblue\fR, \fBlightcyan\fR, \fBlightgreen\fR, \fBlightmagenta\fR, \fBlightred\fR, \fBlightyellow\fR, \fBmagenta\fR, \fBred\fR, \fBwhite\fR, or \fByellow\fR)\. There is a special color identified by the keyword *reset` which corresponds to the terminal\'s default background or foreground color\. Please note that not all color modes may be supported by your terminal emulator\. Named colors may also be overridden by the terminal\'s configuration\.
+.TP
+
+.TP
+\fB+\fR\fImodifier\fR, \fB\-\fR\fImodifier\fR:
+Adds or removes a modifier\. A modifier is a special attribute of a terminal cell that changes some of its visual characteristics\. Removing a modifier is useful when you want to override the existing styling of a component with modifiers already applied\. Note, that different terminal emulator may interpret some modifiers differently or not support them at all\.
+
+.P
+The modifiers list include:
+.IP "\[ci]" 4
+\fBbold\fR increases the text intensity,
+.IP "\[ci]" 4
+\fBcrossedout\fR crosses the text,
+.IP "\[ci]" 4
+\fBdim\fR decreases the text intensity,
+.IP "\[ci]" 4
+\fBhidden\fR hides the text,
+.IP "\[ci]" 4
+\fBitalic\fR emphasizes the text,
+.IP "\[ci]" 4
+\fBrapidblink\fR makes the text blinking (\(>= 150 times per minute),
+.IP "\[ci]" 4
+\fBreversed\fR swaps background and foreground color,
+.IP "\[ci]" 4
+\fBslowblink\fR makes the text blinking (\(<= 150 times per minute),
+.IP "\[ci]" 4
+\fBunderlined\fR underlines the text\.
+.IP "" 0
+.SS "SELECTOR SYNTAX"
+A selector is a string that identifies a UI element in a specific state\. Selectors follow any of the following forms:
+.TP
+\fBstatusbar\.empty\fR
+The status bar (the bottom row of the scrren) when it doesn\'t display any content\.
+.TP
+\fBstatusbar\.command\fR[\fB\.prompt\fR]
+The status bar when it\'s used for command entry\. \fB\.prompt\fR is used for the command\'s prompt (colon at the beginning) only\.
+.TP
+\fBstatusbar\.confirmation\fR
+The status bar when it\'s used for prompting the user to confirm some action\.
+.TP
+\fBstatusbar\.status\fR[\fB:error\fR|\fB:warning\fR|\fB:information\fR][\fB\.label\fR]
+The status bar when it\'s used for displaying the status message\. The status can be of different severities (\fBerror\fR, \fBwarning\fR or \fBinformation\fR)\. The \fBlabel\fR is a short string placed before some messages (mostly errors)\.
+.TP
+\fBlist\.divider\fR
+The divider between two columns or rows in the library\.
+.TP
+\fBlist\.item\fR(\fIitem\-state\fR)*[\fIitem\-component\fR]
+where
+.br
+\fIitem\-state\fR=\fB:focused\fR|​\fB:selected\fR|​\fB:playing\fR|​\fB:hidden\fR|​\fB:missing\-title\fR|​\fB:feed\fR|​\fB:feed\-updating\fR|​\fB:feed\-error\fR|​\fB:feed\-special\fR|​\fB:episode\fR|​\fB:episode\-error\fR|​\fB:episode\-new\fR|​\fB:episode\-started\fR|​\fB:episode\-finished\fR|​\fB:search\fR|​\fB:log\-entry\fR
+.br
+\fIitem\-component\fR=\fB\.state\fR|​\fB\.title\fR|​\fB\.feed\-title\fR|​\fB\.episode\-number\fR|​\fB\.duration\fR|​\fB\.date\fR|​\fB\.loading\fR|​\fB\.author\fR|​\fB\.genre\fR|​\fB\.episodes\-count\fR|​\fB\.new\-count\fR|​\fB\.details\fR
+.br
+.br
+.IP
+The list item or its component\. The list item can be in multiple states: It can belong to a list that is focused (\fB:focused\fR), it can be selected (\fB:selected\fR), it can describe an episode that is currently being played (\fB:playing\fR), an episode that was hidden from the feed but is visible due to value of \fBhidden\fR option, an episode or feed for which there is no title (for example, it wasn\'t specified by the podcast\'s creator, or it wasn\'t loaded yet, \fB:missing\-title\fR)\.
+.IP
+The rest of state options define an entry in a specific list and in a context\-specific state\. Options starting with \fB:feed\fR describe list entries in the list of feeds the user is subscribed to\. More specific states allow restricting styling for certain situations only: feeds that are in the process of being updated (\fB:feed\-updating\fR), if the previous attempt to update it failed (\fB:feed\-error\fR), and if the feed is special: either the list of all episodes from all subscriptions or all new episodes (\fB:feed\-special\fR)\.
+.IP
+Episode list entries (\fI:episodes\fR) can be selected by their state also: episodes can be either new, meaning never played (\fB:episode\-new\fR), started meaning that playback was started but stopped before the entirety of the episode was listened to (\fB:episode\-started\fR), finised when the episode was listened to until the end (\fB:episode\-finished\fR), or playback failed due to an error (\fB:episode\-error\fR)\.
+.IP
+The search results entries and message log entries can be specified via \fB:search\fR and \fB:log\-entry\fR respectingly\.
+.IP
+Styling can be applied for the whole row or a specific part of it\. For a latter case you may extend this selector with a name of such part\. Some of these are used by many lists\. These include the name of the feed or episode (\fB\.name\fR), a state indicator usually displayed on the right (\fB\.state\fR), and ellipsis that are displayed when the data is being loaded from the database for more time than usual\. Most though are list specific\. The episodes list includes an episode and season number (\fB\.episode\-number\fR), the name of a feed where this episode is located (\fB\.feed\-title\fR), the duration of the episode (\fB\.duration\fR), the date when it was published (\fB\.date\fR)\. Search result entries include the name of the autor who publishes the podcast (\fB\.author\fR), its genre (\fB\.genre\fR), the number of episodes in the feed (\fB\.episodes\-count\fR)\. The list of feeds along with the title includes a number of new episodes (\fB\.new\-count\fR)\. The log entry details are selected as \fB\.details\fR\.
+.IP
+This selector is also used for empty parts of the list\.
+.TP
+\fBempty\fR[\fB:focused\fR][\fB\.title\fR|\fB\.subtitle\fR]
+The list with no entries\. It usually contains a title (\fB\.title\fR) and a text describing why the lits is empty and what can be done to change that (\fB\.subtitle\fR)\. As is a regular list, the empty list can be in the focused state (\fB:focused\fR)\. It\'s recommended that styling for lists and empty lists match in regard to the focused state\.
+.TP
+\fBplayer\fR[\fIplayer\-status\fR][\fIplayer\-element\fR]
+where
+.br
+\fIplayer\-status\fR=\fB:buffering\fR|\fB:paused\fR|\fB:playing\fR|\fB:stopped\fR
+.br
+\fIplayer\-element\fR=\fB\.episode\fR|\fB\.feed\fR|\fB\.progress\fR|\fB\.status\fR|\fB\.timing\fR
+.br
+.br
+.IP
+The playback status bar on the second from the bottom line of the screen\. It consists of some parts which are (from left to right): status indicating the current playback status (buffering, paused, etc\., \fB\.status\fR), the name of the episode (\fB\.episode\fR), the name of a feed containing the currently playing episode (\fB\.feed\fR), the progress bar (\fB\.progress\fR), and the current position within the stream along with its total duration (\fB\.timing\fR)\.
+.IP
+The remaining options allow you to specify different styles depending on the current state of the playback\.
+.P
+Above, \fB[\|\.\|\.\|\.]\fR denotes an optional part, \fB\|\.\|\.\|\.|\|\.\|\.\|\.\fR denotes that either of two or more options can be used, \fB(\|\.\|\.\|\.)*\fR denotes the part that can repeat or not be present\.
+.P
+Selectors can be specific, describing a single UI element in a specific state or be general, specifying many elements or not specifying a state\. When the style is applied using a selector, it is applied to all components that can be described by it in the order the styling is set\. For example styles for \fBplayer\.status\fR will override \fBplayer:playing\.status\fR, so more specific styles should be specifed later than more general ones\.
+.SH "KEY MAPPING"
+This section describes the default key mapping of Hedgehog\. Note that any key mapping can be changed by custom configuration via \fIman\fR and \fIunmap\fR commands\.
+.IP "\[ci]" 4
+\fBUp\fR, \fBk\fR moves the selection one row up,
+.IP "\[ci]" 4
+\fBDown\fR, \fBj\fR moves the selection one row down,
+.IP "\[ci]" 4
+\fBHome\fR moves to the first row in the list,
+.IP "\[ci]" 4
+\fBEnd\fR moves to the last row in the list,
+.IP "\[ci]" 4
+\fBPageUp\fR moves to the item one screen up,
+.IP "\[ci]" 4
+\fBPageDown\fR moves to the item one screen down,
+.IP "\[ci]" 4
+\fBTab\fR toggles between feeds and episodes lists,
+.IP "\[ci]" 4
+\fBEnter\fR either focuses on the episodes list, start playing the episode, or subscribe to the search result depending on the context,
+.IP "\[ci]" 4
+\fBEsc\fR returns to the library from either the error log or search results,
+.IP "\[ci]" 4
+\fBC\-c\fR, \fBq\fR quits Hedgehog (includes confirmation),
+.IP "\[ci]" 4
+\fBDelete\fR deletes the currently selected feed (includes confirmation),
+.IP "\[ci]" 4
+\fBo\fR opens either podcast\'s or episode\'s Web URL,
+.IP "\[ci]" 4
+\fBf\fR stops playback and mark the episode as finished,
+.IP "\[ci]" 4
+\fBRight\fR moves forward by 5 seconds,
+.IP "\[ci]" 4
+\fBLeft\fR moves backwards by 5 seconds,
+.IP "\[ci]" 4
+\fBc\fR toggles between paused and playing states,
+.IP "\[ci]" 4
+\fBm\fR toggles between muted and unmuted states,
+.IP "\[ci]" 4
+\fBMinus\fR decreases volume by 10%,
+.IP "\[ci]" 4
+\fB=\fR, \fB+\fR, \fBS\-+\fR increases volume by 10%,
+.IP "\[ci]" 4
+\fB:\fR begins command entry (cannot be remapped)\.
+.IP "" 0
+.SS "COMMAND ENTRY KEY MAPPING"
+The following are key combination available in the command entry mode\. These cannot be remapped\.
+.IP "\[ci]" 4
+\fBC\-c\fR, \fBEsc\fR stops entry, discards the input,
+.IP "\[ci]" 4
+\fBBackspace\fR, \fBC\-h\fR removes character before cursor,
+.IP "\[ci]" 4
+\fBDelete\fR removes character after cursor,
+.IP "\[ci]" 4
+\fBUp\fR, \fBDown\fR navigates through commands history,
+.IP "\[ci]" 4
+\fBEnter\fR stops entry, accepts and executes the command,
+.IP "\[ci]" 4
+\fBTab\fR performs completion,
+.IP "\[ci]" 4
+\fBLeft\fR moves cursor one character to the left,
+.IP "\[ci]" 4
+\fBRight\fR moves cursor one character to the right,
+.IP "\[ci]" 4
+\fBC\-Left\fR moves cursor one word to the left,
+.IP "\[ci]" 4
+\fBC\-Right\fR moves cursor one word to the right,
+.IP "\[ci]" 4
+\fBHome\fR moves cursor to the first character,
+.IP "\[ci]" 4
+\fBEnd\fR moves cursor to the last character,
+.IP "\[ci]" 4
+\fBBackspace\fR, \fBC\-h\fR removes character before cursor,
+.IP "\[ci]" 4
+\fBDelete\fR removes character after cursor,
+.IP "\[ci]" 4
+\fBS\-Backspace\fR removes all characters before the cursor,
+.IP "\[ci]" 4
+\fBS\-Delete\fR removes all characters after the cursor,
+.IP "\[ci]" 4
+\fBA\-Backspace\fR, \fBC\-w\fR removes a word after cursor,
+.IP "\[ci]" 4
+\fBC\-Delete\fR removes a word before cursor\.
+.IP "" 0
+.SH "BUGS"
+If you find a bug, you have a recommendation or suggestions for Hedgehog, please file an issue at \fIhttps://github\.com/poletaevvlad/Hedgehog/issues\fR\. If you wish to contribute to Hedgehog, you are welcome to participate in the development at \fIhttps://github\.com/poletaevvlad/Hedgehog\fR

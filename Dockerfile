@@ -23,8 +23,13 @@ RUN apk update \
 COPY --from=0 /build/target/release/hedgehog /usr/bin/hedgehog
 COPY --from=0 /tmp/hedgehog_build/config /usr/share/hedgehog
 
-RUN addgroup -S hedgehog\
- && adduser -S hedgehog -G hedgehog
+RUN mkdir /var/data && mkdir /var/config
+VOLUME /var/data
+VOLUME /var/config
+
+RUN addgroup -S hedgehog \
+ && adduser -S hedgehog -G hedgehog \
+ && chown -R hedgehog:hedgehog /var/data /var/config
 USER hedgehog
 
-CMD /usr/bin/hedgehog
+CMD /usr/bin/hedgehog --data-path /data --config-path /config

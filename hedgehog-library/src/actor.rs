@@ -1,7 +1,7 @@
 use crate::datasource::{DataProvider, NewFeedMetadata, QueryError};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedError, FeedId, FeedStatus, FeedSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::EpisodesQuery;
@@ -190,11 +190,11 @@ impl Library {
             let permit_fut = Arc::clone(&self.feeds_semaphore).acquire_owned();
             let future = wrap_future(async move {
                 let _permit = permit_fut.await.unwrap();
-                fetch_feed(&source).await.map_err(FeedUpdateError::from)
+                fetch_feed(&source).await
             })
             .map(move |result, library: &mut Library, _ctx| {
                 library.updating_feeds.remove(&feed_id);
-                let result = match result {
+                let result: Result<_, QueryError> = match result {
                     Ok(mut feed) => (|| {
                         let mut writer = library.data_provider.writer(feed_id)?;
                         let feed_metadata = feed.feed_metadata();
@@ -222,6 +222,7 @@ impl Library {
                         Ok(())
                     })(),
                     Err(err) => {
+                        log::error!(target: "networking", "{}", err);
                         let new_status = FeedStatus::Error(err.as_feed_error());
                         if let Err(error) =
                             library.data_provider.set_feed_status(feed_id, new_status)
@@ -232,7 +233,7 @@ impl Library {
                             feed_id,
                             FeedUpdateResult::StatusChanged(new_status),
                         ));
-                        Err(err)
+                        Ok(())
                     }
                 };
 
@@ -241,24 +242,6 @@ impl Library {
                 };
             });
             ctx.spawn(future);
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum FeedUpdateError {
-    #[error(transparent)]
-    Database(#[from] QueryError),
-
-    #[error(transparent)]
-    Fetch(#[from] crate::rss_client::FetchError),
-}
-
-impl FeedUpdateError {
-    fn as_feed_error(&self) -> FeedError {
-        match self {
-            FeedUpdateError::Database(_) => FeedError::Unknown,
-            FeedUpdateError::Fetch(fetch_error) => fetch_error.as_feed_error(),
         }
     }
 }

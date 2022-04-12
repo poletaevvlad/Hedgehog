@@ -13,8 +13,8 @@ mod tests;
 
 pub use actor::{
     EpisodePlaybackDataRequest, EpisodeRequest, EpisodeSummariesRequest,
-    EpisodesListMetadataRequest, FeedRequest, FeedSummariesRequest, FeedUpdateError,
-    FeedUpdateNotification, FeedUpdateRequest, FeedUpdateResult, Library, UpdateQuery,
+    EpisodesListMetadataRequest, FeedRequest, FeedSummariesRequest, FeedUpdateNotification,
+    FeedUpdateRequest, FeedUpdateResult, Library, UpdateQuery,
 };
 pub use cache::InMemoryCache;
 pub use datasource::{EpisodesQuery, NewFeedMetadata, QueryError};

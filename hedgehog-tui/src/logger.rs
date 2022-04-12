@@ -41,6 +41,7 @@ enum LogTarget {
     Playback,
     Sql,
     Io,
+    Networking,
 }
 
 impl LogTarget {
@@ -56,6 +57,7 @@ impl LogTarget {
             "playback" => LogTarget::Playback,
             "sql" => LogTarget::Sql,
             "io" => LogTarget::Io,
+            "networking" => LogTarget::Networking,
             _ => LogTarget::Default,
         }
     }
@@ -104,6 +106,7 @@ impl LogEntry {
             LogTarget::Playback => todo!(),
             LogTarget::Sql => Some("Internal database error"),
             LogTarget::Io => Some("I/O error"),
+            LogTarget::Networking => Some("Network error"),
         }
     }
 

@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv='content-type' content='text/html;charset=utf8'>
+  <meta name='generator' content='Ronn-NG/v0.9.1 (http://github.com/apjanke/ronn-ng/tree/0.9.1)'>
+  <title>hedgehog(1) - podcast player and organizer</title>
+  <style type='text/css' media='all'>
+  /* style: man */
+  body#manpage {margin:0}
+  .mp {max-width:100ex;padding:0 9ex 1ex 4ex}
+  .mp p,.mp pre,.mp ul,.mp ol,.mp dl {margin:0 0 20px 0}
+  .mp h2 {margin:10px 0 0 0}
+  .mp > p,.mp > pre,.mp > ul,.mp > ol,.mp > dl {margin-left:8ex}
+  .mp h3 {margin:0 0 0 4ex}
+  .mp dt {margin:0;clear:left}
+  .mp dt.flush {float:left;width:8ex}
+  .mp dd {margin:0 0 0 9ex}
+  .mp h1,.mp h2,.mp h3,.mp h4 {clear:left}
+  .mp pre {margin-bottom:20px}
+  .mp pre+h2,.mp pre+h3 {margin-top:22px}
+  .mp h2+pre,.mp h3+pre {margin-top:5px}
+  .mp img {display:block;margin:auto}
+  .mp h1.man-title {display:none}
+  .mp,.mp code,.mp pre,.mp tt,.mp kbd,.mp samp,.mp h3,.mp h4 {font-family:monospace;font-size:14px;line-height:1.42857142857143}
+  .mp h2 {font-size:16px;line-height:1.25}
+  .mp h1 {font-size:20px;line-height:2}
+  .mp {text-align:justify;background:#fff}
+  .mp,.mp code,.mp pre,.mp pre code,.mp tt,.mp kbd,.mp samp {color:#131211}
+  .mp h1,.mp h2,.mp h3,.mp h4 {color:#030201}
+  .mp u {text-decoration:underline}
+  .mp code,.mp strong,.mp b {font-weight:bold;color:#131211}
+  .mp em,.mp var {font-style:italic;color:#232221;text-decoration:none}
+  .mp a,.mp a:link,.mp a:hover,.mp a code,.mp a pre,.mp a tt,.mp a kbd,.mp a samp {color:#0000ff}
+  .mp b.man-ref {font-weight:normal;color:#434241}
+  .mp pre {padding:0 4ex}
+  .mp pre code {font-weight:normal;color:#434241}
+  .mp h2+pre,h3+pre {padding-left:0}
+  ol.man-decor,ol.man-decor li {margin:3px 0 10px 0;padding:0;float:left;width:33%;list-style-type:none;text-transform:uppercase;color:#999;letter-spacing:1px}
+  ol.man-decor {width:100%}
+  ol.man-decor li.tl {text-align:left}
+  ol.man-decor li.tc {text-align:center;letter-spacing:4px}
+  ol.man-decor li.tr {text-align:right;float:right}
+  </style>
+  <style type='text/css' media='all'>
+  /* style: toc */
+  .man-navigation {display:block !important;position:fixed;top:0;left:113ex;height:100%;width:100%;padding:48px 0 0 0;border-left:1px solid #dbdbdb;background:#eee}
+  .man-navigation a,.man-navigation a:hover,.man-navigation a:link,.man-navigation a:visited {display:block;margin:0;padding:5px 2px 5px 30px;color:#999;text-decoration:none}
+  .man-navigation a:hover {color:#111;text-decoration:underline}
+  </style>
+  <style type='text/css' media='all'>
+  /* style: dark */
+  .mp,body#manpage {background:#080706;color:#888}
+  .mp,.mp code,.mp pre,.mp pre code,.mp tt,.mp kbd,.mp samp {color:#aaa}
+  .mp h1,.mp h2,.mp h3,.mp h4 {color:#fff}
+  .man-decor,.man-decor ol li {color:#666}
+  .mp code,.mp strong,.mp b {color:#fff}
+  .mp em,.mp var,.mp u {color:#ddd}
+  .mp pre code {color:#ddd}
+  .mp a,.mp a:link,.mp a:hover,.mp a code,.mp a pre,.mp a tt,.mp a kbd,.mp a samp {color:#fff}
+  </style>
+  <style type='text/css' media='all'>
+  /* style: darktoc */
+  .man-navigation {border-left:2px solid #222;background-color:#131211}
+  .man-navigation a,.man-navigation a:hover,.man-navigation a:link,.man-navigation a:visited {color:#777;text-decoration:none}
+  .man-navigation a:hover {color:#fff;text-decoration:underline}
+  </style>
+</head>
+<!--
+  The following styles are deprecated and will be removed at some point:
+  div#man, div#man ol.man, div#man ol.head, div#man ol.man.
+
+  The .man-page, .man-decor, .man-head, .man-foot, .man-title, and
+  .man-navigation should be used instead.
+-->
+<body id='manpage'>
+  <div class='mp' id='man'>
+
+  <div class='man-navigation' style='display:none'>
+    <a href="#NAME">NAME</a>
+    <a href="#SYNOPSIS">SYNOPSIS</a>
+    <a href="#DESCRIPTION">DESCRIPTION</a>
+    <a href="#OPTIONS">OPTIONS</a>
+    <a href="#COMMANDS">COMMANDS</a>
+    <a href="#CONFIGURATION">CONFIGURATION</a>
+    <a href="#THEMING">THEMING</a>
+    <a href="#KEY-MAPPING">KEY MAPPING</a>
+    <a href="#BUGS">BUGS</a>
+  </div>
+
+  <ol class='man-decor man-head man head'>
+    <li class='tl'>hedgehog(1)</li>
+    <li class='tc'></li>
+    <li class='tr'>hedgehog(1)</li>
+  </ol>
+
+  
+
+<h2 id="NAME">NAME</h2>
+<p class="man-name">
+  <code>hedgehog</code> - <span class="man-whatis">podcast player and organizer</span>
+</p>
+<h2 id="SYNOPSIS">SYNOPSIS</h2>
+
+<p><code>hedgehog</code> [<code>--h</code>|<code>--help</code>] [<code>--no-mouse</code>] [<code>--no-pidfile</code>] [<code>--no-mpris</code>]
+[<code>-V*</code>|<code>*--version</code>] [<code>--config-path</code> <var>path</var>] [<code>--data-path</code> <var>paths</var>]
+[<var>subcommand</var> <var>arguments</var>...]</p>
+
+<h2 id="DESCRIPTION">DESCRIPTION</h2>
+
+<p>Hedgehog is a podcasts player and subscriptions management software that works
+within a terminal. Its features include:</p>
+
+<ul>
+  <li>subscribing to RSS feeds and managing subscriptions;</li>
+  <li>viewing and automatically updating the list of episodes from each feed;</li>
+  <li>keeping track of the episodes' state: whether you played any episode, did
+you finish listening to it or not, remembering when the playback stopped;</li>
+  <li>playing episodes and controlling its playback: play/pause, seek, control
+volume, etc.;</li>
+  <li>searching for feeds online and subscribing to them;</li>
+  <li>importing and exporting the list of feeds from/to other podcast management
+software via OPML documents.</li>
+</ul>
+
+<p>The main interface of Hedgehog contains two panes: the list of feeds you are
+subscribed to (along with two special feeds with all episodes and with all new
+episodes) and the list of episodes within the selected feed. You can navigate
+between different panes using arrow and Tab keys or using a mouse cursor if
+your terminal emulator supports it. To start the playback of an episode, you
+can either select it and press <code>Enter</code> or double-click with a left mouse
+button.</p>
+
+<p>See <a href="#KEY-MAPPING" title="KEY MAPPING" data-bare-link="true">KEY MAPPING</a> section of this manual for the list of default keybinding
+which can be reconfigured, and <em>commands</em> section for the list of all commands
+that Hedgehog supports.</p>
+
+<h2 id="OPTIONS">OPTIONS</h2>
+
+<dl>
+<dt><code>--no-mouse</code></dt>
+<dd>Disables the capacity of Hedgehog to read and handle mouse input. If not
+present, you can select list items, start and control playback, change cursor
+position in the command entry field, etc., but you won't be able to select
+text in the terminal window.</dd>
+<dt><code>--no-pidfile</code></dt>
+<dd>By default, Hedgehog prevents two or more instances of the program from
+running at the same time to prevent inconsistencies in the displayed data.
+This flag prevents this behavior. Note that multiple instances are allowed to
+be executed for different data directories.</dd>
+<dt><code>--no-mpris</code></dt>
+<dd>Disables Hedgehog's support for MPRIS protocol. This protocol allows third
+party software to observe the state of playback and control it by sending 
+messages through DBus. Note, that not all platforms support this
+functionality Hedgehog may be compiled without it. In such cases this option
+won't be present.</dd>
+<dt><code>--data-path</code></dt>
+<dd>Specifies the path from where episodes database, commands history and some
+other files will be read. The default is <code>~/.local/share/hedgehog/</code> on
+UNIX-compatible platforms and <code>%APPDATA%/hedgehog</code> on Windows. This location
+can be backed-up and copied to another system.</dd>
+<dt><code>--config-path</code></dt>
+<dd>Specifies a path or a set of paths where Hedgehog will search for the
+configuration files: <code>rc</code> files and themes. These paths extend the set of
+default paths. For more information on configuration, see the
+<a href="#CONFIGURATION" title="CONFIGURATION" data-bare-link="true">CONFIGURATION</a> section of this manual.</dd>
+<dt>
+<code>export</code> <var>file</var>
+</dt>
+<dd>A sub-command for exporting the list of podcast feeds managed by Hedgehog in
+OPML format. This can be later imported into another podcast management
+programs. <var>file</var> is a path to an XML file where the exported data will be
+written or a dash (<code>-</code>) in which case the exported data will be written
+to standard output.</dd>
+<dt>
+<code>import</code> <var>file</var>
+</dt>
+<dd>Adds the set of podcast feeds to the database. Episodes from these feeds will
+be fetched on the next launch. Duplicate feeds will be ignored. <var>file</var> is a
+path to XML file in OPML format that will be read or a dash (<code>-</code>) in which
+case the data will be read from the standard input.</dd>
+</dl>
+
+<h2 id="COMMANDS">COMMANDS</h2>
+
+<p>You control Hedgehog TUI by issuing commands either directly (by pressing <code>:</code>,
+entering the name of a command and its arguments, and submitting it with the
+<code>Enter</code> key) or indirectly, by pressing a key combination mapped to a specific
+command. There are few exceptions, such as actions performed with a mouse or
+through the MPRIS interface.</p>
+
+<p>When entering commands manually, there are keys that have special meaning.
+Hedgehog tries to follow established conventions. These keys cannot be
+remapped, and you can find their list in the <a href="#COMMAND-ENTRY-KEY-MAPPING" title="COMMAND ENTRY KEY MAPPING" data-bare-link="true">COMMAND ENTRY KEY MAPPING</a>
+subsection.</p>
+
+<p>The remaining of this section lists the supported commands and their
+description</p>
+
+<h3 id="NAVIGATION">NAVIGATION</h3>
+
+<dl>
+<dt><code>line first</code></dt>
+<dd>Selects the first line in the current list.</dd>
+<dt><code>line last</code></dt>
+<dd>Selects the last line in the current list.</dd>
+<dt><code>line page-up</code></dt>
+<dd>Moves the selection up by an entire screen.</dd>
+<dt><code>line page-down</code></dt>
+<dd>Moves the selection down by an entire screen.</dd>
+<dt>
+<code>line move-by</code> <var>number</var>
+</dt>
+<dd>Moves the selection down (if <var>number</var> is positive) or up (if <var>number</var> is
+negative) by the specific number of rows.</dd>
+<dt>
+<code>line scroll-by</code> <var>number</var>
+</dt>
+<dd>Scrolls the current list down (if <var>number</var> is positive) or up (if <var>number</var> is
+negative) by the specific number of rows and keeps the selected row. If after
+scrolling, the selection is not visible, the closest visible row will be
+selected (with some margin from the edge of a screen).</dd>
+<dt>
+<code>focus</code> <var>pane-name</var>
+</dt>
+<dd>Sets the currently selected pane. The selected pane is highlighted in the UI
+and all line commands listed above affect the list contained in this pane.
+Possible values for <var>pane-name</var> are listed bellow.</dd>
+<dt><code>log</code></dt>
+<dd>Opens the list of errors. This command is a shorthand for <code>focus log</code>.</dd>
+<dt>
+<code>quit</code> or <code>q</code>
+</dt>
+<dd>Exits Hedgehog.</dd>
+</dl>
+
+<p><var>pane-name</var> is an argument used by some commands and it names the section of
+the UI that is currently selected and is ready to handle users' interaction.
+The possible values for <var>pane-name</var> are:</p>
+
+<ul>
+  <li>
+<code>feeds</code>: the list of feeds located on the right-hand side of the library
+view</li>
+  <li>
+<code>episodes</code>: the list of the episodes in a feed;</li>
+  <li>
+<code>search</code>: the list of search result. Search can be initiated using the
+<code>search</code> command. When this pane is selected manually, Hedgehog shows
+results from the previous search;</li>
+  <li>
+<code>log</code>: the list of errors that occurred during the current session, these
+errors include networking error, configuration issues, etc.;</li>
+</ul>
+
+<h3 id="PLAYBACK">PLAYBACK</h3>
+
+<dl>
+<dt><code>play-current</code></dt>
+<dd>Starts playback of the currently selected episode from the position when the
+playback stopped before. If this episode was never played or if it was
+finished, the playback starts from the beginning.</dd>
+<dt><code>stop</code></dt>
+<dd>Immediately terminates playback. Playback then can be restarted only by
+selecting the episode again.</dd>
+<dt><code>finish</code></dt>
+<dd>Immediately terminates playback and marks the previously playing episode as
+finished.</dd>
+<dt><code>pause</code></dt>
+<dd>Pauses the playback. It can be then resumed using <code>resume</code> or
+<code>toggle-pause</code> commands.</dd>
+<dt><code>resume</code></dt>
+<dd>Resumes the playback from the current position.</dd>
+<dt><code>toggle-pause</code></dt>
+<dd>Toggles between playing and paused states. This command is equivalent to
+either <code>pause</code> or <code>resume</code> depending on the current state of the playback.</dd>
+<dt><var>duration</var></dt>
+<dd>If the playback is active, changes the current position in the stream to the
+specified <var>duration</var>. This action may cause a temporary break in the
+playback due to buffering. The paused status of the playback won't be changed
+by this command.
+
+    <p><var>duration</var> is specified in seconds, minutes and hours sepearated by colon.
+Only seconds are required. For example <code>160</code>, <code>2:40</code>, and <code>0:02:40</code> are
+equivalent. Leading zeros are allowed.</p>
+</dd>
+<dt>
+<code>seek</code> <var>signed-duration</var>
+</dt>
+<dd>If the playback is active, changes the current position in the stream by the
+specified duration relative to the current position. The <var>signed-duration</var>
+may be preceded by either <code>+</code> or <code>-</code> characters, which indicate whether the
+seek operation will be performed forwards or backwards.</dd>
+<dt>
+<code>rate</code> <var>real-number</var>
+</dt>
+<dd>Changes the playback rate of the current stream. If the argument equals 1.0,
+the episode will be played at normal speed, any value less than 1.0 will
+cause the playback will be slowed down, and if the value is greater than 1.0,
+the playback will be sped up.</dd>
+<dt>
+<code>mute</code>, <code>unmute</code>, <code>toggle-mute</code>
+</dt>
+<dd>Changes the muted status for the playback. The muted status does not affect
+the current volume, when unmuting, the playback volume will be restored to
+the previous value. <code>toggle-mute</code> variant of this command toggles between
+muted and unmuted states.</dd>
+<dt>
+<code>vol-set</code> <var>volume</var>
+</dt>
+<dd>Sets the volume to the specified value. <var>volume</var> must be a number between 0
+and 100.</dd>
+<dt>
+<code>vol-adjust</code> <var>signed-volume</var>
+</dt>
+<dd>Changes the current volume by a specified amount. <strong>signed volume</strong> has the
+same unit as in the <strong>vol-set</strong> command: the range is -100 to 100.</dd>
+</dl>
+
+<h3 id="SUBSCRIPTIONS-MANAGEMENT">SUBSCRIPTIONS MANAGEMENT</h3>
+
+<dl>
+<dt>
+<code>add</code> <var>rss-url</var>
+</dt>
+<dd>Adds a new subscription. Hedgehog will try to fetch the feed metadata and
+episodes list immediately after it finishes. Note, that <var>rss-url</var> must
+point to the RSS feed, Hedgehog will not try to determine the URL of the RSS
+feed from HTML page's metadata.</dd>
+<dt><code>delete-feed</code></dt>
+<dd>Removes the feed and all its episodes. This action cannot be undone.</dd>
+<dt>
+<code>update</code> [<code>--this</code>]</dt>
+<dd>Updates the feed metadata and the episodes list. If new episodes are found in
+the feed, they will appear in the library marked "new". If <code>--this</code> attribute
+is specified, then only the currently selected feed will be updated.
+Otherwise, all feeds that hasn't been disabled will be updated.</dd>
+<dt>
+<code>enable</code>, <code>disable</code>
+</dt>
+<dd>Enables or disables the feed. If you disable the feed, then it won't be
+scheduled to be updated by neither the <code>update</code> command nor automatically on
+launch.</dd>
+<dt>
+<code>open-link feed</code>, <code>open-link episode</code>
+</dt>
+<dd>Opens the WWW URL specified in the feed or episode metadata respectingly in
+the default browser.</dd>
+<dt><code>hide</code></dt>
+<dd>Hides the currently selected episode from the episodes list. Note, that it
+won't be deleted from the database. The hidden episodes aren't shown in the
+library by default. This can be enabled by issuing command <code>set hidden true</code>.</dd>
+<dt><code>unhide</code></dt>
+<dd>Removed the hidden status from the currently selected episode. To issue this
+command, Hedgehog needs to be configured to show hidden episodes (using
+command <em>set hidden true</em>; it can be reverted by issuing <code>set hidden false</code>)</dd>
+<dt>
+<code>mark</code> <var>status</var> [<code>--all</code>] [<code>--if</code> <var>status-conditiol</var>]</dt>
+<dd>Changes the status of the episode. The <var>status</var> can be either <code>new</code>, <code>seen</code>,
+or <code>finished</code>. By default, only the currently selected episode will be
+affected. If <code>--all</code> attribute is specified, then all episodes in the
+currently selected feed will be altered. In this case, it can be useful to
+update only a subset of episodes for update, for example, you may want to
+mark all new episodes in the new feed as seen. <code>--if</code> attribute specifies a
+precondition for such update. <code>status-condition</code> can be either <code>new</code>, <code>seen</code>,
+<code>finished</code>, <code>started</code>, or <code>error</code>.</dd>
+<dt><code>reverse</code></dt>
+<dd>Changes the order of episodes in the selected feed. By default, episodes are
+displayed in reverse chronological order (starting with the newest). This
+command changes this order for a single feed. This preference is saved in the
+database and will remain after the restart.</dd>
+<dt>
+<code>search</code> <var>query</var> or <code>s</code> <var>query</var>
+</dt>
+<dd>Starts the search session. When this command is issued, Hedgehog performs a
+search for podcast feeds online and <code>search</code> pane comes into focus.</dd>
+<dt><code>search-add</code></dt>
+<dd>Subscribes to the currently selected feed in the search pane.</dd>
+</dl>
+
+<h3 id="CONFIGURATION">CONFIGURATION</h3>
+
+<dl>
+<dt>
+<code>confirm</code> <var>prompt</var> <var>command</var> [<code>--default</code> <var>bool</var>]</dt>
+<dd>Displays confirmation prompt and askes the user for confirmation.
+The <var>command</var> will be executed only on affirmative response. <code>--default</code>
+attribute specifies the default behavior, whether the command will be
+executed (if <code>true</code>) or not (<code>false</code>) when the <code>Enter</code> key is pressed.</dd>
+<dt>
+<code>exec</code> <var>path</var>
+</dt>
+<dd>Reads the file at path and executes commands in it. Each command must be
+specified on a separate line; empty lines or lines containing only comments
+(starting with <code>#</code>) are ignored. All commands will be executed until the
+first failure or until the end of the file is reached.
+
+    <p><var>path</var> can be either absolute or relative. If <var>path</var> is relative, Hedgehog
+will try to find a file in any of the paths specified in the list of data
+directories. See details in the <a href="#CONFIGURATION" title="CONFIGURATION" data-bare-link="true">CONFIGURATION</a> section of the manual.</p>
+</dd>
+<dt>
+<code>map</code> <var>key</var> <var>command</var> [<code>--state</code> <var>pane</var>]</dt>
+<dd>Maps <var>command</var> to a specific key combination <var>key</var>. You can specify different
+mapping for different states depending on which pane is currently selected.
+If <code>--state</code> option is specified, than the key mapping will be active only if
+this specific pane is selected. Mapping with a specific state have higher
+precedence than mappings without one.</dd>
+<dt>
+<code>unmap</code> <var>key</var> [<code>--state</code> <var>pane</var>]</dt>
+<dd>Removes the key mapping. See the documentation for the <code>map</code> command above
+for the meaning behind <code>--state</code> attribute. Note that when unmapping the
+key, you need to specify the same state as was specified when mapping:
+<code>unmap</code> <var>key</var> without <code>--state</code> does not remove state-specific
+keybindings.</dd>
+<dt><dl>
+      <dt>
+<code>set</code> <var>option-name</var> <var>value</var>:</dt>
+      <dd>Updates the property controlling how Hedgehog looks like and behaves. The
+list of properties is described in the <a href="#CONFIGURATION" title="CONFIGURATION" data-bare-link="true">CONFIGURATION</a> section of this
+manual.</dd>
+    </dl></dt>
+<dd></dd>
+</dl>
+
+<p><code>map</code> and <code>unmap</code> commands accepts <var>key</var> argument specified in the format
+similar to the one used by <code>vim</code> and some other software. Key specification
+consists of zero or more modifiers followed by the key's name. Allowed modifier
+are:</p>
+
+<ul>
+  <li>
+<code>S</code> or <code>Shift</code> for the shift key,</li>
+  <li>
+<code>C</code>, <code>Ctrl</code>, or <code>Control</code> for the control key,</li>
+  <li>
+<code>A</code>, <code>Alt</code>, <code>M</code>, or <code>Meta</code> for the alt key.</li>
+</ul>
+
+<p>Most keys can be specified with a single character (such as numbers, Latin
+letters, etc.). The rest have aliases:</p>
+
+<ul>
+  <li>
+<code>Left</code>, <code>Up</code>, <code>Right</code>, <code>Down</code> for arrow keys,</li>
+  <li>
+<code>Enter</code>, <code>Return</code>, <code>CR</code> for the enter key,</li>
+  <li>
+<code>BS</code>, <code>Backspace</code> for the backspace key,</li>
+  <li>
+<code>Home</code>, <code>End</code>, <code>PageUp</code>, <code>PageDown</code> for common cursor position
+manipulation keys,</li>
+  <li>
+<code>Tab</code> for the tab key,</li>
+  <li>
+<code>Del</code>, <code>Delete</code> for the delete key,</li>
+  <li>
+<code>Esc</code> for the escape key,</li>
+  <li>
+<code>Space</code> for the space key,</li>
+  <li>
+<code>Bar</code> for the <code>|</code> key,</li>
+  <li>
+<code>Minus</code> for the <code>-</code> key,</li>
+  <li>
+<code>Insert</code> for the insert key,</li>
+  <li>
+<code>Nul</code> for the character with code 0,</li>
+  <li>
+<code>F1</code>, <code>F2</code>, ... for functional keys.</li>
+</ul>
+
+<p>Modifiers and keys and separated by dashes (<code>-</code>), for example <code>C-c</code> for
+<code>Control+C</code>, <code>A-S-W</code> for <code>Alt+Shift+W</code>. Please note that keys are
+case-sensitive: if you include the Shift modifier, then the key should be
+uppercase if applicable (<code>S-A</code> is correct while <code>S-a</code> won't work).</p>
+
+<h2 id="CONFIGURATION">CONFIGURATION</h2>
+
+<p>Hedgehog is configured by executing the commands described in the <a href="#COMMANDS" title="COMMANDS" data-bare-link="true">COMMANDS</a>
+section of this manual. The effect of these commands lasts until Hedgehog
+restarts. In order for the configuration to persistent across restarts they
+should be inserted in the <code>rc</code> file in the config directory.</p>
+
+<p>Hedgehog considers multiple directories when loading its configuration: command
+lists and themes, in a way that is similar to how <em>PATH</em> environment variable
+is used by the operating system. The configuration path can be configured via
+<code>--data-path</code> CLI argument for Hedgehog executable or <code>HEDGEHOG_DATA</code>
+environment variables. Both these options append the set of directories to the
+default paths. The default paths are:</p>
+
+<ul>
+  <li>
+<code>/usr/share/hedgehog</code> and <code>./usr/share/hedgehog</code> (only on UNIX-based OSes);</li>
+  <li>the parent directory of the Hedgehog's executable (only on Windows); *
+user's config directory: <code>~/.config/hedgehog</code> on UNIX-based OSes and
+<code>\Users\&lt;user&gt;\AppData\Roaming</code> on Windows.</li>
+</ul>
+
+<p>When looking for a file to load (using <code>exec</code> or <code>theme load</code> command) Hedgehog
+searches for the existing file by iterating through data directories from the
+last one to the first one, meaning the directory specified by the user has the
+highest priority, and global configuration has the lowest.</p>
+
+<p>Exception to this rule is loading the startup commands. There is a special file
+named <code>rc</code> in the data directory. Hedgehog will execute commands in such files
+in all data directories in the opposite order: starting with the system-wide
+configuration followed by user-defined configuration files.</p>
+
+<p>Each configuration file (both <code>rc</code> file and themes) contains a series of
+commands, each located on a separate line. The interpreter ignores empty lines
+and comments (sections starting with <code>#</code>).</p>
+
+<h3 id="CONFIGURATION-OPTIONS">CONFIGURATION OPTIONS</h3>
+
+<p>This section list options that can be set using the <em>set</em> command.</p>
+
+<dl>
+<dt><code>date_format</code></dt>
+<dd>The format of the publication date following the syntax of <em><span class="man-ref">strftime<span class="s">(3)</span></span></em>
+function.</dd>
+<dt><code>label_playback_status_playing</code></dt>
+<dd>The label displaying in the player status bar in playing state.</dd>
+<dt><code>label_playback_status_paused</code></dt>
+<dd>The label displaying in the player status bar in paused state.</dd>
+<dt><code>label_playback_status_bufffering</code></dt>
+<dd>The label displaying in the player status bar when the audio stream is
+buffering.</dd>
+<dt><code>label_playback_status_none</code></dt>
+<dd>The label displaying in the player status bar when no episode is playing.</dd>
+<dt><code>label_playback_status_none</code></dt>
+<dd>The label displaying in the player status bar when no episode is playing.</dd>
+<dt><code>label_episode_new</code></dt>
+<dd>Label displaying in the library when the episode is new.</dd>
+<dt><code>label_episode_seen</code></dt>
+<dd>Label displaying in the library when the episode is not new but hasn't been
+played. Episode can reach this status using <code>mark</code> command.</dd>
+<dt><code>label_episode_playing</code></dt>
+<dd>Label displaying in the library when the episode is currently being played.</dd>
+<dt><code>label_episode_started</code></dt>
+<dd>Label displaying in the library when the episode was started but not
+completed and is not currently playing.</dd>
+<dt><code>label_episode_finished</code></dt>
+<dd>Label displaying in the library when the episode was completed.</dd>
+<dt><code>label_episode_finished</code></dt>
+<dd>Label displaying in the library when the previous playback attempt has failed
+with an error.</dd>
+<dt><code>label_feed_error</code></dt>
+<dd>Label displaying in the library list for feeds which could not be updated due
+to an error.</dd>
+<dt><code>label_feed_updating</code></dt>
+<dd>Label displaying in the library list for feeds that are currently being
+loaded.</dd>
+<dt><code>label_feed_updating</code></dt>
+<dd>Flag indicating whether enabled feeds should be updated on startup.</dd>
+<dt><code>show_episode_number</code></dt>
+<dd>Flag indicating whether episode and season number should be displayed for
+episodes in the library.</dd>
+<dt><code>hidden</code></dt>
+<dd>lag indicating whether the episodes that are hidden using the <em>hide</em> command
+should be visible in the library.</dd>
+<dt><code>progress_bar_width</code></dt>
+<dd>the number of characters allocated to the progress indicator in the player
+state bar.</dd>
+<dt><code>progress_bar_chars</code></dt>
+<dd>a string, characters of which are used for the progress indicator.</dd>
+</dl>
+
+<h2 id="THEMING">THEMING</h2>
+
+<p>Hedgehog allows extensive customization of colors and text styles for any
+component of its user interface. As with any other customization option,
+changing the visual style of the program is performed via issuing commands.
+Hedgehog supports a separate category of theming commands. They can be issued
+us subcommands of <code>theme</code> or loaded from a separate file via <code>theme load</code> (the
+<code>theme</code> prefix isn't used for commands in the theme file).</p>
+
+<h3 id="THEMING-COMMANDS">THEMING COMMANDS</h3>
+
+<dl>
+<dt><code>reset</code></dt>
+<dd>Clears all styles. After this command is executed, all styling assigned to
+any component in any state will be cleared.</dd>
+<dt>
+<code>load</code> <var>file</var> [<code>--extend</code>]</dt>
+<dd>Reads a file and executes all theming commands from it. Note that <var>file</var>
+can be either an absolute or relative path. In case of a relative path,
+Hedgehog applies the same logic as for searching the configuration files but
+with a small difference. Theme file may have a <code>.theme</code> extension.
+
+    <p>Hedgehog will try to locate a file both with and without it, all existing
+styling is cleared before a theme file is loaded. Inclusion of <code>--extend</code>
+flag prevents this.</p>
+</dd>
+<dt>
+<code>set</code> <var>selector</var> <var>style-modifiers</var>
+</dt>
+<dd>Applies the styling to a component identified by the <var>selector</var>. The syntax
+of each argument is specified further.</dd>
+</dl>
+
+<h3 id="STYLE-SYNTAX">STYLE SYNTAX</h3>
+
+<p>Styles are specified using a special syntax where multiple modifiers separated
+by a single or multiple whitespace characters.</p>
+
+<dl>
+<dt>
+<code>fg:</code><var>color</var>, <code>bg:</code><var>color</var>
+</dt>
+<dd>Sets the foreground or background color of a component, respectively. The
+color itself can be specified using any of three ways: a 24-bit RGB color in
+hexadecimal form preceded by a percentage sign (<code>%FFFFFF</code> for white), an
+8-bit xterm color preceded by a dollar sign (<code>$231</code> for <code>White/Grey100</code>) or
+using a color's name (either <code>black</code>, <code>blue</code>, <code>cyan</code>, <code>darkgray</code>, <code>gray</code>,
+<code>green</code>, <code>lightblue</code>, <code>lightcyan</code>, <code>lightgreen</code>, <code>lightmagenta</code>, <code>lightred</code>,
+<code>lightyellow</code>, <code>magenta</code>, <code>red</code>, <code>white</code>, or <code>yellow</code>). There is a special
+color identified by the keyword *reset` which corresponds to the terminal's
+default background or foreground color. Please note that not all color modes
+may be supported by your terminal emulator. Named colors may also be
+overridden by the terminal's configuration.</dd>
+<dt><dl>
+      <dt>
+<code>+</code><var>modifier</var>, <code>-</code><var>modifier</var>:</dt>
+      <dd>Adds or removes a modifier. A modifier is a special attribute of a terminal
+cell that changes some of its visual characteristics. Removing a modifier is
+useful when you want to override the existing styling of a component with
+modifiers already applied. Note, that different terminal emulator may
+interpret some modifiers differently or not support them at all.</dd>
+    </dl></dt>
+<dd></dd>
+</dl>
+
+<p>The modifiers list include:</p>
+
+<ul>
+  <li>
+<code>bold</code> increases the text intensity,</li>
+  <li>
+<code>crossedout</code> crosses the text,</li>
+  <li>
+<code>dim</code> decreases the text intensity,</li>
+  <li>
+<code>hidden</code> hides the text,</li>
+  <li>
+<code>italic</code> emphasizes the text,</li>
+  <li>
+<code>rapidblink</code> makes the text blinking (≥ 150 times per minute),</li>
+  <li>
+<code>reversed</code> swaps background and foreground color,</li>
+  <li>
+<code>slowblink</code> makes the text blinking (≤ 150 times per minute),</li>
+  <li>
+<code>underlined</code> underlines the text.</li>
+</ul>
+
+<h3 id="SELECTOR-SYNTAX">SELECTOR SYNTAX</h3>
+
+<p>A selector is a string that identifies a UI element in a specific state.
+Selectors follow any of the following forms:</p>
+
+<dl>
+<dt><code>statusbar.empty</code></dt>
+<dd>The status bar (the bottom row of the scrren) when it doesn't display any
+content.</dd>
+<dt>
+<code>statusbar.command</code>[<code>.prompt</code>]</dt>
+<dd>The status bar when it's used for command entry. <code>.prompt</code> is used for the
+command's prompt (colon at the beginning) only.</dd>
+<dt><code>statusbar.confirmation</code></dt>
+<dd>The status bar when it's used for prompting the user to confirm some action.</dd>
+<dt>
+<code>statusbar.status</code>[<code>:error</code>|<code>:warning</code>|<code>:information</code>][<code>.label</code>]</dt>
+<dd>The status bar when it's used for displaying the status message. The status
+can be of different severities (<code>error</code>, <code>warning</code> or <code>information</code>). 
+The <code>label</code> is a short string placed before some messages (mostly errors).</dd>
+<dt><code>list.divider</code></dt>
+<dd>The divider between two columns or rows in the library.</dd>
+<dt>
+<code>list.item</code>(<var>item-state</var>)*[<var>item-component</var>]</dt>
+<dd>where <br> 
+<var>item-state</var>=<code>:focused</code>|​<code>:selected</code>|​<code>:playing</code><!--
+  -->|​<code>:hidden</code>|​<code>:missing-title</code>|​<code>:feed</code><!--
+  -->|​<code>:feed-updating</code>|​<code>:feed-error</code>|​<code>:feed-special</code><!--
+  -->|​<code>:episode</code>|​<code>:episode-error</code>|​<code>:episode-new</code><!--
+  -->|​<code>:episode-started</code>|​<code>:episode-finished</code>|​<code>:search</code><!--
+  -->|​<code>:log-entry</code> <br>
+<var>item-component</var>=<code>.state</code>|​<code>.title</code>|​<code>.feed-title</code><!--
+  -->|​<code>.episode-number</code>|​<code>.duration</code>|​<code>.date</code><!--
+  -->|​<code>.loading</code>|​<code>.author</code>|​<code>.genre</code><!--
+  -->|​<code>.episodes-count</code>|​<code>.new-count</code>|​<code>.details</code> <br><br>
+
+    <p>The list item or its component. The list item can be in multiple states: It
+can belong to a list that is focused (<code>:focused</code>), it can be selected
+(<code>:selected</code>), it can describe an episode that is currently being played
+(<code>:playing</code>), an episode that was hidden from the feed but is visible due to
+value of <code>hidden</code> option, an episode or feed for which there is no title (for
+example, it wasn't specified by the podcast's creator, or it wasn't loaded
+yet, <code>:missing-title</code>).</p>
+
+    <p>The rest of state options define an entry in a specific list and in a
+context-specific state. Options starting with <code>:feed</code> describe list entries
+in the list of feeds the user is subscribed to. More specific states allow
+restricting styling for certain situations only: feeds that are in the
+process of being updated (<code>:feed-updating</code>), if the previous attempt to
+update it failed (<code>:feed-error</code>), and if the feed is special: either the list
+of all episodes from all subscriptions or all new episodes (<code>:feed-special</code>).</p>
+
+    <p>Episode list entries (<em>:episodes</em>) can be selected by their state also:
+episodes can be either new, meaning never played (<code>:episode-new</code>), started 
+meaning that playback was started but stopped before the entirety of the 
+episode was listened to (<code>:episode-started</code>), finised when the episode was
+listened to until the end (<code>:episode-finished</code>), or playback failed due to an
+error (<code>:episode-error</code>).</p>
+
+    <p>The search results entries and message log entries can be specified via 
+<code>:search</code> and <code>:log-entry</code> respectingly.</p>
+
+    <p>Styling can be applied for the whole row or a specific part of it. For a
+latter case you may extend this selector with a name of such part. Some of
+these are used by many lists. These include the name of the feed or episode
+(<code>.name</code>), a state indicator usually displayed on the right (<code>.state</code>), and
+ellipsis that are displayed when the data is being loaded from the database
+for more time than usual. Most though are list specific. The episodes list
+includes an episode and season number (<code>.episode-number</code>), the name of a feed
+where this episode is located (<code>.feed-title</code>), the duration of the episode
+(<code>.duration</code>), the date when it was published (<code>.date</code>). Search result
+entries include the name of the autor who publishes the podcast (<code>.author</code>),
+its genre (<code>.genre</code>), the number of episodes in the feed (<code>.episodes-count</code>).
+The list of feeds along with the title includes a number of new episodes
+(<code>.new-count</code>). The log entry details are selected as <code>.details</code>.</p>
+
+    <p>This selector is also used for empty parts of the list.</p>
+</dd>
+<dt>
+<code>empty</code>[<code>:focused</code>][<code>.title</code>|<code>.subtitle</code>]</dt>
+<dd>The list with no entries. It usually contains a title (<code>.title</code>) and a text
+describing why the lits is empty and what can be done to change that
+(<code>.subtitle</code>). As is a regular list, the empty list can be in the focused
+state (<code>:focused</code>). It's recommended that styling for lists and empty lists
+match in regard to the focused state.</dd>
+<dt>
+<code>player</code>[<var>player-status</var>][<var>player-element</var>]</dt>
+<dd>where <br>
+<var>player-status</var>=<code>:buffering</code>|<code>:paused</code>|<code>:playing</code>|<code>:stopped</code> <br>
+<var>player-element</var>=<code>.episode</code>|<code>.feed</code>|<code>.progress</code>|<code>.status</code>|<code>.timing</code> <br><br>
+
+    <p>The playback status bar on the second from the bottom line of the screen. It
+consists of some parts which are (from left to right): status indicating the
+current playback status (buffering, paused, etc., <code>.status</code>), the name of
+the episode (<code>.episode</code>), the name of a feed containing the currently playing
+episode (<code>.feed</code>), the progress bar (<code>.progress</code>), and the current position
+within the stream along with its total duration (<code>.timing</code>).</p>
+
+    <p>The remaining options allow you to specify different styles depending on the
+current state of the playback.</p>
+</dd>
+</dl>
+
+<p>Above, <code>[...]</code> denotes an optional part, <code>...|...</code> denotes that either of two
+or more options can be used, <code>(...)*</code> denotes the part that can repeat or not
+be present.</p>
+
+<p>Selectors can be specific, describing a single UI element in a specific state
+or be general, specifying many elements or not specifying a state. When the
+style is applied using a selector, it is applied to all components that can be
+described by it in the order the styling is set. For example styles for 
+<code>player.status</code> will override <code>player:playing.status</code>, so more specific styles
+should be specifed later than more general ones.</p>
+
+<h2 id="KEY-MAPPING">KEY MAPPING</h2>
+
+<p>This section describes the default key mapping of Hedgehog. Note that any key
+mapping can be changed by custom configuration via <em>man</em> and <em>unmap</em> commands.</p>
+
+<ul>
+  <li>
+<code>Up</code>, <code>k</code> moves the selection one row up,</li>
+  <li>
+<code>Down</code>, <code>j</code> moves the selection one row down,</li>
+  <li>
+<code>Home</code> moves to the first row in the list,</li>
+  <li>
+<code>End</code> moves to the last row in the list,</li>
+  <li>
+<code>PageUp</code> moves to the item one screen up,</li>
+  <li>
+<code>PageDown</code> moves to the item one screen down,</li>
+  <li>
+<code>Tab</code> toggles between feeds and episodes lists,</li>
+  <li>
+<code>Enter</code> either focuses on the episodes list, start playing the episode, or
+subscribe to the search result depending on the context,</li>
+  <li>
+<code>Esc</code> returns to the library from either the error log or search results,</li>
+  <li>
+<code>C-c</code>, <code>q</code> quits Hedgehog (includes confirmation),</li>
+  <li>
+<code>Delete</code> deletes the currently selected feed (includes confirmation),</li>
+  <li>
+<code>o</code> opens either podcast's or episode's Web URL,</li>
+  <li>
+<code>f</code> stops playback and mark the episode as finished,</li>
+  <li>
+<code>Right</code> moves forward by 5 seconds,</li>
+  <li>
+<code>Left</code> moves backwards by 5 seconds,</li>
+  <li>
+<code>c</code> toggles between paused and playing states,</li>
+  <li>
+<code>m</code> toggles between muted and unmuted states,</li>
+  <li>
+<code>Minus</code> decreases volume by 10%,</li>
+  <li>
+<code>=</code>, <code>+</code>, <code>S-+</code> increases volume by 10%,</li>
+  <li>
+<code>:</code> begins command entry (cannot be remapped).</li>
+</ul>
+
+<h3 id="COMMAND-ENTRY-KEY-MAPPING">COMMAND ENTRY KEY MAPPING</h3>
+
+<p>The following are key combination available in the command entry mode. These
+cannot be remapped.</p>
+
+<ul>
+  <li>
+<code>C-c</code>, <code>Esc</code> stops entry, discards the input,</li>
+  <li>
+<code>Backspace</code>, <code>C-h</code> removes character before cursor,</li>
+  <li>
+<code>Delete</code> removes character after cursor,</li>
+  <li>
+<code>Up</code>, <code>Down</code> navigates through commands history,</li>
+  <li>
+<code>Enter</code> stops entry, accepts and executes the command,</li>
+  <li>
+<code>Tab</code> performs completion,</li>
+  <li>
+<code>Left</code> moves cursor one character to the left,</li>
+  <li>
+<code>Right</code> moves cursor one character to the right,</li>
+  <li>
+<code>C-Left</code> moves cursor one word to the left,</li>
+  <li>
+<code>C-Right</code> moves cursor one word to the right,</li>
+  <li>
+<code>Home</code> moves cursor to the first character,</li>
+  <li>
+<code>End</code> moves cursor to the last character,</li>
+  <li>
+<code>Backspace</code>, <code>C-h</code> removes character before cursor,</li>
+  <li>
+<code>Delete</code> removes character after cursor,</li>
+  <li>
+<code>S-Backspace</code> removes all characters before the cursor,</li>
+  <li>
+<code>S-Delete</code> removes all characters after the cursor,</li>
+  <li>
+<code>A-Backspace</code>, <code>C-w</code> removes a word after cursor,</li>
+  <li>
+<code>C-Delete</code> removes a word before cursor.</li>
+</ul>
+
+<h2 id="BUGS">BUGS</h2>
+
+<p>If you find a bug, you have a recommendation or suggestions for Hedgehog,
+please file an issue at <a href="https://github.com/poletaevvlad/Hedgehog/issues" data-bare-link="true">https://github.com/poletaevvlad/Hedgehog/issues</a>. If
+you wish to contribute to Hedgehog, you are welcome to participate in the
+development at <a href="https://github.com/poletaevvlad/Hedgehog" data-bare-link="true">https://github.com/poletaevvlad/Hedgehog</a></p>
+
+  <ol class='man-decor man-foot man foot'>
+    <li class='tl'></li>
+    <li class='tc'>April 2022</li>
+    <li class='tr'>hedgehog(1)</li>
+  </ol>
+
+  </div>
+</body>
+</html>

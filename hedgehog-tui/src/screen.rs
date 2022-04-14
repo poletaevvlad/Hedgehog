@@ -711,10 +711,7 @@ impl UI {
         }
 
         let query = EpisodesQuery::from_feed_view(feed_id).with_hidden(self.options.hidden);
-        let new_provider = EpisodesListProvider {
-            query: query.clone(),
-            actor: ctx.address(),
-        };
+        let address = ctx.address();
         let future = wrap_future(
             self.library_actor
                 .send(EpisodesListMetadataRequest(query.clone())),
@@ -726,7 +723,11 @@ impl UI {
                         metadata.items_count,
                         actor.library.episodes.viewport().range(),
                     );
-                    Some((metadata, range))
+                    let new_provider = EpisodesListProvider {
+                        query: query.clone().reversed_order(metadata.reversed_order),
+                        actor: address,
+                    };
+                    Some((metadata, range, new_provider))
                 }
                 Err(error) => {
                     log::error!(target: "actix", "{}", error);
@@ -737,13 +738,13 @@ impl UI {
             wrap_future(async move {
                 match result {
                     None => None,
-                    Some((metadata, None)) => Some((metadata, None)),
-                    Some((metadata, Some(range))) => {
+                    Some((metadata, None, provider)) => Some((metadata, None, provider)),
+                    Some((metadata, Some(range), provider)) => {
                         let query = query.clone().reversed_order(metadata.reversed_order);
                         let episodes = library_actor
                             .send(EpisodeSummariesRequest::new(query, range.clone()))
                             .await;
-                        Some((metadata, Some((range, episodes))))
+                        Some((metadata, Some((range, episodes)), provider))
                     }
                 }
             })
@@ -759,7 +760,7 @@ impl UI {
                     }
                 }};
             }
-            if let Some((metadata, episodes)) = result {
+            if let Some((metadata, episodes, new_provider)) = result {
                 let items_count = metadata.items_count;
                 actor.library.episodes_list_metadata = Some(metadata);
                 match episodes {

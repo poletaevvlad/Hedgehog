@@ -7,17 +7,17 @@
 \fBhedgehog\fR [\fB\-\-h\fR|\fB\-\-help\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-no\-pidfile\fR] [\fB\-\-no\-mpris\fR] [\fB\-V*\fR|\fB*\-\-version\fR] [\fB\-\-config\-path\fR \fIpath\fR] [\fB\-\-data\-path\fR \fIpaths\fR] [\fIsubcommand\fR \fIarguments\fR\|\.\|\.\|\.]
 .SH "DESCRIPTION"
 Hedgehog is a podcasts player and subscriptions management software that works within a terminal\. Its features include:
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 subscribing to RSS feeds and managing subscriptions;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 viewing and automatically updating the list of episodes from each feed;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 keeping track of the episodes\' state: whether you played any episode, did you finish listening to it or not, remembering when the playback stopped;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 playing episodes and controlling its playback: play/pause, seek, control volume, etc\.;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 searching for feeds online and subscribing to them;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 importing and exporting the list of feeds from/to other podcast management software via OPML documents\.
 .IP "" 0
 .P
@@ -82,13 +82,13 @@ Opens the list of errors\. This command is a shorthand for \fBfocus log\fR\.
 Exits Hedgehog\.
 .P
 \fIpane\-name\fR is an argument used by some commands and it names the section of the UI that is currently selected and is ready to handle users\' interaction\. The possible values for \fIpane\-name\fR are:
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBfeeds\fR: the list of feeds located on the right\-hand side of the library view
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBepisodes\fR: the list of the episodes in a feed;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBsearch\fR: the list of search result\. Search can be initiated using the \fBsearch\fR command\. When this pane is selected manually, Hedgehog shows results from the previous search;
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBlog\fR: the list of errors that occurred during the current session, these errors include networking error, configuration issues, etc\.;
 .IP "" 0
 .SS "PLAYBACK"
@@ -172,7 +172,7 @@ Displays confirmation prompt and askes the user for confirmation\. The \fIcomman
 \fBexec\fR \fIpath\fR
 Reads the file at path and executes commands in it\. Each command must be specified on a separate line; empty lines or lines containing only comments (starting with \fB#\fR) are ignored\. All commands will be executed until the first failure or until the end of the file is reached\.
 .IP
-\fIpath\fR can be either absolute or relative\. If \fIpath\fR is relative, Hedgehog will try to find a file in any of the paths specified in the list of data directories\. See details in the \fBCONFIGURATION\fR section of the manual\.
+\fIpath\fR can be either absolute or relative\. If \fIpath\fR is relative, Hedgehog will try to find a file in any of the paths specified in the list of data directories\. See details in the \fICONFIGURATION\fR section of the manual\.
 .TP
 \fBmap\fR \fIkey\fR \fIcommand\fR [\fB\-\-state\fR \fIpane\fR]
 Maps \fIcommand\fR to a specific key combination \fIkey\fR\. You can specify different mapping for different states depending on which pane is currently selected\. If \fB\-\-state\fR option is specified, than the key mapping will be active only if this specific pane is selected\. Mapping with a specific state have higher precedence than mappings without one\.
@@ -187,40 +187,40 @@ Updates the property controlling how Hedgehog looks like and behaves\. The list 
 
 .P
 \fBmap\fR and \fBunmap\fR commands accepts \fIkey\fR argument specified in the format similar to the one used by \fBvim\fR and some other software\. Key specification consists of zero or more modifiers followed by the key\'s name\. Allowed modifier are:
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBS\fR or \fBShift\fR for the shift key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBC\fR, \fBCtrl\fR, or \fBControl\fR for the control key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBA\fR, \fBAlt\fR, \fBM\fR, or \fBMeta\fR for the alt key\.
 .IP "" 0
 .P
 Most keys can be specified with a single character (such as numbers, Latin letters, etc\.)\. The rest have aliases:
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBLeft\fR, \fBUp\fR, \fBRight\fR, \fBDown\fR for arrow keys,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEnter\fR, \fBReturn\fR, \fBCR\fR for the enter key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBBS\fR, \fBBackspace\fR for the backspace key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBHome\fR, \fBEnd\fR, \fBPageUp\fR, \fBPageDown\fR for common cursor position manipulation keys,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBTab\fR for the tab key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBDel\fR, \fBDelete\fR for the delete key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEsc\fR for the escape key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBSpace\fR for the space key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBBar\fR for the \fB|\fR key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBMinus\fR for the \fB\-\fR key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBInsert\fR for the insert key,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBNul\fR for the character with code 0,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBF1\fR, \fBF2\fR, \|\.\|\.\|\. for functional keys\.
 .IP "" 0
 .P
@@ -229,9 +229,9 @@ Modifiers and keys and separated by dashes (\fB\-\fR), for example \fBC\-c\fR fo
 Hedgehog is configured by executing the commands described in the \fICOMMANDS\fR section of this manual\. The effect of these commands lasts until Hedgehog restarts\. In order for the configuration to persistent across restarts they should be inserted in the \fBrc\fR file in the config directory\.
 .P
 Hedgehog considers multiple directories when loading its configuration: command lists and themes, in a way that is similar to how \fIPATH\fR environment variable is used by the operating system\. The configuration path can be configured via \fB\-\-data\-path\fR CLI argument for Hedgehog executable or \fBHEDGEHOG_DATA\fR environment variables\. Both these options append the set of directories to the default paths\. The default paths are:
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fB/usr/share/hedgehog\fR and \fB\./usr/share/hedgehog\fR (only on UNIX\-based OSes);
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 the parent directory of the Hedgehog\'s executable (only on Windows); * user\'s config directory: \fB~/\.config/hedgehog\fR on UNIX\-based OSes and \fB\eUsers\e<user>\eAppData\eRoaming\fR on Windows\.
 .IP "" 0
 .P
@@ -326,23 +326,23 @@ Adds or removes a modifier\. A modifier is a special attribute of a terminal cel
 
 .P
 The modifiers list include:
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBbold\fR increases the text intensity,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBcrossedout\fR crosses the text,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBdim\fR decreases the text intensity,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBhidden\fR hides the text,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBitalic\fR emphasizes the text,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBrapidblink\fR makes the text blinking (\(>= 150 times per minute),
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBreversed\fR swaps background and foreground color,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBslowblink\fR makes the text blinking (\(<= 150 times per minute),
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBunderlined\fR underlines the text\.
 .IP "" 0
 .SS "SELECTOR SYNTAX"
@@ -405,84 +405,84 @@ Above, \fB[\|\.\|\.\|\.]\fR denotes an optional part, \fB\|\.\|\.\|\.|\|\.\|\.\|
 Selectors can be specific, describing a single UI element in a specific state or be general, specifying many elements or not specifying a state\. When the style is applied using a selector, it is applied to all components that can be described by it in the order the styling is set\. For example styles for \fBplayer\.status\fR will override \fBplayer:playing\.status\fR, so more specific styles should be specifed later than more general ones\.
 .SH "KEY MAPPING"
 This section describes the default key mapping of Hedgehog\. Note that any key mapping can be changed by custom configuration via \fIman\fR and \fIunmap\fR commands\.
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBUp\fR, \fBk\fR moves the selection one row up,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBDown\fR, \fBj\fR moves the selection one row down,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBHome\fR moves to the first row in the list,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEnd\fR moves to the last row in the list,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBPageUp\fR moves to the item one screen up,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBPageDown\fR moves to the item one screen down,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBTab\fR toggles between feeds and episodes lists,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEnter\fR either focuses on the episodes list, start playing the episode, or subscribe to the search result depending on the context,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEsc\fR returns to the library from either the error log or search results,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBC\-c\fR, \fBq\fR quits Hedgehog (includes confirmation),
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBDelete\fR deletes the currently selected feed (includes confirmation),
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBo\fR opens either podcast\'s or episode\'s Web URL,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBf\fR stops playback and mark the episode as finished,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBRight\fR moves forward by 5 seconds,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBLeft\fR moves backwards by 5 seconds,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBc\fR toggles between paused and playing states,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBm\fR toggles between muted and unmuted states,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBMinus\fR decreases volume by 10%,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fB=\fR, \fB+\fR, \fBS\-+\fR increases volume by 10%,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fB:\fR begins command entry (cannot be remapped)\.
 .IP "" 0
 .SS "COMMAND ENTRY KEY MAPPING"
 The following are key combination available in the command entry mode\. These cannot be remapped\.
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBC\-c\fR, \fBEsc\fR stops entry, discards the input,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBBackspace\fR, \fBC\-h\fR removes character before cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBDelete\fR removes character after cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBUp\fR, \fBDown\fR navigates through commands history,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEnter\fR stops entry, accepts and executes the command,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBTab\fR performs completion,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBLeft\fR moves cursor one character to the left,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBRight\fR moves cursor one character to the right,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBC\-Left\fR moves cursor one word to the left,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBC\-Right\fR moves cursor one word to the right,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBHome\fR moves cursor to the first character,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBEnd\fR moves cursor to the last character,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBBackspace\fR, \fBC\-h\fR removes character before cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBDelete\fR removes character after cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBS\-Backspace\fR removes all characters before the cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBS\-Delete\fR removes all characters after the cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBA\-Backspace\fR, \fBC\-w\fR removes a word after cursor,
-.IP "\[ci]" 4
+.IP "\[bu]" 2
 \fBC\-Delete\fR removes a word before cursor\.
 .IP "" 0
 .SH "BUGS"

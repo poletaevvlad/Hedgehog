@@ -15,9 +15,10 @@ install: target/release/hedgehog hedgehog.1
 	install -Dm755 "./target/release/hedgehog" "$(installdir)/usr/bin/hedgehog"
 
 hedgehog.1: hedgehog.1.ronn
-	ronn -r --pipe hedgehog.1.ronn \;
+	ronn -r --pipe hedgehog.1.ronn \
 		| sed 's/.IP "\\\[ci\]" 4/.IP "\\\[bu\]" 2/g' \
 		> hedgehog.1
 
-hedgehog.1.html: hedgehog.1.ronn
-	ronn -5 hedgehog.1.ronn
+.PHONY: man
+man: hedgehog.1
+	man -l ./hedgehog.1

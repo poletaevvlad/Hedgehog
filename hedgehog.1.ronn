@@ -59,8 +59,9 @@ that Hedgehog supports.
 * `--no-mpris`:
   Disables Hedgehog's support for MPRIS protocol. This protocol allows third
   party software to observe the state of playback and control it by sending 
-  messages through DBus. Note, that not all platforms support this functionality Hedgehog may be
-  compiled without it. In such cases this option won't be present.
+  messages through DBus. Note, that not all platforms support this
+  functionality Hedgehog may be compiled without it. In such cases this option
+  won't be present.
 
 * `--data-path`:
   Specifies the path from where episodes database, commands history and some
@@ -146,7 +147,8 @@ description
 the UI that is currently selected and is ready to handle users' interaction.
 The possible values for <pane-name> are:
 
- * `feeds`: the list of feeds located on the right-hand side of the library view
+ * `feeds`: the list of feeds located on the right-hand side of the library
+   view
  * `episodes`: the list of the episodes in a feed;
  * `search`: the list of search result. Search can be initiated using the
    `search` command. When this pane is selected manually, Hedgehog shows
@@ -294,7 +296,7 @@ The possible values for <pane-name> are:
   
   <path> can be either absolute or relative. If <path> is relative, Hedgehog
   will try to find a file in any of the paths specified in the list of data
-  directories. See details in the **CONFIGURATION** section of the manual.
+  directories. See details in the [CONFIGURATION][] section of the manual.
 
 * `map` <key> <command> [`--state` <pane>]:
   Maps <command> to a specific key combination <key>. You can specify different

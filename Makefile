@@ -22,3 +22,24 @@ hedgehog.1: hedgehog.1.ronn
 .PHONY: man
 man: hedgehog.1
 	man -l ./hedgehog.1
+
+.PHONY: version
+version:
+	@cat ./hedgehog-tui/Cargo.toml | grep -P '^version = ' | grep -oP '\d+\.\d+\.\d+' 
+
+
+.PHONY: archive
+archive: target/release/hedgehog
+	$(eval archive_name := hedgehog-$(shell make version)-$(shell uname -s | sed -E 's/[[:upper:]]/\L\0/g')-$(shell uname -m))
+	mkdir -p ./build
+	if [ -d ./build/$(archive_name) ]; then rm -r ./build/$(archive_name); fi
+	mkdir ./build/$(archive_name)
+	cp ./LICENSE ./hedgehog.1 ./build/$(archive_name)
+	cp ./assets/archive-install.sh ./build/$(archive_name)/install.sh
+	cp ./assets/archive-uninstall.sh ./build/$(archive_name)/uninstall.sh
+	chmod +x ./build/$(archive_name)/install.sh ./build/$(archive_name)/uninstall.sh
+	cp ./target/release/hedgehog ./build/$(archive_name)/hedgehog
+	mkdir -p ./build/$(archive_name)/usr/share
+	cp -r $(shell cat ./target/out_dir_path)/config ./build/$(archive_name)/usr/share/hedgehog
+	cd ./build/ && tar -czvf $(archive_name).tar.gz $(archive_name)
+	rm -r ./build/$(archive_name)

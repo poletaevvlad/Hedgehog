@@ -3,6 +3,7 @@ pkgname = hedgehog
 features = --features mpris
 
 target/release/hedgehog: $(shell find hedgehog-tui hedgehog-player hedgehog-library -name '*.rs') Cargo.toml Cargo.lock $(wildcard */Cargo.toml)
+	mkdir -p ./target
 	cargo build --release $(features) --message-format=json-render-diagnostics \
 		| jq -r "select(.out_dir) | select(.package_id | startswith(\"hedgehog-tui \")) | .out_dir" \
 		> ./target/out_dir_path
@@ -39,6 +40,7 @@ archive: target/release/hedgehog
 	cp ./assets/archive-uninstall.sh ./build/$(archive_name)/uninstall.sh
 	chmod +x ./build/$(archive_name)/install.sh ./build/$(archive_name)/uninstall.sh
 	cp ./target/release/hedgehog ./build/$(archive_name)/hedgehog
+	strip ./build/$(archive_name)/hedgehog
 	mkdir -p ./build/$(archive_name)/usr/share
 	cp -r $(shell cat ./target/out_dir_path)/config ./build/$(archive_name)/usr/share/hedgehog
 	cd ./build/ && tar -czvf $(archive_name).tar.gz $(archive_name)

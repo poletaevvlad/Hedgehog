@@ -2,6 +2,11 @@
 
 Hedgehog is a podcast player and organizer with terminal-based user interface. 
 
+<p align="center">
+  <img src="./assets/screenshots/gruvbox-dark-theme.png" alt="Hedgehog" 
+       width="640" />
+</p>
+
  * *Subscription management and automatic feed updates.* Using Hedgehog you can
    subscribe to RSS feeds, they will automatically be updated on startup and on
    request.
@@ -13,10 +18,8 @@ Hedgehog is a podcast player and organizer with terminal-based user interface.
    link.
  * *Flexible theming.* The visual style of any component of the Hedgehog's UI
    can be recolored in a state-dependant manner. There are several built-in
-   themes: `default`, `nord`, `solarized-dark`, `solarized-light`,
-   `gruvbox-dark`, `gruvbox-light` which you can activate using 
-   `theme load <name>` command. The manual contains a detailed reference for
-   creating your own custom themes.
+   themes which are listed in [THEMES.md](./THEMES.md). The manual contains a
+   detailed reference for creating your own custom themes.
  * *Fully configurable keybindings.* Hedgehog is almost exclusively controlled
    through issuing commands either directly or through key bindings. All of
    these keybindings can be changed by user's configuration.

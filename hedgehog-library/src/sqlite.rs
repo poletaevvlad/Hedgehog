@@ -241,6 +241,7 @@ impl DataProvider for SqliteDataProvider {
         query.build_where_clause(&mut sql);
         let mut statement = self.connection.prepare(&sql)?;
 
+        let feed_specific = query.feed_id.is_some();
         let where_params = EpisodeQueryParams::from_query(query);
         let params = where_params.as_sql_params();
         statement
@@ -251,7 +252,11 @@ impl DataProvider for SqliteDataProvider {
                     max_episode_number: row.get(2)?,
                     max_duration: row.get::<_, Option<u64>>(3)?.map(Duration::from_nanos),
                     has_publication_date: row.get::<_, Option<u64>>(4)?.unwrap_or(0) > 0,
-                    reversed_order: row.get::<_, Option<bool>>(5)?.unwrap_or(false),
+                    reversed_order: if feed_specific {
+                        row.get::<_, Option<bool>>(5)?.unwrap_or(false)
+                    } else {
+                        false
+                    },
                 })
             })
             .map_err(QueryError::from)

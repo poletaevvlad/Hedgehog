@@ -13,7 +13,7 @@ pub struct FeedMetadata<'a> {
 impl<'a> FeedMetadata<'a> {
     pub fn from_rss_channel(channel: &'a rss::Channel) -> Self {
         FeedMetadata {
-            title: &channel.title,
+            title: channel.title.trim(),
             description: &channel.description,
             link: &channel.link,
             author: channel
@@ -77,7 +77,7 @@ impl<'a> EpisodeMetadata<'a> {
             .unwrap_or(false);
 
         Some(Self {
-            title: item.title.as_deref(),
+            title: item.title.as_deref().map(str::trim),
             description: item.description.as_deref(),
             link: item.link.as_deref(),
             guid,
@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn feed_from_channel() {
         let channel = rss::Channel {
-            title: "Feed title".to_string(),
+            title: "  Feed title  ".to_string(),
             description: "Feed description".to_string(),
             link: "http://example.com/feed".to_string(),
             copyright: Some("(c) Copyright".to_string()),
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn episode_from_full() {
         let item = rss::Item {
-            title: Some("Episode title".to_string()),
+            title: Some("  Episode title  ".to_string()),
             link: Some("https://example.com/".to_string()),
             description: Some("Episode description".to_string()),
             author: Some("Author's name".to_string()),

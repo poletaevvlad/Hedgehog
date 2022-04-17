@@ -19,7 +19,7 @@ within a terminal. Its features include:
 
  * subscribing to RSS feeds and managing subscriptions;
  * viewing and automatically updating the list of episodes from each feed;
- * keeping track of the episodes' state: whether you played any episode, did
+ * keeping track of the episodes' state: whether you played an episode, did
    you finish listening to it or not, remembering when the playback stopped;
  * playing episodes and controlling its playback: play/pause, seek, control
    volume, etc.;
@@ -28,7 +28,7 @@ within a terminal. Its features include:
    software via OPML documents.
 
 The main interface of Hedgehog contains two panes: the list of feeds you are
-subscribed to (along with two special feeds with all episodes and with all new
+subscribed to (along with two special feeds with all episodes and with only new
 episodes) and the list of episodes within the selected feed. You can navigate
 between different panes using arrow and Tab keys or using a mouse cursor if
 your terminal emulator supports it. To start the playback of an episode, you
@@ -46,9 +46,9 @@ that Hedgehog supports.
 
 * `--no-mouse`:
   Disables the capacity of Hedgehog to read and handle mouse input. If not
-  present, you can select list items, start and control playback, change cursor
-  position in the command entry field, etc., but you won't be able to select
-  text in the terminal window.
+  present, you can select list items, start and control playback, change the
+  cursor position in the command entry field, etc., but you won't be able to
+  select text in the terminal window.
   
 * `--no-pidfile`:
   By default, Hedgehog prevents two or more instances of the program from
@@ -57,10 +57,10 @@ that Hedgehog supports.
   be executed for different data directories.
 
 * `--no-mpris`:
-  Disables Hedgehog's support for MPRIS protocol. This protocol allows third
-  party software to observe the state of playback and control it by sending 
-  messages through DBus. Note, that not all platforms support this
-  functionality Hedgehog may be compiled without it. In such cases this option
+  Disables Hedgehog's support for MPRIS protocol. This protocol allows
+  third-party software to observe the state of playback and control it by
+  sending messages through DBus. Note, that not all platforms support this
+  functionality Hedgehog may be compiled without it. In such cases, this option
   won't be present.
 
 * `--data-path`:
@@ -77,16 +77,16 @@ that Hedgehog supports.
 
 * `export` <file>:
   A sub-command for exporting the list of podcast feeds managed by Hedgehog in
-  OPML format. This can be later imported into another podcast management
+  OPML format. This can be later imported into nother podcast management
   programs. <file> is a path to an XML file where the exported data will be
   written or a dash (`-`) in which case the exported data will be written
   to standard output.
 
 * `import` <file>:
-  Adds the set of podcast feeds to the database. Episodes from these feeds will
-  be fetched on the next launch. Duplicate feeds will be ignored. <file> is a
-  path to XML file in OPML format that will be read or a dash (`-`) in which
-  case the data will be read from the standard input.
+  Adds the set of the podcast feeds to the database. Episodes from these feeds
+  will be fetched on the next launch. Duplicate feeds will be ignored. <file>
+  is a path to an XML file in OPML format that will be read or a dash (`-`) in
+  which case the data will be read from the standard input.
 
 
 
@@ -99,13 +99,12 @@ entering the name of a command and its arguments, and submitting it with the
 command. There are few exceptions, such as actions performed with a mouse or
 through the MPRIS interface.
 
-When entering commands manually, there are keys that have special meaning.
-Hedgehog tries to follow established conventions. These keys cannot be
-remapped, and you can find their list in the [COMMAND ENTRY KEY MAPPING][]
-subsection.
+When entering commands manually, some keys have a special meaning. Hedgehog
+tries to follow established conventions. These keys cannot be remapped, and you
+can find their list in the [COMMAND ENTRY KEY MAPPING][] subsection.
 
 The remaining of this section lists the supported commands and their
-description
+description.
 
 
 ### NAVIGATION
@@ -135,7 +134,7 @@ description
 * `focus` <pane-name>:
   Sets the currently selected pane. The selected pane is highlighted in the UI
   and all line commands listed above affect the list contained in this pane.
-  Possible values for <pane-name> are listed bellow.
+  Possible values for <pane-name> are listed below.
 
 * `log`:
   Opens the list of errors. This command is a shorthand for `focus log`.
@@ -150,11 +149,11 @@ The possible values for <pane-name> are:
  * `feeds`: the list of feeds located on the right-hand side of the library
    view
  * `episodes`: the list of the episodes in a feed;
- * `search`: the list of search result. Search can be initiated using the
+ * `search`: the list of search results. Search can be initiated using the
    `search` command. When this pane is selected manually, Hedgehog shows
    results from the previous search;
  * `log`: the list of errors that occurred during the current session, these
-   errors include networking error, configuration issues, etc.; 
+   errors include networking errors, configuration issues, etc.; 
 
 
 ### PLAYBACK
@@ -189,7 +188,7 @@ The possible values for <pane-name> are:
   playback due to buffering. The paused status of the playback won't be changed
   by this command.
 
-  <duration> is specified in seconds, minutes and hours sepearated by colon.
+  <duration> is specified in seconds, minutes, and hours separated by a colon.
   Only seconds are required. For example `160`, `2:40`, and `0:02:40` are
   equivalent. Leading zeros are allowed.
 
@@ -226,7 +225,7 @@ The possible values for <pane-name> are:
   Adds a new subscription. Hedgehog will try to fetch the feed metadata and
   episodes list immediately after it finishes. Note, that <rss-url> must
   point to the RSS feed, Hedgehog will not try to determine the URL of the RSS
-  feed from HTML page's metadata.
+  feed from the HTML page's metadata.
 
 * `delete-feed`:
   Removes the feed and all its episodes. This action cannot be undone.
@@ -235,7 +234,7 @@ The possible values for <pane-name> are:
   Updates the feed metadata and the episodes list. If new episodes are found in
   the feed, they will appear in the library marked "new". If `--this` attribute
   is specified, then only the currently selected feed will be updated.
-  Otherwise, all feeds that hasn't been disabled will be updated.
+  Otherwise, all feeds that haven't been disabled will be updated.
 
 * `enable`, `disable`:
   Enables or disables the feed. If you disable the feed, then it won't be
@@ -243,13 +242,14 @@ The possible values for <pane-name> are:
   launch.
 
 * `open-link feed`, `open-link episode`:
-  Opens the WWW URL specified in the feed or episode metadata respectingly in
+  Opens the WWW URL specified in the feed or episode metadata respectively in
   the default browser.
 
 * `hide`:
   Hides the currently selected episode from the episodes list. Note, that it
   won't be deleted from the database. The hidden episodes aren't shown in the
-  library by default. This can be enabled by issuing command `set hidden true`.
+  library by default. This can be enabled by issuing the command
+  `set hidden true`.
 
 * `unhide`:
   Removed the hidden status from the currently selected episode. To issue this
@@ -261,10 +261,10 @@ The possible values for <pane-name> are:
   or `finished`. By default, only the currently selected episode will be
   affected. If `--all` attribute is specified, then all episodes in the
   currently selected feed will be altered. In this case, it can be useful to
-  update only a subset of episodes for update, for example, you may want to
-  mark all new episodes in the new feed as seen. `--if` attribute specifies a
-  precondition for such update. `status-condition` can be either `new`, `seen`,
-  `finished`, `started`, or `error`.
+  update only a subset of episodes, for example, you may want to mark all new
+  episodes in the new feed as seen. `--if` attribute specifies a precondition
+  for such update. `status-condition` can be either `new`, `seen`, `finished`,
+  `started`, or `error`.
 
 * `reverse`:
   Changes the order of episodes in the selected feed. By default, episodes are
@@ -284,7 +284,7 @@ The possible values for <pane-name> are:
 
 * `confirm` <prompt> <command> [`--default` <bool>]:
   Displays confirmation prompt and askes the user for confirmation.
-  The <command> will be executed only on affirmative response. `--default`
+  The <command> will be executed only on an affirmative response. `--default`
   attribute specifies the default behavior, whether the command will be
   executed (if `true`) or not (`false`) when the `Enter` key is pressed.
 
@@ -301,8 +301,8 @@ The possible values for <pane-name> are:
 * `map` <key> <command> [`--state` <pane>]:
   Maps <command> to a specific key combination <key>. You can specify different
   mapping for different states depending on which pane is currently selected.
-  If `--state` option is specified, than the key mapping will be active only if
-  this specific pane is selected. Mapping with a specific state have higher
+  If `--state` option is specified, then the key mapping will be active only if
+  this specific pane is selected. Mapping with a specific state has higher
   precedence than mappings without one.
 
 * `unmap` <key> [`--state` <pane>]:
@@ -317,7 +317,7 @@ The possible values for <pane-name> are:
   list of properties is described in the [CONFIGURATION][] section of this
   manual.
 
-`map` and `unmap` commands accepts <key> argument specified in the format
+`map` and `unmap` commands accept <key> argument specified in the format
 similar to the one used by `vim` and some other software. Key specification
 consists of zero or more modifiers followed by the key's name. Allowed modifier
 are:
@@ -344,7 +344,7 @@ letters, etc.). The rest have aliases:
  * `Nul` for the character with code 0,
  * `F1`, `F2`, ... for functional keys.
 
-Modifiers and keys and separated by dashes (`-`), for example `C-c` for
+Modifiers and keys and separated by dashes (`-`), for example, `C-c` for
 `Control+C`, `A-S-W` for `Alt+Shift+W`. Please note that keys are
 case-sensitive: if you include the Shift modifier, then the key should be
 uppercase if applicable (`S-A` is correct while `S-a` won't work).
@@ -356,7 +356,7 @@ uppercase if applicable (`S-A` is correct while `S-a` won't work).
 
 Hedgehog is configured by executing the commands described in the [COMMANDS][]
 section of this manual. The effect of these commands lasts until Hedgehog
-restarts. In order for the configuration to persistent across restarts they
+restarts. In order for the configuration to be persistent across restarts, they
 should be inserted in the `rc` file in the config directory.
 
 Hedgehog considers multiple directories when loading its configuration: command
@@ -376,10 +376,10 @@ searches for the existing file by iterating through data directories from the
 last one to the first one, meaning the directory specified by the user has the
 highest priority, and global configuration has the lowest.
 
-Exception to this rule is loading the startup commands. There is a special file
-named `rc` in the data directory. Hedgehog will execute commands in such files
-in all data directories in the opposite order: starting with the system-wide
-configuration followed by user-defined configuration files.
+An exception to this rule is loading the startup commands. There is a special
+file named `rc` in the data directory. Hedgehog will execute commands in such
+files in all data directories in the opposite order: starting with the
+system-wide configuration followed by user-defined configuration files.
 
 Each configuration file (both `rc` file and themes) contains a series of
 commands, each located on a separate line. The interpreter ignores empty lines
@@ -395,10 +395,10 @@ This section list options that can be set using the *set* command.
   function.
 
 * `label_playback_status_playing`:
-  The label displaying in the player status bar in playing state.
+  The label displaying in the player status bar in the playing state.
 
 * `label_playback_status_paused`:
-  The label displaying in the player status bar in paused state.
+  The label displaying in the player status bar in the paused state.
 
 * `label_playback_status_bufffering`:
   The label displaying in the player status bar when the audio stream is
@@ -411,51 +411,51 @@ This section list options that can be set using the *set* command.
   The label displaying in the player status bar when no episode is playing.
 
 * `label_episode_new`:
-  Label displaying in the library when the episode is new.
+  The label displaying in the library when the episode is new.
 
 * `label_episode_seen`:
   Label displaying in the library when the episode is not new but hasn't been
-  played. Episode can reach this status using `mark` command.
+  played. An episode can reach this status using `mark` command.
 
 * `label_episode_playing`:
-  Label displaying in the library when the episode is currently being played.
+  The label displaying in the library when the episode is currently being played.
 
 * `label_episode_started`:
-  Label displaying in the library when the episode was started but not
+  The label displaying in the library when the episode was started but not
   completed and is not currently playing.
 
 * `label_episode_finished`:
-  Label displaying in the library when the episode was completed.
+  The label displaying in the library when the episode was completed.
 
 * `label_episode_finished`:
-  Label displaying in the library when the previous playback attempt has failed
+  The label displaying in the library when the previous playback attempt has failed
   with an error.
  
 * `label_feed_error`:
-  Label displaying in the library list for feeds which could not be updated due
+  The label displaying in the library list for feeds that could not be updated due
   to an error.
 
 * `label_feed_updating`:
-  Label displaying in the library list for feeds that are currently being
+  The label displaying in the library list for feeds that are currently being
   loaded.
 
 * `label_feed_updating`:
-  Flag indicating whether enabled feeds should be updated on startup.
+  The flag indicating whether enabled feeds should be updated on startup.
 
 * `show_episode_number`:
-  Flag indicating whether episode and season number should be displayed for
+  The flag indicating whether episode and season number should be displayed for
   episodes in the library.
  
 * `hidden`:
-  lag indicating whether the episodes that are hidden using the *hide* command
+  The flag indicating whether the episodes that are hidden using the *hide* command
   should be visible in the library.
 
 * `progress_bar_width`:
-  the number of characters allocated to the progress indicator in the player
+  The number of characters allocated to the progress indicator in the player
   state bar.
 
 * `progress_bar_chars`:
-  a string, characters of which are used for the progress indicator.
+  The string, characters of which are used for the progress indicator.
 
 
 
@@ -480,7 +480,7 @@ us subcommands of `theme` or loaded from a separate file via `theme load` (the
   Reads a file and executes all theming commands from it. Note that <file>
   can be either an absolute or relative path. In case of a relative path,
   Hedgehog applies the same logic as for searching the configuration files but
-  with a small difference. Theme file may have a `.theme` extension. 
+  with a small difference. The theme file may have a `.theme` extension. 
   
   Hedgehog will try to locate a file both with and without it, all existing
   styling is cleared before a theme file is loaded. Inclusion of `--extend`
@@ -494,7 +494,7 @@ us subcommands of `theme` or loaded from a separate file via `theme load` (the
 ### STYLE SYNTAX
 
 Styles are specified using a special syntax where multiple modifiers separated
-by a single or multiple whitespace characters.
+by single or multiple whitespace characters.
 
 * `fg:`<color>, `bg:`<color>:
   Sets the foreground or background color of a component, respectively. The
@@ -513,7 +513,7 @@ by a single or multiple whitespace characters.
 : Adds or removes a modifier. A modifier is a special attribute of a terminal
   cell that changes some of its visual characteristics. Removing a modifier is
   useful when you want to override the existing styling of a component with
-  modifiers already applied. Note, that different terminal emulator may
+  modifiers already applied. Note, that different terminal emulators may
   interpret some modifiers differently or not support them at all.
 
 The modifiers list include:
@@ -535,7 +535,7 @@ A selector is a string that identifies a UI element in a specific state.
 Selectors follow any of the following forms:
 
 * `statusbar.empty`:
-  The status bar (the bottom row of the scrren) when it doesn't display any
+  The status bar (the bottom row of the screen) when it doesn't display any
   content.
 
 * `statusbar.command`[`.prompt`]:
@@ -574,7 +574,7 @@ Selectors follow any of the following forms:
   example, it wasn't specified by the podcast's creator, or it wasn't loaded
   yet, `:missing-title`). 
 
-  The rest of state options define an entry in a specific list and in a
+  The rest of the state options define an entry in a specific list and in a
   context-specific state. Options starting with `:feed` describe list entries
   in the list of feeds the user is subscribed to. More specific states allow
   restricting styling for certain situations only: feeds that are in the
@@ -582,20 +582,20 @@ Selectors follow any of the following forms:
   update it failed (`:feed-error`), and if the feed is special: either the list
   of all episodes from all subscriptions or all new episodes (`:feed-special`).
 
-  Episode list entries (*:episodes*) can be selected by their state also:
+  Episode list entries (`:episodes`) can be selected by their state also:
   episodes can be either new, meaning never played (`:episode-new`), started 
   meaning that playback was started but stopped before the entirety of the 
-  episode was listened to (`:episode-started`), finised when the episode was
+  episode was listened to (`:episode-started`), finished when the episode was
   listened to until the end (`:episode-finished`), or playback failed due to an
   error (`:episode-error`).
 
   The search results entries and message log entries can be specified via 
   `:search` and `:log-entry` respectingly.
 
-  Styling can be applied for the whole row or a specific part of it. For a
-  latter case you may extend this selector with a name of such part. Some of
-  these are used by many lists. These include the name of the feed or episode
-  (`.name`), a state indicator usually displayed on the right (`.state`), and
+  Styling can be applied to the whole row or a specific part of it. For a later
+  case, you may extend this selector with the name of such part. Some of these
+  are used by many lists. These include the name of the feed or episode
+  (`.name`), a state indicator usually displayed on the right (`.state`), and an
   ellipsis that are displayed when the data is being loaded from the database
   for more time than usual. Most though are list specific. The episodes list
   includes an episode and season number (`.episode-number`), the name of a feed
@@ -610,7 +610,7 @@ Selectors follow any of the following forms:
 
 * `empty`[`:focused`][`.title`|`.subtitle`]:
   The list with no entries. It usually contains a title (`.title`) and a text
-  describing why the lits is empty and what can be done to change that
+  describing why the list is empty and what can be done to change that
   (`.subtitle`). As is a regular list, the empty list can be in the focused
   state (`:focused`). It's recommended that styling for lists and empty lists
   match in regard to the focused state.
@@ -639,7 +639,7 @@ or be general, specifying many elements or not specifying a state. When the
 style is applied using a selector, it is applied to all components that can be
 described by it in the order the styling is set. For example styles for 
 `player.status` will override `player:playing.status`, so more specific styles
-should be specifed later than more general ones.
+should be specified later than more general ones.
 
 
 
@@ -656,13 +656,13 @@ mapping can be changed by custom configuration via *man* and *unmap* commands.
  * `PageUp` moves to the item one screen up,
  * `PageDown` moves to the item one screen down,
  * `Tab` toggles between feeds and episodes lists,
- * `Enter` either focuses on the episodes list, start playing the episode, or
-   subscribe to the search result depending on the context,
+ * `Enter` either focuses on the episodes list, starts playing the episode, or
+   subscribes to the search result depending on the context,
  * `Esc` returns to the library from either the error log or search results,
  * `C-c`, `q` quits Hedgehog (includes confirmation),
  * `Delete` deletes the currently selected feed (includes confirmation),
  * `o` opens either podcast's or episode's Web URL,
- * `f` stops playback and mark the episode as finished,
+ * `f` stops playback and marks the episode as finished,
  * `Right` moves forward by 5 seconds,
  * `Left` moves backwards by 5 seconds,
  * `c` toggles between paused and playing states,
@@ -674,27 +674,27 @@ mapping can be changed by custom configuration via *man* and *unmap* commands.
 
 ### COMMAND ENTRY KEY MAPPING
 
-The following are key combination available in the command entry mode. These
+The following are key combinations available in the command entry mode. These
 cannot be remapped.
 
  * `C-c`, `Esc` stops entry, discards the input,
- * `Backspace`, `C-h` removes character before cursor,
- * `Delete` removes character after cursor,
+ * `Backspace`, `C-h` removes character before the cursor,
+ * `Delete` removes character after the cursor,
  * `Up`, `Down` navigates through commands history,
  * `Enter` stops entry, accepts and executes the command,
  * `Tab` performs completion,
- * `Left` moves cursor one character to the left,
- * `Right` moves cursor one character to the right,
- * `C-Left` moves cursor one word to the left,
- * `C-Right` moves cursor one word to the right,
- * `Home` moves cursor to the first character,
- * `End` moves cursor to the last character,
- * `Backspace`, `C-h` removes character before cursor,
- * `Delete` removes character after cursor,
+ * `Left` moves the cursor one character to the left,
+ * `Right` moves the cursor one character to the right,
+ * `C-Left` moves the cursor one word to the left,
+ * `C-Right` moves the cursor one word to the right,
+ * `Home` moves the cursor to the first character,
+ * `End` moves the cursor to the last character,
+ * `Backspace`, `C-h` removes character before the cursor,
+ * `Delete` removes character after the cursor,
  * `S-Backspace` removes all characters before the cursor,
  * `S-Delete` removes all characters after the cursor,
- * `A-Backspace`, `C-w` removes a word after cursor,
- * `C-Delete` removes a word before cursor.
+ * `A-Backspace`, `C-w` removes a word after the cursor,
+ * `C-Delete` removes a word before the cursor.
 
 
 ## BUGS

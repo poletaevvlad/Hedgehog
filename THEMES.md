@@ -1,9 +1,9 @@
 # Built-in themes
 
-Hedgehog comes with a set of built in themes which are listed bellow. You may
-activate a theme by issuing the command `theme load <name>`. Note, that in
-order for the selected theme to persis across restart, you need to update your
-`rc` file. You can refer to 
+Hedgehog comes with a set of built-in themes which are listed below. You may
+activate a theme by issuing the command `theme load <name>`. Note, that for the
+selected theme to persist across restarts, you need to update your rc file. You
+can refer to 
 [the manual](https://poletaevvlad.github.io/hedgehog/hedgehog.1.html) for more
 details on theming.
 
@@ -16,7 +16,7 @@ emulators.
 
 ## gruvbox
 
-This themes are based on the "Gruvbox" VIM theme developed by Pavel Pertsev
+These themes are based on the "Gruvbox" VIM theme developed by Pavel Pertsev
 (@morhetz). See the original at
 [github.com/morhetz/gruvbox](https://github.com/morhetz/gruvbox).
 
@@ -33,13 +33,13 @@ This themes are based on the "Gruvbox" VIM theme developed by Pavel Pertsev
 ## `nord`
 
 This teme is based on the Nord color scheme developed by Arctic Ice Studio. The
-theme is  documented at [www.nordtheme.com](https://www.nordtheme.com/).
+theme is documented at [www.nordtheme.com](https://www.nordtheme.com/).
 
 <img src="./assets/screenshots/nord-theme.png" alt="nord" width="640" />
 
 ## solarized
 
-These themes is based on Solarized theme developed by Ethan Schoonover. It's
+These themes are based on Solarized theme developed by Ethan Schoonover. It's
 documented at
 [ethanschoonover.com/colophon/](https://ethanschoonover.com/colophon/).
 
@@ -52,5 +52,3 @@ documented at
 
 <img src="./assets/screenshots/solarized-light-theme.png" alt="solarized-light"
      width="640" />
-[][]
-

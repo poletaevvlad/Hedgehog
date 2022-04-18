@@ -1,6 +1,6 @@
-set statusbar.status:error fg:red
+set statusbar.status:error fg:lightred
 set statusbar.status:warning fg:yellow
-set statusbar.status:information fg:blue
+set statusbar.status:information fg:lightblue
 set statusbar.status.label +bold
 set statusbar.command.prompt fg:cyan
 set statusbar.confirmation fg:yellow
@@ -15,16 +15,17 @@ set list.item:episode-finished.state fg:darkgray
 set list.item:episode-error.state fg:red
 set list.item:playing fg:blue
 set list.item +dim
-set list.item:selected +reversed fg:reset
 set list.item:focused -dim
 set list.item:selected.state +bold
 set list.item:selected.new-count +bold
+set list.item:selected fg:black bg:gray
+set list.item:selected:playing bg:cyan
 
 set player bg:darkgray fg:white
 set player.status +bold fg:black
-set player:paused.status bg:blue
-set player:playing.status bg:green
-set player:buffering.status bg:red
+set player:paused.status bg:lightblue
+set player:playing.status bg:lightgreen
+set player:buffering.status bg:lightred
 set player.timing bg:gray fg:black
 set player.progress bg:gray fg:black
 

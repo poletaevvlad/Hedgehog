@@ -912,7 +912,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
 
         match self.command {
             None if self.confirmation.is_none() => match event {
-                key!(':') => {
+                key!(':') | key!(':', SHIFT) => {
                     self.clear_log_display(ctx);
                     self.command = Some(CommandState::default());
                     self.invalidate(ctx);

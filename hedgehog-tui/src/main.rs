@@ -17,7 +17,8 @@ use cluFlock::ToFlock;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    disable_raw_mode, enable_raw_mode, DisableLineWrap, EnableLineWrap, EnterAlternateScreen,
+    LeaveAlternateScreen,
 };
 use directories::BaseDirs;
 use environment::AppEnvironment;
@@ -258,7 +259,7 @@ fn run_player(
     Player::initialize()?;
 
     enable_raw_mode()?;
-    execute!(io::stdout(), EnterAlternateScreen)?;
+    execute!(io::stdout(), EnterAlternateScreen, DisableLineWrap)?;
     if enable_mouse {
         execute!(io::stdout(), EnableMouseCapture)?;
     }
@@ -301,7 +302,7 @@ fn run_player(
     });
     system.run()?;
 
-    execute!(io::stdout(), LeaveAlternateScreen)?;
+    execute!(io::stdout(), EnableLineWrap, LeaveAlternateScreen)?;
     if enable_mouse {
         execute!(io::stdout(), DisableMouseCapture)?;
     }

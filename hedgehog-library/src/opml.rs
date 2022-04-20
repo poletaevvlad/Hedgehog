@@ -186,21 +186,78 @@ impl<R: io::BufRead> Iterator for OpmlEntries<R> {
     }
 }
 
+pub struct WindowsLineEndingTransformer<W>(W);
+
+impl<W: io::Write> io::Write for WindowsLineEndingTransformer<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match buf.first() {
+            None => Ok(0),
+            Some(b'\n') => {
+                self.0.write_all(b"\r\n")?;
+                Ok(1)
+            }
+            Some(_) => match buf.iter().position(|ch| *ch == b'\n') {
+                Some(index) => self.0.write(&buf[..index]),
+                None => self.0.write(buf),
+            },
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
+}
+
+pub struct LineEndingTransformer<W> {
+    #[cfg(not(windows))]
+    writer: W,
+    #[cfg(windows)]
+    writer: WindowsLineEndingTransformer<W>,
+}
+
+impl<W> LineEndingTransformer<W> {
+    #[cfg(not(windows))]
+    pub fn new(writer: W) -> Self {
+        LineEndingTransformer { writer }
+    }
+
+    #[cfg(windows)]
+    pub fn new(writer: W) -> Self {
+        LineEndingTransformer {
+            writer: WindowsLineEndingTransformer(writer),
+        }
+    }
+}
+
+impl<W: io::Write> io::Write for LineEndingTransformer<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.writer.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::build_opml;
+    use super::{build_opml, WindowsLineEndingTransformer};
     use crate::datasource::{DataProvider, NewFeedMetadata};
     use crate::metadata::FeedMetadata;
-    use crate::opml::parse_opml;
+    use crate::opml::{parse_opml, LineEndingTransformer};
     use crate::SqliteDataProvider;
-    use std::io::Cursor;
+    use std::io::{Cursor, Write};
 
     #[test]
     fn test_build_opml_empty() {
         let mut data_provider = SqliteDataProvider::connect(":memory:").unwrap();
 
         let mut buffer = Vec::<u8>::new();
-        build_opml(Cursor::new(&mut buffer), &mut data_provider).unwrap();
+        build_opml(
+            LineEndingTransformer::new(Cursor::new(&mut buffer)),
+            &mut data_provider,
+        )
+        .unwrap();
 
         let xml = String::from_utf8(buffer).unwrap();
         assert_eq!(&xml, include_str!("./test_data/opml/empty.opml").trim_end());
@@ -253,7 +310,11 @@ mod tests {
         writer.close().unwrap();
 
         let mut buffer = Vec::<u8>::new();
-        build_opml(Cursor::new(&mut buffer), &mut data_provider).unwrap();
+        build_opml(
+            LineEndingTransformer::new(Cursor::new(&mut buffer)),
+            &mut data_provider,
+        )
+        .unwrap();
 
         let xml = String::from_utf8(buffer).unwrap();
         assert_eq!(
@@ -304,5 +365,18 @@ mod tests {
                 "https://example.com/source_3".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn windows_transform_line_endings() {
+        let mut buffer = Vec::<u8>::new();
+        let mut writer = WindowsLineEndingTransformer(Cursor::new(&mut buffer));
+        writer.write_all(b"abc").unwrap();
+        writer.write_all(b"def\nghi").unwrap();
+        writer.write_all(b"jkl\n").unwrap();
+        writer.write_all(b"\n\nmno").unwrap();
+        writer.flush().unwrap();
+
+        assert_eq!(&buffer, b"abcdef\r\nghijkl\r\n\r\n\r\nmno");
     }
 }

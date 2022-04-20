@@ -23,6 +23,7 @@ use crossterm::terminal::{
 use directories::BaseDirs;
 use environment::AppEnvironment;
 use hedgehog_library::datasource::DataProvider;
+use hedgehog_library::opml::LineEndingTransformer;
 use hedgehog_library::status_writer::StatusWriter;
 use hedgehog_library::{opml, InMemoryCache, Library, SqliteDataProvider};
 use hedgehog_player::Player;
@@ -220,9 +221,9 @@ fn run_export<D: DataProvider>(
                 .truncate(true)
                 .write(true)
                 .open(path)?;
-            opml::build_opml(file, data_provider)?;
+            opml::build_opml(LineEndingTransformer::new(file), data_provider)?;
         }
-        None => opml::build_opml(io::stdout(), data_provider)?,
+        None => opml::build_opml(LineEndingTransformer::new(io::stdout()), data_provider)?,
     }
     Ok(())
 }

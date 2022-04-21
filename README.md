@@ -37,7 +37,7 @@ interface.
 ## Manual
 
 Hedgehog comes with a user manual in the form of a man page that can be viewed
-via `man hedgehog 1`. It's also available online at
+via `man hedgehog 1` on a UNIX-like platforms. It's also available online at
 [poletaevvlad.github.io/Hedgehog/hedgehog.1.html](https://poletaevvlad.github.io/Hedgehog/hedgehog.1.html).
 
 
@@ -56,11 +56,24 @@ can be either compiled from source or installed from binary distribution.
 Please note, that these libraries are common enough for you to be able to
 install them through your operating system package manager.
 
+On Windows you can install GStreamer using the official installer or via a
+package manager. Make sure to add GStreamer's bin directory to the "PATH"
+environment variable.
+
 ### Building from source
 
 To build Hedgehog from sources you will need a rust compiler and cargo package
 manager. You should also have all dependencies installed before compiling
 Hedgehog. Otherwise, there is no additional configuration required.
+
+Hedgehog can be built and launched using cargo (`cargo run --release`). Cargo
+will build the application and its environment. If you wish to install Hedgehog
+for greater convenience you'll need to build and install configuration files 
+(themes and rc). `cargo install` isn't suitable for that. There are scripts for
+correctly building Hedgehog included in the source code for each of the 
+supported operating systems.
+
+#### Linux
 
 This repository contains a makefile with building and installation targets. It
 will install Hedgehog binary, default configuration files and themes, and a 
@@ -72,6 +85,24 @@ $ cd Hedgehog
 $ make
 $ sudo make install
 ```
+
+For these commands to succeed, you need to have
+['jq'](https://stedolan.github.io/jq/) installed.
+
+#### Windows
+
+For building Hedgehog for Windows you need to execute `build-win` script:
+`build-win x86_64` for 64-bit systems and `build-win i686` for 32-bit. It will
+generate the executable and configuration files in the "build" directory. Note
+that you need to have ['jq'](https://stedolan.github.io/jq/) and development
+files of GStreamer installed for this process to succeed.
+
+#### MacOS
+
+Hedgehog under MacOS should work, but it's not officially supported. If you
+wish to test it and create a CI pipeline for it, you are more than welcome to
+do so.
+
 
 ### Using pre-compiled binaries
 
@@ -89,7 +120,9 @@ environment variable. Installing Hedgehog this way also creates a script
 user-specific data and configuration. It requires the same `PREFIX` as was
 passed to install.sh.
 
-Pre-compiled binaries for other platforms are a work in progress.
+For Windows, the binary distribution can be installed at any position of your
+choosing just by unzipping the archive corresponding to your processor's OS's
+architecture.
 
 
 ## Bugs and contribution

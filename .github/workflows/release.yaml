@@ -1,0 +1,91 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-binary-linux:
+    name: build-binary-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install cargo and tools
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libsqlite3-dev libdbus-1-dev libssl-dev libgstreamer1.0-dev 
+
+      - name: Create an archive
+        run: make archive
+
+      - name: Upload the binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: binary-releases
+          path: ./build
+          retention-days: 1
+
+  build-binary-windows:
+    name: build-binary-windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch:
+          - x86_64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install cargo and tools
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install gstreamer
+        run: choco install --yes ${{ matrix.arch == 'i686' && '--forcex86' || '' }} gstreamer-devel pkgconfiglite
+
+      - name: Create an archive
+        shell: cmd
+        run: .\build-win.bat ${{ matrix.arch }} /A
+        env:
+          PKG_CONFIG_PATH: C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig
+
+      - name: Upload the binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: binary-releases
+          path: ./build
+          retention-days: 1
+
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    needs:
+      - build-binary-linux
+      - build-binary-windows
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Get version number
+        run: echo "HEDGEHOG_VERSION=$(make version)" >> $GITHUB_ENV
+
+      - name: Download the built artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: binary-releases
+          path: build
+
+      - name: Create a Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Hedgehog ${{ env.HEDGEHOG_VERSION }}
+          files: build/*

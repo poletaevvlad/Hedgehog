@@ -85,19 +85,19 @@ mod tests {
         let mut path = tmp_path.path().to_path_buf();
         path.push("first");
         std::fs::create_dir(&path).unwrap();
-        let path1 = path.clone();
+        let path1 = path.canonicalize().unwrap();
         path.pop();
 
         path.push("second");
         std::fs::create_dir(&path).unwrap();
-        let path2 = path.clone();
+        let path2 = path.canonicalize().unwrap();
 
         path.pop();
         path.push("first");
         path.push(".");
         path.push("..");
         path.push("first");
-        let path3 = path;
+        let path3 = path.canonicalize().unwrap();
 
         env.push_config_path(&path1).unwrap();
         assert!(&env.config_path.iter().eq(vec![&path1].into_iter()));
@@ -120,7 +120,7 @@ mod tests {
         env.push_config_path(&path).unwrap();
         path.push("file");
         std::fs::write(&path, "").unwrap();
-        let global_path = path.to_path_buf();
+        let global_path = path.canonicalize().unwrap();
         path.pop();
         path.pop();
 
@@ -129,7 +129,7 @@ mod tests {
         env.push_config_path(&path).unwrap();
         path.push("file");
         std::fs::write(&path, "").unwrap();
-        let local_path = path;
+        let local_path = path.canonicalize().unwrap();
 
         let result_all = env.resolve_rc("file");
         assert_eq!(result_all, vec![global_path.clone(), local_path.clone()]);

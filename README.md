@@ -95,7 +95,8 @@ For building Hedgehog for Windows you need to execute `build-win` script:
 `build-win x86_64` for 64-bit systems and `build-win i686` for 32-bit. It will
 generate the executable and configuration files in the "build" directory. Note
 that you need to have ['jq'](https://stedolan.github.io/jq/) and development
-files of GStreamer installed for this process to succeed.
+files of GStreamer installed for this process to succeed. You also need to
+install `pkg-config` and setup `PATH` and `PKG_CONFIG_PATH` for GStreamer.
 
 #### MacOS
 
@@ -121,8 +122,7 @@ user-specific data and configuration. It requires the same `PREFIX` as was
 passed to install.sh.
 
 For Windows, the binary distribution can be installed at any position of your
-choosing just by unzipping the archive corresponding to your processor's OS's
-architecture.
+choosing just by unzipping the archive.
 
 
 ## Bugs and contribution

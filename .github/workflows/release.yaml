@@ -56,6 +56,16 @@ jobs:
         env:
           PKG_CONFIG_PATH: C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig
 
+      - name: Rename the archive
+        shell: pwsh
+        run: |
+          $Version = (
+            Select-String -Path .\hedgehog-tui\Cargo.toml -Pattern '^version = "(\d+\.\d+\.\d+)"$'
+          ).Matches[0].Groups[1].Value
+          Get-ChildItem -Path .\build\*.zip | ForEach-Object { 
+              Rename-Item $_.FullName -NewName $_.Name.Replace("current", $Version)
+          }
+
       - name: Upload the binary artifact
         uses: actions/upload-artifact@v3
         with:

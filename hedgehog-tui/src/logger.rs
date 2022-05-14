@@ -103,7 +103,7 @@ impl LogEntry {
             LogTarget::Actix => Some("Internal error"),
             LogTarget::Volume => None,
             LogTarget::Player => Some("Internal audio player error"),
-            LogTarget::Playback => todo!(),
+            LogTarget::Playback => Some("Playback error:"),
             LogTarget::Sql => Some("Internal database error"),
             LogTarget::Io => Some("I/O error"),
             LogTarget::Networking => Some("Network error"),

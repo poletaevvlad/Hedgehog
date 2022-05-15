@@ -188,6 +188,7 @@ pub(crate) struct UI {
     selected_feed: Option<FeedView<FeedId>>,
     playback_state: PlaybackState,
 
+    previous_command: Option<Command>,
     log_history: ScrollableList<LogHistory>,
     command: Option<CommandState>,
     commands_history: CommandsHistory,
@@ -221,6 +222,7 @@ impl UI {
             selected_feed: None,
             playback_state: PlaybackState::default(),
 
+            previous_command: None,
             log_history: ScrollableList::new(
                 LogHistory::default(),
                 size.1.saturating_sub(2) as usize / 3,
@@ -906,7 +908,7 @@ impl Actor for UI {
                 Err(error) => log::error!(target: "actix", "{}", error),
                 Ok(None) => {}
                 Ok(Some(episode_id)) => {
-                    actor.start_playback(episode_id, InitialPlaybackState::Paused, ctx)
+                    actor.start_playback(episode_id, InitialPlaybackState::Paused, ctx);
                 }
             }),
         );
@@ -938,6 +940,11 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                     self.clear_log_display(ctx);
                     self.command = Some(CommandState::default());
                     self.invalidate(ctx);
+                }
+                key!('.') => {
+                    if let Some(ref command) = self.previous_command {
+                        self.handle_command(command.clone(), ctx);
+                    }
                 }
                 event::Event::Key(key_event) => {
                     let command = self
@@ -1103,6 +1110,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                         self.command = None;
                         match cmdparse::parse::<_, Option<Command>>(&command_str, ()) {
                             Ok(Some(command)) => {
+                                self.previous_command = Some(command.clone());
                                 self.handle_command(command, ctx);
                             }
                             Ok(None) => {}

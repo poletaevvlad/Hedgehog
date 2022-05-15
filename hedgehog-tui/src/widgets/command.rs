@@ -17,20 +17,11 @@ pub(crate) struct CompletionState {
     range: Range<usize>,
 }
 
+#[derive(Default)]
 pub(crate) struct CommandState {
     buffer: Buffer,
     history_index: Option<usize>,
     completion: Option<CompletionState>,
-}
-
-impl Default for CommandState {
-    fn default() -> Self {
-        Self {
-            buffer: Buffer::default(),
-            history_index: None,
-            completion: None,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]

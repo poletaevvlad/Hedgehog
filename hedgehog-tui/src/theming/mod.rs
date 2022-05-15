@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tui::style::Style;
 
+#[derive(Default)]
 pub(crate) struct Theme {
     styles: HashMap<Selector, Style>,
 }
@@ -83,14 +84,6 @@ impl Theme {
         let selector = selector.into();
         override_style(selector);
         selector.for_each_overrides(override_style);
-    }
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Theme {
-            styles: HashMap::new(),
-        }
     }
 }
 

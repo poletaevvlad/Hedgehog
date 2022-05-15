@@ -23,7 +23,7 @@ pub(crate) enum Amount {
     Word,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Buffer {
     text: String,
     cursor_position: usize,
@@ -252,16 +252,6 @@ impl From<String> for Buffer {
         Buffer {
             cursor_position: text.len(),
             text,
-            display_offset: 0,
-        }
-    }
-}
-
-impl Default for Buffer {
-    fn default() -> Self {
-        Buffer {
-            text: String::new(),
-            cursor_position: 0,
             display_offset: 0,
         }
     }

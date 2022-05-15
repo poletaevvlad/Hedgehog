@@ -34,6 +34,7 @@ pub struct Player {
     reported_volume: Option<Option<Volume>>,
     state: Option<State>,
     required_seek: Option<Duration>,
+    should_pause: bool,
     seek_position: Option<Duration>,
 }
 
@@ -54,6 +55,7 @@ impl Player {
             subscribers: Vec::new(),
             state: None,
             required_seek: None,
+            should_pause: false,
             seek_position: None,
         })
     }
@@ -65,17 +67,10 @@ impl Player {
             reported_volume: None,
             state: None,
             required_seek: None,
+            should_pause: false,
             seek_position: None,
         }
     }
-
-    // fn emit_error(&mut self, error: GstError) {
-    //     if let Some(ref listener) = self.error_listener {
-    //         if let Err(SendError::Closed(_)) = listener.do_send(PlayerErrorNotification(error)) {
-    //             self.error_listener = None;
-    //         }
-    //     }
-    // }
 
     fn set_state(&mut self, state: Option<State>) {
         self.state = state;
@@ -255,6 +250,12 @@ pub struct PlaybackMetadata {
     pub feed_title: Option<String>,
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum InitialPlaybackState {
+    Playing,
+    Paused,
+}
+
 #[derive(Debug, Message, PartialEq, Clone, cmdparse::Parsable)]
 #[rtype(result = "()")]
 pub enum PlaybackCommand {
@@ -263,6 +264,7 @@ pub enum PlaybackCommand {
         String,
         #[cmd(parser = "DurationParser")] Duration,
         Option<PlaybackMetadata>,
+        InitialPlaybackState,
     ),
     Stop,
     Pause,
@@ -285,8 +287,13 @@ impl Handler<PlaybackCommand> for Player {
         }
         let result: Result<(), GstError> = (|| {
             match msg {
-                PlaybackCommand::Play(url, position, metadata) => {
-                    self.set_state(Some(State::default()));
+                PlaybackCommand::Play(url, position, metadata, initial_state) => {
+                    let state = State {
+                        is_paused: matches!(initial_state, InitialPlaybackState::Paused),
+                        ..Default::default()
+                    };
+                    self.set_state(Some(state));
+
                     let element = self.element.as_ref().unwrap();
                     element
                         .set_state(gst::State::Null)
@@ -302,6 +309,7 @@ impl Handler<PlaybackCommand> for Player {
                     } else {
                         Some(position)
                     };
+                    self.should_pause = matches!(initial_state, InitialPlaybackState::Paused);
                     self.seek_position = None;
                     if let Some(metadata) = metadata {
                         self.notify_subscribers(PlayerNotification::MetadataChanged(metadata));
@@ -571,6 +579,14 @@ impl StreamHandler<gst::Message> for Player {
                             if let Some(seek) = self.required_seek.take() {
                                 ctx.address().do_send(PlaybackCommand::Seek(seek));
                             }
+                            if self.should_pause {
+                                if let Some(ref element) = self.element {
+                                    if let Err(error) = element.set_state(gst::State::Paused) {
+                                        log::error!(target: "player", "{}", error);
+                                    }
+                                }
+                            }
+                            self.should_pause = false;
                         }
                     }
                 }

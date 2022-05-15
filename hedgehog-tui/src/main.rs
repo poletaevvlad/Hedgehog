@@ -275,7 +275,10 @@ fn run_player(
         let library = Library::start_in_arbiter(&library_arbiter.handle(), |_| {
             Library::new(InMemoryCache::new(data_provider))
         });
-        let status_writer = StatusWriter::new(library.clone()).start();
+
+        let status_writer = StatusWriter::new(library.clone())
+            .set_playing_path(env.playing_id_path())
+            .start();
 
         let player_arbiter = Arbiter::new();
         let player = Player::start_in_arbiter(&player_arbiter.handle(), |_| match Player::init() {

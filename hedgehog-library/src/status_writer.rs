@@ -74,6 +74,7 @@ impl Actor for StatusWriter {
 #[rtype(result = "()")]
 pub enum StatusWriterCommand {
     Set(EpisodesQuery, EpisodeStatus),
+    StopPlayback,
 }
 
 impl StatusWriterCommand {
@@ -123,6 +124,7 @@ impl Handler<StatusWriterCommand> for StatusWriter {
                 self.library
                     .do_send(FeedUpdateRequest::SetStatus(query, status));
             }
+            StatusWriterCommand::StopPlayback => self.save_episode_id(None),
         }
     }
 }

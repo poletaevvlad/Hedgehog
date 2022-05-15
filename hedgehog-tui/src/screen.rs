@@ -1175,6 +1175,8 @@ impl Handler<PlayerNotification> for UI {
                 self.playback_state.set_state(state);
                 if state.is_none() {
                     self.library.playing_episode.take();
+                    self.status_writer_actor
+                        .do_send(StatusWriterCommand::StopPlayback);
                 }
                 self.invalidate(ctx);
             }

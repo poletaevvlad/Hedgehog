@@ -30,7 +30,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --all
+        run: cargo clippy --all -D  warnings  -D  clippy::semicolon-if-nothing-returned
 
   test-windows:
     name: test-windows

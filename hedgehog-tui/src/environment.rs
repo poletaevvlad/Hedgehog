@@ -15,6 +15,12 @@ impl AppEnvironment {
         path
     }
 
+    pub(crate) fn playing_id_path(&self) -> PathBuf {
+        let mut path = self.data_path.to_path_buf();
+        path.push("playing_episode");
+        path
+    }
+
     pub(crate) fn resolve_config<'a>(&self, path: &'a Path) -> Cow<'a, Path> {
         if path.is_absolute() || path.exists() {
             return path.into();

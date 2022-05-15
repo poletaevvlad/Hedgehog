@@ -29,7 +29,7 @@ impl StatusWriter {
                     log::error!(target:"io", "Cannot load previous playback status: {}", err);
                     (None, None)
                 } else {
-                    let id = buffer.parse::<i64>().ok().map(EpisodeId);
+                    let id = buffer.trim_end().parse::<i64>().ok().map(EpisodeId);
                     (Some(path), id)
                 }
             }
@@ -124,5 +124,17 @@ impl Handler<StatusWriterCommand> for StatusWriter {
                     .do_send(FeedUpdateRequest::SetStatus(query, status));
             }
         }
+    }
+}
+
+#[derive(Message)]
+#[rtype("Option<EpisodeId>")]
+pub struct GetPlayingEpisodeId;
+
+impl Handler<GetPlayingEpisodeId> for StatusWriter {
+    type Result = Option<EpisodeId>;
+
+    fn handle(&mut self, _: GetPlayingEpisodeId, _ctx: &mut Self::Context) -> Self::Result {
+        self.saved_episode_id
     }
 }

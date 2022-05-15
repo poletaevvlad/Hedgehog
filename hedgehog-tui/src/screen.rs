@@ -22,11 +22,11 @@ use actix::prelude::*;
 use crossterm::event::{self, Event};
 use crossterm::QueueableCommand;
 use hedgehog_library::model::{
-    Episode, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
+    Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedId, FeedSummary, FeedView, Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
-use hedgehog_library::status_writer::{StatusWriter, StatusWriterCommand};
+use hedgehog_library::status_writer::{self, StatusWriter, StatusWriterCommand};
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
     EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, FeedUpdateRequest,
@@ -35,7 +35,8 @@ use hedgehog_library::{
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
 use hedgehog_player::{
-    PlaybackCommand, PlaybackMetadata, Player, PlayerNotification, SeekDirection, SeekOffset,
+    InitialPlaybackState, PlaybackCommand, PlaybackMetadata, Player, PlayerNotification,
+    SeekDirection, SeekOffset,
 };
 use std::collections::HashSet;
 use std::io::{stdout, Write};
@@ -323,6 +324,54 @@ impl UI {
         self.render();
     }
 
+    fn start_playback(
+        &mut self,
+        episode_id: EpisodeId,
+        initial_state: InitialPlaybackState,
+        ctx: &mut <Self as Actor>::Context,
+    ) {
+        let future = wrap_future(
+            self.library_actor
+                .send(EpisodePlaybackDataRequest(episode_id)),
+        )
+        .map(move |result, actor: &mut UI, ctx| match result {
+            Ok(Some(playback_data)) => {
+                actor.library.playing_episode = Some(playback_data.clone());
+                actor.playback_state =
+                    PlaybackState::new_started(playback_data.position, playback_data.duration);
+                actor
+                    .player_actor
+                    .do_send(hedgehog_player::PlaybackCommand::Play(
+                        playback_data.media_url,
+                        playback_data.position,
+                        Some(PlaybackMetadata {
+                            episode_id: playback_data.id.as_i64(),
+                            episode_title: playback_data.episode_title,
+                            feed_title: playback_data.feed_title,
+                        }),
+                        initial_state,
+                    ));
+                actor
+                    .library
+                    .episodes
+                    .update_data::<selection::DoNotUpdate, _>(|data| {
+                        let episode = data
+                            .find(|item| item.id == episode_id)
+                            .and_then(|index| data.item_at_mut(index));
+                        if let Some(episode) = episode {
+                            episode.status = EpisodeSummaryStatus::Started;
+                        }
+                    });
+                actor.invalidate(ctx);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                log::error!(target: "actix", "{}", error);
+            }
+        });
+        ctx.spawn(future);
+    }
+
     fn handle_command(&mut self, command: Command, ctx: &mut <Self as Actor>::Context) -> bool {
         match command {
             Command::Cursor(command) => {
@@ -417,48 +466,7 @@ impl UI {
                     return true;
                 };
                 self.invalidate_later(ctx);
-
-                let future = wrap_future(
-                    self.library_actor
-                        .send(EpisodePlaybackDataRequest(episode_id)),
-                )
-                .map(move |result, actor: &mut UI, ctx| match result {
-                    Ok(Some(playback_data)) => {
-                        actor.library.playing_episode = Some(playback_data.clone());
-                        actor.playback_state = PlaybackState::new_started(
-                            playback_data.position,
-                            playback_data.duration,
-                        );
-                        actor
-                            .player_actor
-                            .do_send(hedgehog_player::PlaybackCommand::Play(
-                                playback_data.media_url,
-                                playback_data.position,
-                                Some(PlaybackMetadata {
-                                    episode_id: playback_data.id.as_i64(),
-                                    episode_title: playback_data.episode_title,
-                                    feed_title: playback_data.feed_title,
-                                }),
-                            ));
-                        actor
-                            .library
-                            .episodes
-                            .update_data::<selection::DoNotUpdate, _>(|data| {
-                                let episode = data
-                                    .find(|item| item.id == episode_id)
-                                    .and_then(|index| data.item_at_mut(index));
-                                if let Some(episode) = episode {
-                                    episode.status = EpisodeSummaryStatus::Started;
-                                }
-                            });
-                        actor.invalidate(ctx);
-                    }
-                    Ok(None) => {}
-                    Err(error) => {
-                        log::error!(target: "actix", "{}", error);
-                    }
-                });
-                ctx.spawn(future);
+                self.start_playback(episode_id, InitialPlaybackState::Playing, ctx);
             }
             Command::Playback(command) => self.player_actor.do_send(command),
             Command::Finish => {
@@ -888,6 +896,20 @@ impl Actor for UI {
         if let Err(error) = self.commands_history.load_file(self.app_env.history_path()) {
             log::error!(target: "commands_history", "{}", error);
         }
+
+        ctx.spawn(
+            wrap_future(
+                self.status_writer_actor
+                    .send(status_writer::GetPlayingEpisodeId),
+            )
+            .map(|result, actor: &mut UI, ctx| match result {
+                Err(error) => log::error!(target: "actix", "{}", error),
+                Ok(None) => {}
+                Ok(Some(episode_id)) => {
+                    actor.start_playback(episode_id, InitialPlaybackState::Paused, ctx)
+                }
+            }),
+        );
 
         self.invalidate(ctx);
     }

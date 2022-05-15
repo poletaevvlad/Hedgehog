@@ -44,7 +44,7 @@ impl<'a> EpisodeMetadata<'a> {
         let publication_date = item
             .pub_date
             .as_deref()
-            .map(|datetime| DateTime::parse_from_rfc2822(datetime))
+            .map(DateTime::parse_from_rfc2822)
             .transpose()
             .ok()?
             .map(|datetime| datetime.with_timezone(&Utc));

@@ -4,6 +4,7 @@ use chrono::{DateTime, Local};
 use std::time::Duration;
 
 pub(crate) const TTL_LONG: Duration = Duration::from_secs(10);
+pub(crate) const TTL_MEDIUM: Duration = Duration::from_secs(5);
 pub(crate) const TTL_SHORT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -42,6 +43,7 @@ enum LogTarget {
     Sql,
     Io,
     Networking,
+    Browser,
 }
 
 impl LogTarget {
@@ -58,6 +60,7 @@ impl LogTarget {
             "sql" => LogTarget::Sql,
             "io" => LogTarget::Io,
             "networking" => LogTarget::Networking,
+            "browser" => LogTarget::Browser,
             _ => LogTarget::Default,
         }
     }
@@ -84,6 +87,7 @@ impl LogEntry {
     pub(crate) fn display_ttl(&self) -> Option<Duration> {
         match self.target {
             LogTarget::Playback => Some(TTL_LONG),
+            LogTarget::Browser => Some(TTL_MEDIUM),
             LogTarget::KeyMapping | LogTarget::Volume => Some(TTL_SHORT),
             _ => None,
         }
@@ -107,6 +111,7 @@ impl LogEntry {
             LogTarget::Sql => Some("Internal database error"),
             LogTarget::Io => Some("I/O error"),
             LogTarget::Networking => Some("Network error"),
+            LogTarget::Browser => None,
         }
     }
 

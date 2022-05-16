@@ -682,7 +682,7 @@ impl UI {
     }
 
     fn open_browser(&mut self, url: &str) {
-        log::info!("Opening '{}'", url);
+        log::info!(target: "browser", "Opening '{}'", url);
         if let Err(error) = webbrowser::open(url) {
             log::error!("{}", error);
         }

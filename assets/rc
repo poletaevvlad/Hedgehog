@@ -22,6 +22,7 @@ map C-r refresh
 map Delete --state feeds confirm "Are you sure you want to delete this feed? Your history will be deleted." delete-feed
 map o --state feeds open-link feed
 map o --state episodes open-link episode
+map . repeat-command
 
 map Right seek +5
 map Left seek -5

@@ -151,6 +151,7 @@ pub(crate) enum Command {
     SearchAdd,
     OpenLink(LinkType),
 
+    RepeatCommand,
     Refresh,
 }
 
@@ -671,6 +672,11 @@ impl UI {
                     );
                 }
             }
+            Command::RepeatCommand => {
+                if let Some(command) = self.previous_command.as_ref().cloned() {
+                    return self.handle_command(command, ctx);
+                }
+            }
         }
         true
     }
@@ -941,11 +947,6 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                     self.command = Some(CommandState::default());
                     self.invalidate(ctx);
                 }
-                key!('.') => {
-                    if let Some(ref command) = self.previous_command {
-                        self.handle_command(command.clone(), ctx);
-                    }
-                }
                 event::Event::Key(key_event) => {
                     let command = self
                         .key_mapping
@@ -1110,7 +1111,9 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                         self.command = None;
                         match cmdparse::parse::<_, Option<Command>>(&command_str, ()) {
                             Ok(Some(command)) => {
-                                self.previous_command = Some(command.clone());
+                                if !matches!(command, Command::RepeatCommand) {
+                                    self.previous_command = Some(command.clone());
+                                }
                                 self.handle_command(command, ctx);
                             }
                             Ok(None) => {}

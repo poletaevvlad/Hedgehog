@@ -2,7 +2,7 @@ use crate::cmdreader::CommandReader;
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
-use crate::logger::{LogEntry, LogHistory};
+use crate::logger::{log_set_level, LogEntry, LogHistory};
 use crate::mouse::{MouseEventKind, MouseHitResult, MouseState, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
@@ -429,20 +429,26 @@ impl UI {
                     }
                 };
 
-                loop {
-                    match reader.read(()) {
-                        Ok(None) => break,
-                        Ok(Some(command)) => {
-                            if !self.handle_command(command, ctx) {
+                log_set_level!(Error);
+                let result = (|| {
+                    loop {
+                        match reader.read(()) {
+                            Ok(None) => break,
+                            Ok(Some(command)) => {
+                                if !self.handle_command(command, ctx) {
+                                    return false;
+                                }
+                            }
+                            Err(error) => {
+                                log::error!(target: "command", "Cannot parse {:?}. {}", file_path, error);
                                 return false;
                             }
                         }
-                        Err(error) => {
-                            log::error!(target: "command", "Cannot parse {:?}. {}", file_path, error);
-                            return false;
-                        }
                     }
-                }
+                    true
+                })();
+                log_set_level!(Information);
+                return result;
             }
             Command::Confirm(confirmation) => {
                 self.confirmation = Some(*confirmation);
@@ -696,6 +702,7 @@ impl UI {
                 break;
             }
         }
+
         if !rc_found {
             log::error!("Cannot find rc file. Please check your installation.");
         }

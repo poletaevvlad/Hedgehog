@@ -1,6 +1,6 @@
 .\" generated with Ronn-NG/v0.9.1
 .\" http://github.com/apjanke/ronn-ng/tree/0.9.1
-.TH "HEDGEHOG" "1" "April 2022" ""
+.TH "HEDGEHOG" "1" "May 2022" ""
 .SH "NAME"
 \fBhedgehog\fR \- podcast player and organizer
 .SH "SYNOPSIS"
@@ -77,6 +77,9 @@ Sets the currently selected pane\. The selected pane is highlighted in the UI an
 .TP
 \fBlog\fR
 Opens the list of errors\. This command is a shorthand for \fBfocus log\fR\.
+.TP
+\fBrepeat\-command\fR
+Executes the last manually entered command again\. This does not affect commands that Hedgehog couldn\'t parse or the \fBrepeat\-command\fR itself\.
 .TP
 \fBquit\fR or \fBq\fR
 Exits Hedgehog\.
@@ -443,6 +446,8 @@ This section describes the default key mapping of Hedgehog\. Note that any key m
 \fBMinus\fR decreases volume by 10%,
 .IP "\[bu]" 2
 \fB=\fR, \fB+\fR, \fBS\-+\fR increases volume by 10%,
+.IP "\[bu]" 2
+\fB\.\fR repeats the last command,
 .IP "\[bu]" 2
 \fB:\fR begins command entry (cannot be remapped)\.
 .IP "" 0

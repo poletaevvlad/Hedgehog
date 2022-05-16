@@ -139,6 +139,10 @@ description.
 * `log`:
   Opens the list of errors. This command is a shorthand for `focus log`.
 
+* `repeat-command`:
+  Executes the last manually entered command again. This does not affect
+  commands that Hedgehog couldn't parse or the `repeat-command` itself.
+
 * `quit` or `q`:
   Exits Hedgehog.
     
@@ -669,6 +673,7 @@ mapping can be changed by custom configuration via *man* and *unmap* commands.
  * `m` toggles between muted and unmuted states,
  * `Minus` decreases volume by 10%,
  * `=`, `+`, `S-+` increases volume by 10%,
+ * `.` repeats the last command,
  * `:` begins command entry (cannot be remapped).
 
 

@@ -173,6 +173,7 @@ pub(crate) struct UI {
     app_env: super::AppEnvironment,
 
     terminal: tui::Terminal<CrosstermBackend<std::io::Stdout>>,
+    rendering_suspended: bool,
     invalidation_request: Option<SpawnHandle>,
     log_display_clear_request: Option<SpawnHandle>,
     layout: WidgetPositions,
@@ -224,6 +225,7 @@ impl UI {
             playback_state: PlaybackState::default(),
 
             previous_command: None,
+            rendering_suspended: false,
             log_history: ScrollableList::new(
                 LogHistory::default(),
                 size.1.saturating_sub(2) as usize / 3,
@@ -312,6 +314,9 @@ impl UI {
     }
 
     fn invalidate_later(&mut self, ctx: &mut <Self as Actor>::Context) {
+        if self.rendering_suspended {
+            return;
+        }
         if let Some(handle) = self.invalidation_request.take() {
             ctx.cancel_future(handle);
         }
@@ -321,6 +326,9 @@ impl UI {
     }
 
     fn invalidate(&mut self, ctx: &mut <Self as Actor>::Context) {
+        if self.rendering_suspended {
+            return;
+        }
         if let Some(handle) = self.invalidation_request.take() {
             ctx.cancel_future(handle);
         }
@@ -429,6 +437,8 @@ impl UI {
                     }
                 };
 
+                let previous_rendering_suspended = self.rendering_suspended;
+                self.rendering_suspended = true;
                 log_set_level!(Error);
                 let result = (|| {
                     loop {
@@ -447,7 +457,9 @@ impl UI {
                     }
                     true
                 })();
+                self.rendering_suspended = previous_rendering_suspended;
                 log_set_level!(Information);
+                self.invalidate(ctx);
                 return result;
             }
             Command::Confirm(confirmation) => {
@@ -696,12 +708,14 @@ impl UI {
 
     fn init_rc(&mut self, ctx: &mut <UI as Actor>::Context) {
         let mut rc_found = false;
+        self.rendering_suspended = true;
         for path in self.app_env.resolve_rc("rc") {
             rc_found = true;
             if !self.handle_command(Command::Exec(path.to_path_buf()), ctx) {
                 break;
             }
         }
+        self.rendering_suspended = false;
 
         if !rc_found {
             log::error!("Cannot find rc file. Please check your installation.");

@@ -240,6 +240,12 @@ The possible values for <pane-name> are:
   is specified, then only the currently selected feed will be updated.
   Otherwise, all feeds that haven't been disabled will be updated.
 
+* `add-archive` <rss-url>:
+  Loades episodes from the RSS feed located at <rss-url> and adds them to the
+  current feed. It's useful with some podcasts that offer two types of feeds:
+  the one with a few recent episodes which can be fetched quickly and another
+  with all episodes that may take some time to update.
+
 * `enable`, `disable`:
   Enables or disables the feed. If you disable the feed, then it won't be
   scheduled to be updated by neither the `update` command nor automatically on

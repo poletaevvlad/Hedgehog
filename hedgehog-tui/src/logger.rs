@@ -1,6 +1,7 @@
 use crate::scrolling::DataView;
 use actix::{Message, Recipient};
 use chrono::{DateTime, Local};
+use std::cmp::{Ord, Ordering, PartialOrd};
 use std::time::Duration;
 
 pub(crate) const TTL_LONG: Duration = Duration::from_secs(10);
@@ -12,6 +13,23 @@ pub(crate) enum Severity {
     Error,
     Warning,
     Information,
+}
+
+impl Ord for Severity {
+    fn cmp(&self, other: &Severity) -> Ordering {
+        match (self, other) {
+            (a, b) if a == b => Ordering::Equal,
+            (Severity::Error, _) | (_, Severity::Information) => Ordering::Greater,
+            (Severity::Information, _) | (_, Severity::Error) => Ordering::Less,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl PartialOrd<Severity> for Severity {
+    fn partial_cmp(&self, other: &Severity) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Severity {
@@ -44,6 +62,7 @@ enum LogTarget {
     Io,
     Networking,
     Browser,
+    InternalLogControlMessage,
 }
 
 impl LogTarget {
@@ -61,6 +80,7 @@ impl LogTarget {
             "io" => LogTarget::Io,
             "networking" => LogTarget::Networking,
             "browser" => LogTarget::Browser,
+            "__logger_ctl" => LogTarget::InternalLogControlMessage,
             _ => LogTarget::Default,
         }
     }
@@ -112,6 +132,7 @@ impl LogEntry {
             LogTarget::Io => Some("I/O error"),
             LogTarget::Networking => Some("Network error"),
             LogTarget::Browser => None,
+            LogTarget::InternalLogControlMessage => unreachable!(),
         }
     }
 
@@ -159,18 +180,45 @@ enum LogDisplay {
     Special(LogEntry),
 }
 
-#[derive(Default)]
 pub(crate) struct LogHistory {
     log: Vec<LogEntry>,
     display: Option<LogDisplay>,
+    level: Severity,
+}
+
+impl Default for LogHistory {
+    fn default() -> Self {
+        LogHistory {
+            log: Vec::new(),
+            display: None,
+            level: Severity::Information,
+        }
+    }
 }
 
 impl LogHistory {
+    pub(crate) fn set_level(&mut self, level: Severity) {
+        self.level = level;
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         self.log.is_empty()
     }
 
     pub(crate) fn push(&mut self, entry: LogEntry) {
+        if entry.target == LogTarget::InternalLogControlMessage {
+            match entry.message.as_str() {
+                "set_level:info" => self.set_level(Severity::Information),
+                "set_level:warning" => self.set_level(Severity::Warning),
+                "set_level:error" => self.set_level(Severity::Error),
+                _ => {}
+            }
+            return;
+        }
+
+        if entry.severity < self.level {
+            return;
+        }
         self.display = if entry.store_in_history() {
             self.log.push(entry);
             Some(LogDisplay::Last)
@@ -219,3 +267,17 @@ impl DataView for LogHistory {
             .map(|(index, _)| index)
     }
 }
+
+macro_rules! log_set_level {
+    (Information) => {
+        log::error!(target: "__logger_ctl", "set_level:info")
+    };
+    (Warning) => {
+        log::error!(target: "__logger_ctl", "set_level:warning")
+    };
+    (Error) => {
+        log::error!(target: "__logger_ctl", "set_level:error")
+    };
+}
+
+pub(crate) use log_set_level;

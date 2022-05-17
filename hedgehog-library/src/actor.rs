@@ -277,6 +277,7 @@ pub enum FeedUpdateRequest {
     AddFeed(NewFeedMetadata),
     DeleteFeed(FeedId),
     Update(UpdateQuery),
+    AddArchive(FeedId, String),
     SetStatus(EpisodesQuery, EpisodeStatus),
     SetHidden(EpisodesQuery, bool),
     SetFeedEnabled(FeedId, bool),
@@ -296,6 +297,9 @@ impl Handler<FeedUpdateRequest> for Library {
                         log::error!(target: "sql", "cannot update, {}", error);
                     }
                 }
+            }
+            FeedUpdateRequest::AddArchive(feed_id, feed_url) => {
+                self.schedule_update(vec![(feed_id, feed_url)], ctx);
             }
             FeedUpdateRequest::AddFeed(data) => {
                 let feed_id = match self.data_provider.create_feed_pending(&data) {

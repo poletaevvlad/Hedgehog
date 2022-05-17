@@ -131,6 +131,7 @@ pub(crate) enum Command {
         #[cmd(attr(this = "true"))]
         current_only: bool,
     },
+    AddArchive(String),
     Mark {
         status: EpisodeStatus,
         #[cmd(attr(all = "true"))]
@@ -527,6 +528,13 @@ impl UI {
                 };
                 if let Some(query) = query {
                     self.library_actor.do_send(FeedUpdateRequest::Update(query));
+                }
+            }
+            Command::AddArchive(feed_url) => {
+                let feed_id = self.selected_feed.and_then(|feed| feed.as_feed().cloned());
+                if let Some(feed_id) = feed_id {
+                    self.library_actor
+                        .do_send(FeedUpdateRequest::AddArchive(feed_id, feed_url));
                 }
             }
             Command::SetOption(options_update) => {

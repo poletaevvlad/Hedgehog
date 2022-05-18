@@ -249,61 +249,61 @@ Each configuration file (both \fBrc\fR file and themes) contains a series of com
 .SS "CONFIGURATION OPTIONS"
 This section list options that can be set using the \fIset\fR command\.
 .TP
-\fBdate_format\fR
+\fBdate\-format\fR
 The format of the publication date following the syntax of \fIstrftime(3)\fR function\.
 .TP
-\fBlabel_playback_status_playing\fR
+\fBlabel\-playback\-status\-playing\fR
 The label displaying in the player status bar in the playing state\.
 .TP
-\fBlabel_playback_status_paused\fR
+\fBlabel\-playback\-status\-paused\fR
 The label displaying in the player status bar in the paused state\.
 .TP
-\fBlabel_playback_status_bufffering\fR
+\fBlabel\-playback\-status\-bufffering\fR
 The label displaying in the player status bar when the audio stream is buffering\.
 .TP
-\fBlabel_playback_status_none\fR
+\fBlabel\-playback\-status\-none\fR
 The label displaying in the player status bar when no episode is playing\.
 .TP
-\fBlabel_playback_status_none\fR
+\fBlabel\-playback\-status\-none\fR
 The label displaying in the player status bar when no episode is playing\.
 .TP
-\fBlabel_episode_new\fR
+\fBlabel\-episode\-new\fR
 The label displaying in the library when the episode is new\.
 .TP
-\fBlabel_episode_seen\fR
+\fBlabel\-episode\-seen\fR
 Label displaying in the library when the episode is not new but hasn\'t been played\. An episode can reach this status using \fBmark\fR command\.
 .TP
-\fBlabel_episode_playing\fR
+\fBlabel\-episode\-playing\fR
 The label displaying in the library when the episode is currently being played\.
 .TP
-\fBlabel_episode_started\fR
+\fBlabel\-episode\-started\fR
 The label displaying in the library when the episode was started but not completed and is not currently playing\.
 .TP
-\fBlabel_episode_finished\fR
+\fBlabel\-episode\-finished\fR
 The label displaying in the library when the episode was completed\.
 .TP
-\fBlabel_episode_finished\fR
+\fBlabel\-episode\-finished\fR
 The label displaying in the library when the previous playback attempt has failed with an error\.
 .TP
-\fBlabel_feed_error\fR
+\fBlabel\-feed\-error\fR
 The label displaying in the library list for feeds that could not be updated due to an error\.
 .TP
-\fBlabel_feed_updating\fR
+\fBlabel\-feed\-updating\fR
 The label displaying in the library list for feeds that are currently being loaded\.
 .TP
-\fBlabel_feed_updating\fR
+\fBlabel\-feed\-updating\fR
 The flag indicating whether enabled feeds should be updated on startup\.
 .TP
-\fBshow_episode_number\fR
+\fBshow\-episode\-number\fR
 The flag indicating whether episode and season number should be displayed for episodes in the library\.
 .TP
 \fBhidden\fR
 The flag indicating whether the episodes that are hidden using the \fIhide\fR command should be visible in the library\.
 .TP
-\fBprogress_bar_width\fR
+\fBprogress\-bar\-width\fR
 The number of characters allocated to the progress indicator in the player state bar\.
 .TP
-\fBprogress_bar_chars\fR
+\fBprogress\-bar\-chars\fR
 The string, characters of which are used for the progress indicator\.
 .SH "THEMING"
 Hedgehog allows extensive customization of colors and text styles for any component of its user interface\. As with any other customization option, changing the visual style of the program is performed via issuing commands\. Hedgehog supports a separate category of theming commands\. They can be issued us subcommands of \fBtheme\fR or loaded from a separate file via \fBtheme load\fR (the \fBtheme\fR prefix isn\'t used for commands in the theme file)\.

@@ -20,6 +20,9 @@ hedgehog.1: hedgehog.1.ronn
 		| sed 's/.IP "\\\[ci\]" 4/.IP "\\\[bu\]" 2/g' \
 		> hedgehog.1
 
+hedgehog.1.html: hedgehog.1.ronn
+	ronn hedgehog.1.ronn -5 --style toc,dark,darktoc
+
 .PHONY: man
 man: hedgehog.1
 	man -l ./hedgehog.1
@@ -27,7 +30,6 @@ man: hedgehog.1
 .PHONY: version
 version:
 	@cat ./hedgehog-tui/Cargo.toml | grep -P '^version = ' | grep -oP '\d+\.\d+\.\d+' 
-
 
 .PHONY: archive
 archive: target/release/hedgehog

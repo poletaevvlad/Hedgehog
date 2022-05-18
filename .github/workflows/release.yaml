@@ -99,3 +99,34 @@ jobs:
         with:
           name: Hedgehog ${{ env.HEDGEHOG_VERSION }}
           files: build/*
+
+  update-manual-html:
+    name: update-manual-html
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up ruby
+        uses: actions/setup-ruby@v1
+
+      - name: Install ronn
+        run: gem install ronn
+    
+      - name: Build HTML
+        run: make hedgehog.1.html
+
+      - name: Commit changes
+        run: |
+          mv hedgehog.1.html /tmp/hedgehog.1.html
+          git fetch
+          git checkout -B gh-pages origin/gh-pages
+          mv /tmp/hedgehog.1.html hedgehog.1.html
+          if [ "$(git status --porcelain)" != "" ]; then
+            git add hedgehog.1.html
+            git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+            git config user.name "Github Actions"
+            git commit -m "Automatically rebuilt the manual"
+            git push --force origin gh-pages
+          fi
+

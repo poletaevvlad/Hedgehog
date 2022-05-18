@@ -400,71 +400,72 @@ and comments (sections starting with `#`).
 
 This section list options that can be set using the *set* command.
 
-* `date_format`:
+* `date-format`:
   The format of the publication date following the syntax of *strftime(3)*
   function.
 
-* `label_playback_status_playing`:
+* `label-playback-status-playing`:
   The label displaying in the player status bar in the playing state.
 
-* `label_playback_status_paused`:
+* `label-playback-status-paused`:
   The label displaying in the player status bar in the paused state.
 
-* `label_playback_status_bufffering`:
+* `label-playback-status-bufffering`:
   The label displaying in the player status bar when the audio stream is
   buffering.
 
-* `label_playback_status_none`:
+* `label-playback-status-none`:
   The label displaying in the player status bar when no episode is playing.
 
-* `label_playback_status_none`:
+* `label-playback-status-none`:
   The label displaying in the player status bar when no episode is playing.
 
-* `label_episode_new`:
+* `label-episode-new`:
   The label displaying in the library when the episode is new.
 
-* `label_episode_seen`:
+* `label-episode-seen`:
   Label displaying in the library when the episode is not new but hasn't been
   played. An episode can reach this status using `mark` command.
 
-* `label_episode_playing`:
-  The label displaying in the library when the episode is currently being played.
+* `label-episode-playing`:
+  The label displaying in the library when the episode is currently being
+  played.
 
-* `label_episode_started`:
+* `label-episode-started`:
   The label displaying in the library when the episode was started but not
   completed and is not currently playing.
 
-* `label_episode_finished`:
+* `label-episode-finished`:
   The label displaying in the library when the episode was completed.
 
-* `label_episode_finished`:
-  The label displaying in the library when the previous playback attempt has failed
-  with an error.
+* `label-episode-finished`:
+  The label displaying in the library when the previous playback attempt has
+  failed with an error.
  
-* `label_feed_error`:
-  The label displaying in the library list for feeds that could not be updated due
-  to an error.
+* `label-feed-error`:
+  The label displaying in the library list for feeds that could not be updated
+  due to an error.
 
-* `label_feed_updating`:
+* `label-feed-updating`:
   The label displaying in the library list for feeds that are currently being
   loaded.
 
-* `label_feed_updating`:
+* `label-feed-updating`:
   The flag indicating whether enabled feeds should be updated on startup.
 
-* `show_episode_number`:
+* `show-episode-number`:
   The flag indicating whether episode and season number should be displayed for
   episodes in the library.
  
 * `hidden`:
-  The flag indicating whether the episodes that are hidden using the *hide* command
-  should be visible in the library.
+  The flag indicating whether the episodes that are hidden using the *hide*
+  command should be visible in the library.
 
-* `progress_bar_width`:
+* `progress-bar-width`:
   The number of characters allocated to the progress indicator in the player
   state bar.
 
-* `progress_bar_chars`:
+* `progress-bar-chars`:
   The string, characters of which are used for the progress indicator.
 
 
@@ -605,16 +606,17 @@ Selectors follow any of the following forms:
   Styling can be applied to the whole row or a specific part of it. For a later
   case, you may extend this selector with the name of such part. Some of these
   are used by many lists. These include the name of the feed or episode
-  (`.name`), a state indicator usually displayed on the right (`.state`), and an
-  ellipsis that are displayed when the data is being loaded from the database
-  for more time than usual. Most though are list specific. The episodes list
-  includes an episode and season number (`.episode-number`), the name of a feed
-  where this episode is located (`.feed-title`), the duration of the episode
-  (`.duration`), the date when it was published (`.date`). Search result
-  entries include the name of the autor who publishes the podcast (`.author`),
-  its genre (`.genre`), the number of episodes in the feed (`.episodes-count`).
-  The list of feeds along with the title includes a number of new episodes
-  (`.new-count`). The log entry details are selected as `.details`.
+  (`.name`), a state indicator usually displayed on the right (`.state`), and
+  an ellipsis that are displayed when the data is being loaded from the
+  database for more time than usual. Most though are list specific. The
+  episodes list includes an episode and season number (`.episode-number`), the
+  name of a feed where this episode is located (`.feed-title`), the duration of
+  the episode (`.duration`), the date when it was published (`.date`). Search
+  result entries include the name of the autor who publishes the podcast
+  (`.author`), its genre (`.genre`), the number of episodes in the feed
+  (`.episodes-count`). The list of feeds along with the title includes a number
+  of new episodes (`.new-count`). The log entry details are selected as
+  `.details`.
 
   This selector is also used for empty parts of the list.
 

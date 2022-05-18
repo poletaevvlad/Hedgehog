@@ -33,6 +33,11 @@ impl<D> InMemoryCache<D> {
             None => true,
         });
     }
+
+    fn invalidate_all(&mut self) {
+        self.episodes_list_metadata.clear();
+        self.episodes_summaries.clear();
+    }
 }
 
 impl<D: DataProvider> DataProvider for InMemoryCache<D> {
@@ -154,6 +159,7 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
     }
 
     fn set_episode_hidden(&mut self, query: EpisodesQuery, hidden: bool) -> DbResult<()> {
+        self.invalidate_all();
         self.data_provider.set_episode_hidden(query, hidden)
     }
 

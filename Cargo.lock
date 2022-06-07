@@ -510,18 +510,18 @@ dependencies = [
 
 [[package]]
 name = "cmdparse"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bda8efd7ca4d78da7e33f35bd20d551f43f712622e8811faeafa93417946eba1"
+checksum = "5db73e49a12545c94f047cd652353269d9e645063f45dadabe129b00cfbc7510"
 dependencies = [
  "cmdparse-derive",
 ]
 
 [[package]]
 name = "cmdparse-derive"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b76d9b5a3e7f706da9b9a9461fb7526e0ca22324135ae7969b00e9f9d24e9348"
+checksum = "d845361711dcd6751dbc94e9bba00dbda5fd210ea7c9f1e8b61bbac4cc252a88"
 dependencies = [
  "linked-hash-map",
  "proc-macro2",

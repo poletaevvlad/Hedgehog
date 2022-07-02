@@ -119,6 +119,14 @@ pub struct GroupSummary {
     pub name: String,
 }
 
+impl Identifiable for GroupSummary {
+    type Id = GroupId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct FeedSummary {
     pub id: FeedId,
@@ -319,52 +327,56 @@ pub struct EpisodesListMetadata {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum FeedView<T> {
+pub enum FeedView<F, G> {
     All,
     New,
-    Feed(T),
+    Feed(F),
+    Group(G),
 }
 
-impl<T> FeedView<T> {
-    pub fn as_feed(&self) -> Option<&T> {
+impl<F, G> FeedView<F, G> {
+    pub fn as_feed(&self) -> Option<&F> {
         match self {
             FeedView::Feed(feed) => Some(feed),
             _ => None,
         }
     }
 
-    pub fn as_mut(&mut self) -> Option<&mut T> {
+    pub fn as_feed_mut(&mut self) -> Option<&mut F> {
         match self {
             FeedView::Feed(feed) => Some(feed),
             _ => None,
         }
     }
 
-    pub fn map<R>(self, f: impl FnOnce(T) -> R) -> FeedView<R> {
+    pub fn map_feed<R>(self, f: impl FnOnce(F) -> R) -> FeedView<R, G> {
         match self {
             FeedView::All => FeedView::All,
             FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(f(feed)),
+            FeedView::Group(group) => FeedView::Group(group),
         }
     }
 
-    pub fn as_ref(&self) -> FeedView<&T> {
+    pub fn as_ref(&self) -> FeedView<&F, &G> {
         match self {
             FeedView::All => FeedView::All,
             FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(feed),
+            FeedView::Group(group) => FeedView::Group(group),
         }
     }
 }
 
-impl<T: Identifiable> Identifiable for FeedView<T> {
-    type Id = FeedView<T::Id>;
+impl<F: Identifiable, G: Identifiable> Identifiable for FeedView<F, G> {
+    type Id = FeedView<F::Id, G::Id>;
 
     fn id(&self) -> Self::Id {
         match self {
             FeedView::All => FeedView::All,
             FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(feed.id()),
+            FeedView::Group(group) => FeedView::Group(group.id()),
         }
     }
 }

@@ -84,11 +84,11 @@ impl<'a> Widget for LibraryWidget<'a> {
                 .feeds
                 .data()
                 .item_at(selected_feed_index)
-                .map(|item| item.as_ref().map(|feed| feed.status));
+                .map(|item| item.as_ref().map_feed(|feed| feed.status));
 
             if self.data.episodes.data().size() == 0 {
                 match state {
-                    Some(FeedView::All) => {}
+                    Some(FeedView::All | FeedView::Group(_)) => {}
                     Some(FeedView::New) => {
                         EmptyView::new(self.theme)
                             .title("There are no new episodes.")

@@ -23,7 +23,7 @@ use crossterm::event::{self, Event};
 use crossterm::QueueableCommand;
 use hedgehog_library::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedSummary, FeedView, Identifiable,
+    EpisodesListMetadata, Feed, FeedId, FeedSummary, FeedView, GroupId, GroupSummary, Identifiable,
 };
 use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{self, StatusWriter, StatusWriterCommand};
@@ -63,7 +63,7 @@ pub(crate) enum SearchState {
 }
 
 pub(crate) struct LibraryViewModel {
-    pub(crate) feeds: ScrollableList<Vec<FeedView<FeedSummary>>>,
+    pub(crate) feeds: ScrollableList<Vec<FeedView<FeedSummary, GroupSummary>>>,
     pub(crate) feeds_loaded: bool,
     pub(crate) episodes: ScrollableList<PaginatedData<EpisodeSummary>>,
     pub(crate) episodes_list_metadata: Option<EpisodesListMetadata>,
@@ -189,7 +189,7 @@ pub(crate) struct UI {
     theme: Theme,
     key_mapping: KeyMapping<Command, FocusedPane>,
     library: LibraryViewModel,
-    selected_feed: Option<FeedView<FeedId>>,
+    selected_feed: Option<FeedView<FeedId, GroupId>>,
     playback_state: PlaybackState,
 
     previous_command: Option<Command>,
@@ -1324,7 +1324,7 @@ impl Handler<FeedUpdateNotification> for UI {
                         match result {
                             FeedUpdateResult::Updated(summary) => *item = FeedView::Feed(summary),
                             FeedUpdateResult::StatusChanged(status) => {
-                                item.as_mut().unwrap().status = status;
+                                item.as_feed_mut().unwrap().status = status;
                             }
                         }
                     });
@@ -1367,7 +1367,7 @@ impl Handler<FeedUpdateNotification> for UI {
                     .feeds
                     .update_data::<selection::DoNotUpdate, _>(|feeds| {
                         for feed in feeds {
-                            if let Some(feed) = feed.as_mut() {
+                            if let Some(feed) = feed.as_feed_mut() {
                                 if let Some(new) = new_count.get(&feed.id) {
                                     feed.new_count = *new;
                                 }

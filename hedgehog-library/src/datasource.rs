@@ -80,13 +80,14 @@ impl EpisodesQuery {
         self
     }
 
-    pub fn from_feed_view(feed_id: FeedView<FeedId>) -> Self {
+    pub fn from_feed_view(feed_id: FeedView<FeedId, GroupId>) -> Self {
         match feed_id {
             FeedView::All => EpisodesQuery::default().include_feed_title(),
             FeedView::New => EpisodesQuery::default()
                 .status(EpisodeSummaryStatus::New)
                 .include_feed_title(),
             FeedView::Feed(feed_id) => EpisodesQuery::default().feed_id(feed_id),
+            FeedView::Group(feed_id) => EpisodesQuery::default().group_id(feed_id),
         }
     }
 }

@@ -143,9 +143,9 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 let paragraph = Paragraph::new(item.title.as_str());
                 paragraph.render(
                     Rect::new(
-                        area.x + 1,
+                        area.x + 2,
                         area.y,
-                        area.width.saturating_sub(2),
+                        area.width.saturating_sub(3),
                         area.height,
                     ),
                     buf,

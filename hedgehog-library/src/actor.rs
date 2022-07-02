@@ -287,6 +287,7 @@ pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
     AddFeed(NewFeedMetadata),
     DeleteFeed(FeedId),
+    RenameFeed(FeedId, String),
     Update(UpdateQuery),
     AddArchive(FeedId, String),
     SetStatus(EpisodesQuery, EpisodeStatus),
@@ -339,6 +340,11 @@ impl Handler<FeedUpdateRequest> for Library {
                     Err(error) => {
                         log::error!(target: "sql", "cannot delete feed, {}", error);
                     }
+                }
+            }
+            FeedUpdateRequest::RenameFeed(feed_id, name) => {
+                if let Err(error) = self.data_provider.rename_feed(feed_id, name) {
+                    log::error!(target: "sql", "cannot rename feed, {}", error);
                 }
             }
             FeedUpdateRequest::SetStatus(query, status) => {

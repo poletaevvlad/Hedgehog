@@ -152,6 +152,14 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET title_override = :name WHERE id = :feed_id")?;
+        statement.execute(named_params! {":name": name, ":feed_id": feed_id})?;
+        Ok(())
+    }
+
     fn get_new_episodes_count(
         &mut self,
         feed_ids: HashSet<FeedId>,

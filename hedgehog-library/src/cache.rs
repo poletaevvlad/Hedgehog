@@ -57,6 +57,10 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         self.data_provider.get_update_sources(update)
     }
 
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
+        self.data_provider.rename_feed(feed_id, name)
+    }
+
     fn get_new_episodes_count(
         &mut self,
         feed_ids: HashSet<FeedId>,

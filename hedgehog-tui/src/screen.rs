@@ -126,6 +126,7 @@ pub(crate) enum Command {
     AddFeed(String),
     DeleteFeed,
     Reverse,
+    Rename(String),
     #[cmd(alias = "u")]
     Update {
         #[cmd(attr(this = "true"))]
@@ -654,6 +655,29 @@ impl UI {
                     }
                 }
             }
+            Command::Rename(name) => match self.selected_feed {
+                Some(FeedView::Feed(feed_id)) => {
+                    self.library_actor
+                        .do_send(FeedUpdateRequest::RenameFeed(feed_id, name.clone()));
+                    self.library
+                        .feeds
+                        .update_data::<selection::Keep, _>(|data| {
+                            for item in data {
+                                match item {
+                                    FeedView::Feed(feed) if feed.id == feed_id => {
+                                        feed.title = name;
+                                        break;
+                                    }
+                                    _ => (),
+                                }
+                            }
+                        });
+                }
+                Some(_) => log::warn!("Only individual podcasts can be renamed"),
+                None => {
+                    log::warn!("Nothing to rename");
+                }
+            },
             Command::OpenLink(LinkType::Feed) => {
                 if let Some(FeedView::Feed(feed_id)) = self.selected_feed {
                     ctx.spawn(

@@ -119,6 +119,7 @@ pub trait DataProvider: Unpin {
         &mut self,
         feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>>;
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()>;
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(

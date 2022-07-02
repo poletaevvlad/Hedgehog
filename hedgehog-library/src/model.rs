@@ -349,6 +349,13 @@ impl<F, G> FeedView<F, G> {
         }
     }
 
+    pub fn as_group_mut(&mut self) -> Option<&mut G> {
+        match self {
+            FeedView::Group(group) => Some(group),
+            _ => None,
+        }
+    }
+
     pub fn map_feed<R>(self, f: impl FnOnce(F) -> R) -> FeedView<R, G> {
         match self {
             FeedView::All => FeedView::All,

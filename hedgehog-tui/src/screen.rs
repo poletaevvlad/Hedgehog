@@ -368,7 +368,7 @@ impl UI {
                 actor
                     .library
                     .episodes
-                    .update_data::<selection::DoNotUpdate, _>(|data| {
+                    .update_data::<selection::DoNotUpdate, _>(|data, _| {
                         let episode = data
                             .find(|item| item.id == episode_id)
                             .and_then(|index| data.item_at_mut(index));
@@ -482,7 +482,7 @@ impl UI {
                         return true;
                     }
                     self.log_history
-                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                        .update_data::<selection::DoNotUpdate, _>(|data, _| {
                             data.clear_playback_display_error();
                         });
                     episode_id
@@ -500,7 +500,7 @@ impl UI {
                         .do_send(StatusWriterCommand::set_finished(playing.id));
                     self.library
                         .episodes
-                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                        .update_data::<selection::DoNotUpdate, _>(|data, _| {
                             let episode = data
                                 .find(|item| item.id == playing.id)
                                 .and_then(|index| data.item_at_mut(index));
@@ -562,7 +562,7 @@ impl UI {
                     if let Some(feed) = self.selected_feed {
                         self.library
                             .episodes
-                            .update_data::<selection::DoNotUpdate, _>(|data| {
+                            .update_data::<selection::DoNotUpdate, _>(|data, _| {
                                 for episode in data.iter_mut() {
                                     if condition.is_none() || condition == Some(episode.status) {
                                         episode.status = (&status).into();
@@ -583,7 +583,7 @@ impl UI {
                     let selected_index = self.library.episodes.viewport().selected_index();
                     self.library
                         .episodes
-                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                        .update_data::<selection::DoNotUpdate, _>(|data, _| {
                             if let Some(selected) = data.item_at_mut(selected_index) {
                                 if condition.is_none() || condition == Some(selected.status) {
                                     selected.status = (&status).into();
@@ -619,7 +619,7 @@ impl UI {
             Command::Refresh => {
                 self.library
                     .episodes
-                    .update_data::<selection::Reset, _>(|data| {
+                    .update_data::<selection::Reset, _>(|data, _| {
                         data.clear_provider();
                         data.clear();
                     });
@@ -662,16 +662,17 @@ impl UI {
                         .do_send(FeedUpdateRequest::RenameFeed(feed_id, name.clone()));
                     self.library
                         .feeds
-                        .update_data::<selection::Keep, _>(|data| {
-                            for item in data {
-                                match item {
-                                    FeedView::Feed(feed) if feed.id == feed_id => {
-                                        feed.title = name;
-                                        break;
-                                    }
-                                    _ => (),
-                                }
-                            }
+                        .update_data::<selection::Keep, _>(|data, selection| {
+                            data[selection].as_feed_mut().unwrap().title = name;
+                        });
+                }
+                Some(FeedView::Group(group_id)) => {
+                    self.library_actor
+                        .do_send(FeedUpdateRequest::RenameGroup(group_id, name.clone()));
+                    self.library
+                        .feeds
+                        .update_data::<selection::Keep, _>(|data, selection| {
+                            data[selection].as_group_mut().unwrap().name = name;
                         });
                 }
                 Some(_) => log::warn!("Only individual podcasts can be renamed"),
@@ -769,7 +770,7 @@ impl UI {
         };
         self.library
             .episodes
-            .update_data::<selection::Keep, _>(|data| {
+            .update_data::<selection::Keep, _>(|data, _| {
                 // To prevent updates for the old data
                 data.clear_provider();
                 if replace_current {
@@ -836,7 +837,7 @@ impl UI {
                 match episodes {
                     Some((range, episodes)) => match episodes {
                         Ok(episodes) => {
-                            update_data!(|data| {
+                            update_data!(|data, _| {
                                 data.set_provider(new_provider);
                                 data.set_initial(items_count, episodes, range);
                             });
@@ -846,7 +847,7 @@ impl UI {
                         }
                     },
                     None => {
-                        update_data!(|data| {
+                        update_data!(|data, _| {
                             data.set_provider(new_provider);
                             data.clear();
                         });
@@ -870,7 +871,7 @@ impl UI {
         } else {
             self.library
                 .episodes
-                .update_data::<selection::Reset, _>(|data| {
+                .update_data::<selection::Reset, _>(|data, _| {
                     data.clear();
                     data.clear_provider();
                 });
@@ -903,7 +904,7 @@ impl UI {
 
     fn clear_log_display(&mut self, ctx: &mut <UI as Actor>::Context) {
         self.log_history
-            .update_data::<selection::Reset, _>(LogHistory::clear_display);
+            .update_data::<selection::Reset, _>(|data, _| LogHistory::clear_display(data));
         if let Some(handle) = self.log_display_clear_request.take() {
             ctx.cancel_future(handle);
         }
@@ -917,7 +918,7 @@ impl UI {
                         actor
                             .library
                             .feeds
-                            .update_data::<selection::FindPrevious, _>(|current_feeds| {
+                            .update_data::<selection::FindPrevious, _>(|current_feeds, _| {
                                 let mut feed_views =
                                     Vec::with_capacity(feeds.len() + groups.len() + 2);
                                 feed_views.push(FeedView::All);
@@ -1229,7 +1230,7 @@ impl Handler<DataFetchingRequest> for UI {
                             actor
                                 .library
                                 .episodes
-                                .update_data::<selection::DoNotUpdate, _>(|data| {
+                                .update_data::<selection::DoNotUpdate, _>(|data, _| {
                                     data.set(episodes, range);
                                 });
                             actor.invalidate(ctx);
@@ -1283,7 +1284,7 @@ impl Handler<PlayerNotification> for UI {
                         .do_send(StatusWriterCommand::set_finished(playing_episode.id));
                     self.library
                         .episodes
-                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                        .update_data::<selection::DoNotUpdate, _>(|data, _| {
                             let episode = data
                                 .find(|item| item.id == playing_episode.id)
                                 .and_then(|index| data.item_at_mut(index));
@@ -1305,7 +1306,7 @@ impl Handler<PlayerNotification> for UI {
                         ));
                     self.library
                         .episodes
-                        .update_data::<selection::DoNotUpdate, _>(|data| {
+                        .update_data::<selection::DoNotUpdate, _>(|data, _| {
                             let episode = data
                                 .find(|item| item.id == playing_episode.id)
                                 .and_then(|index| data.item_at_mut(index));
@@ -1331,7 +1332,7 @@ impl Handler<FeedUpdateNotification> for UI {
                 self.library.updating_feeds.remove(&id);
                 self.library
                     .feeds
-                    .update_data::<selection::DoNotUpdate, _>(|feeds| {
+                    .update_data::<selection::DoNotUpdate, _>(|feeds, _| {
                         let item = feeds
                             .iter_mut()
                             .find(|feed| feed.id() == FeedView::Feed(id));
@@ -1355,7 +1356,7 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::FeedAdded(feed) => {
                 self.library
                     .feeds
-                    .update_data::<selection::Keep, _>(|feeds| feeds.push(FeedView::Feed(feed)));
+                    .update_data::<selection::Keep, _>(|feeds, _| feeds.push(FeedView::Feed(feed)));
                 self.update_current_feed(ctx);
             }
             FeedUpdateNotification::DuplicateFeed => {
@@ -1364,7 +1365,7 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::FeedDeleted(feed_id) => {
                 self.library
                     .feeds
-                    .update_data::<selection::FindPrevious<selection::Keep>, _>(|feeds| {
+                    .update_data::<selection::FindPrevious<selection::Keep>, _>(|feeds, _| {
                         let index = feeds.iter().enumerate().find_map(|(index, feed)| {
                             match feed.id() == FeedView::Feed(feed_id) {
                                 true => Some(index),
@@ -1383,7 +1384,7 @@ impl Handler<FeedUpdateNotification> for UI {
                 }
                 self.library
                     .feeds
-                    .update_data::<selection::DoNotUpdate, _>(|feeds| {
+                    .update_data::<selection::DoNotUpdate, _>(|feeds, _| {
                         for feed in feeds {
                             if let Some(feed) = feed.as_feed_mut() {
                                 if let Some(new) = new_count.get(&feed.id) {
@@ -1411,13 +1412,15 @@ impl Handler<LogEntry> for UI {
                     actor.log_display_clear_request = None;
                     actor
                         .log_history
-                        .update_data::<selection::DoNotUpdate, _>(LogHistory::clear_display);
+                        .update_data::<selection::DoNotUpdate, _>(|data, _| {
+                            LogHistory::clear_display(data);
+                        });
                     actor.invalidate(ctx);
                 },
             )));
         }
         self.log_history
-            .update_data::<selection::Keep, _>(|log| log.push(entry));
+            .update_data::<selection::Keep, _>(|log, _| log.push(entry));
         self.invalidate(ctx);
     }
 }

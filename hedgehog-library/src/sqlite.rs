@@ -177,6 +177,14 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(items)?)
     }
 
+    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE groups SET name = :name WHERE id = :group_id")?;
+        statement.execute(named_params! {":name": name, ":group_id": group_id})?;
+        Ok(())
+    }
+
     fn get_new_episodes_count(
         &mut self,
         feed_ids: HashSet<FeedId>,

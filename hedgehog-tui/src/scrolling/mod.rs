@@ -74,12 +74,15 @@ impl<D: DataView> ScrollableList<D> {
         (start..size).map(move |index| (self.data.item_at(index), index == selection))
     }
 
-    pub(crate) fn update_data<SelectionUpdate: selection::UpdateStrategy<D>, F: FnOnce(&mut D)>(
+    pub(crate) fn update_data<
+        SelectionUpdate: selection::UpdateStrategy<D>,
+        F: FnOnce(&mut D, usize),
+    >(
         &mut self,
         f: F,
     ) {
         let update_tmp = SelectionUpdate::before_update(&self.viewport, &self.data);
-        f(&mut self.data);
+        f(&mut self.data, self.viewport.selected_index());
         SelectionUpdate::update(&mut self.viewport, &self.data, update_tmp);
         self.data.prepare(self.viewport.range());
     }
@@ -235,7 +238,7 @@ mod tests {
     fn update_keep() {
         let mut list = make_update_list();
         let items_after = vec![Item(2, 'c'), Item(3, 'd'), Item(0, 'a'), Item(1, 'd')];
-        list.update_data::<selection::Keep, _>(|data| *data = items_after);
+        list.update_data::<selection::Keep, _>(|data, _| *data = items_after);
         assert_eq!(list.selection(), Some(&Item(0, 'a')));
     }
 
@@ -243,7 +246,7 @@ mod tests {
     fn update_keep_size_reduced() {
         let mut list = make_update_list();
         let items_after = vec![Item(2, 'c'), Item(3, 'd')];
-        list.update_data::<selection::Keep, _>(|data| *data = items_after);
+        list.update_data::<selection::Keep, _>(|data, _| *data = items_after);
         assert_eq!(list.selection(), Some(&Item(3, 'd')));
     }
 
@@ -251,7 +254,7 @@ mod tests {
     fn update_reset() {
         let mut list = make_update_list();
         let items_after = vec![Item(1, 'b'), Item(2, 'c'), Item(3, 'd'), Item(0, 'a')];
-        list.update_data::<selection::Reset, _>(|data| *data = items_after);
+        list.update_data::<selection::Reset, _>(|data, _| *data = items_after);
         assert_eq!(list.selection(), Some(&Item(1, 'b')));
     }
 
@@ -259,7 +262,7 @@ mod tests {
     fn update_find() {
         let mut list = make_update_list();
         let items_after = vec![Item(1, 'b'), Item(2, 'c'), Item(3, 'd'), Item(0, 'a')];
-        list.update_data::<selection::FindPrevious, _>(|data| *data = items_after);
+        list.update_data::<selection::FindPrevious, _>(|data, _| *data = items_after);
         assert_eq!(list.selection(), Some(&Item(2, 'c')));
     }
 
@@ -267,7 +270,7 @@ mod tests {
     fn update_find_not_find() {
         let mut list = make_update_list();
         let items_after = vec![Item(1, 'b'), Item(4, 'e'), Item(3, 'd'), Item(0, 'a')];
-        list.update_data::<selection::FindPrevious, _>(|data| *data = items_after);
+        list.update_data::<selection::FindPrevious, _>(|data, _| *data = items_after);
         assert_eq!(list.selection(), Some(&Item(1, 'b')));
     }
 }

@@ -1,7 +1,7 @@
 use crate::datasource::{DataProvider, NewFeedMetadata, QueryError};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, GroupSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, GroupId, GroupSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::EpisodesQuery;
@@ -303,6 +303,7 @@ pub enum FeedUpdateRequest {
     AddFeed(NewFeedMetadata),
     DeleteFeed(FeedId),
     RenameFeed(FeedId, String),
+    RenameGroup(GroupId, String),
     Update(UpdateQuery),
     AddArchive(FeedId, String),
     SetStatus(EpisodesQuery, EpisodeStatus),
@@ -360,6 +361,11 @@ impl Handler<FeedUpdateRequest> for Library {
             FeedUpdateRequest::RenameFeed(feed_id, name) => {
                 if let Err(error) = self.data_provider.rename_feed(feed_id, name) {
                     log::error!(target: "sql", "cannot rename feed, {}", error);
+                }
+            }
+            FeedUpdateRequest::RenameGroup(group_id, name) => {
+                if let Err(error) = self.data_provider.rename_group(group_id, name) {
+                    log::error!(target: "sql", "cannot rename group, {}", error);
                 }
             }
             FeedUpdateRequest::SetStatus(query, status) => {

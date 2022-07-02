@@ -1,7 +1,7 @@
 use crate::datasource::{DataProvider, DbResult, EpisodeWriter};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata,
-    Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary,
+    Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, GroupId,
 };
 use crate::{EpisodesQuery, NewFeedMetadata, UpdateQuery};
 use std::collections::{HashMap, HashSet};
@@ -70,6 +70,10 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
 
     fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
         self.data_provider.rename_feed(feed_id, name)
+    }
+
+    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {
+        self.data_provider.rename_group(group_id, name)
     }
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {

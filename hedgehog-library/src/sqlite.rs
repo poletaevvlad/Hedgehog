@@ -5,7 +5,7 @@ use crate::datasource::{
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, GroupId,
 };
 use rusqlite::{named_params, Connection};
 use std::collections::{HashMap, HashSet};
@@ -90,11 +90,13 @@ impl DataProvider for SqliteDataProvider {
     fn get_feed_summaries(&mut self) -> DbResult<Vec<FeedSummary>> {
         let mut select = self.connection.prepare(
             "SELECT feeds.id, COALESCE(feeds.title_override, feeds.title, feeds.source), 
-                    feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id)
+                    feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id),
+                    feeds.group_id
             FROM feeds 
             LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
+            LEFT JOIN groups ON feeds.group_id = groups.id
             GROUP BY feeds.id
-            ORDER BY COALESCE(feeds.title_override, feeds.title), feeds.source",
+            ORDER BY groups.ordering, COALESCE(feeds.title_override, feeds.title), feeds.source",
         )?;
         let rows = select.query_map([], |row| {
             Ok(FeedSummary {
@@ -103,6 +105,7 @@ impl DataProvider for SqliteDataProvider {
                 has_title: row.get(2)?,
                 status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
                 new_count: row.get(5)?,
+                group_id: row.get(6)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -252,6 +255,7 @@ impl DataProvider for SqliteDataProvider {
                     SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END), feeds.reversed
             FROM episodes AS ep
             JOIN feeds ON ep.feed_id = feeds.id
+            LEFT JOIN groups ON feeds.group_id = groups.id
             "
             .to_string();
         query.build_where_clause(&mut sql);
@@ -284,13 +288,17 @@ impl DataProvider for SqliteDataProvider {
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
         let feed_title_required = request.include_feed_title;
+        let has_group_filter = request.group_id.is_some();
         let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date, ep.hidden".to_string();
         if feed_title_required {
             sql.push_str(", feeds.title");
         }
         sql.push_str(" FROM episodes AS ep");
-        if feed_title_required {
+        if feed_title_required || has_group_filter {
             sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
+        }
+        if has_group_filter {
+            sql.push_str(" LEFT JOIN groups on groups.id = feeds.group_id");
         }
         request.build_where_clause(&mut sql);
         sql.push_str(" ORDER BY ep.publication_date ");
@@ -455,6 +463,9 @@ impl EpisodesQuery {
         if self.feed_id.is_some() {
             clauses.push("ep.feed_id = :feed_id");
         }
+        if self.group_id.is_some() {
+            clauses.push("groups.id = :group_id");
+        }
         if self.status.is_some() {
             clauses.push("ep.status = :status");
         }
@@ -477,6 +488,7 @@ impl EpisodesQuery {
 struct EpisodeQueryParams {
     id: Option<EpisodeId>,
     feed_id: Option<FeedId>,
+    group_id: Option<GroupId>,
     status: Option<usize>,
 }
 
@@ -485,6 +497,7 @@ impl EpisodeQueryParams {
         EpisodeQueryParams {
             id: query.episode_id,
             feed_id: query.feed_id,
+            group_id: query.group_id,
             status: query.status.map(|status| status.db_view()),
         }
     }
@@ -496,6 +509,9 @@ impl EpisodeQueryParams {
         }
         if let Some(feed_id) = self.feed_id.as_ref() {
             params.push((":feed_id", feed_id));
+        }
+        if let Some(group_id) = self.group_id.as_ref() {
+            params.push((":group_id", group_id));
         }
         if let Some(status) = self.status.as_ref() {
             params.push((":status", status));
@@ -631,7 +647,7 @@ mod tests {
             error,
             ConnectionError::VersionUnknown {
                 version: 20,
-                current: 1
+                current: 2
             }
         ));
     }

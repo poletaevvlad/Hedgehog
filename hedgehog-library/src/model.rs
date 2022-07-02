@@ -34,6 +34,7 @@ macro_rules! entity_id {
 
 entity_id!(FeedId);
 entity_id!(EpisodeId);
+entity_id!(GroupId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedError {
@@ -120,6 +121,7 @@ pub struct FeedSummary {
     pub has_title: bool,
     pub status: FeedStatus,
     pub new_count: usize,
+    pub group_id: Option<GroupId>,
 }
 
 impl FeedSummary {
@@ -130,6 +132,7 @@ impl FeedSummary {
             title: data.title.unwrap_or(data.source),
             status: FeedStatus::Pending,
             new_count: 0,
+            group_id: None,
         }
     }
 
@@ -144,6 +147,7 @@ impl FeedSummary {
             has_title: true,
             status: FeedStatus::Loaded,
             new_count: new_episodes_count,
+            group_id: None,
         }
     }
 }

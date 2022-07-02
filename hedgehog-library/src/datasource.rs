@@ -2,7 +2,7 @@ use crate::actor::UpdateQuery;
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, FeedView,
+    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, FeedView, GroupId,
 };
 use std::collections::{HashMap, HashSet};
 use std::marker::Unpin;
@@ -22,6 +22,7 @@ pub type DbResult<T> = Result<T, QueryError>;
 pub struct EpisodesQuery {
     pub(crate) episode_id: Option<EpisodeId>,
     pub(crate) feed_id: Option<FeedId>,
+    pub(crate) group_id: Option<GroupId>,
     pub(crate) status: Option<EpisodeSummaryStatus>,
     pub(crate) with_hidden: bool,
     pub(crate) include_feed_title: bool,
@@ -33,6 +34,7 @@ impl Default for EpisodesQuery {
         Self {
             episode_id: None,
             feed_id: None,
+            group_id: None,
             status: None,
             with_hidden: true,
             include_feed_title: false,
@@ -49,6 +51,11 @@ impl EpisodesQuery {
 
     pub fn feed_id(mut self, feed_id: FeedId) -> Self {
         self.feed_id = Some(feed_id);
+        self
+    }
+
+    pub fn group_id(mut self, group_id: GroupId) -> Self {
+        self.group_id = Some(group_id);
         self
     }
 

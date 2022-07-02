@@ -165,6 +165,7 @@ pub struct FeedOMPLEntry {
 pub struct Feed {
     pub id: FeedId,
     pub title: Option<String>,
+    pub title_overriden: bool,
     pub description: Option<String>,
     pub link: Option<String>,
     pub author: Option<String>,

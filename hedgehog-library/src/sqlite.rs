@@ -60,17 +60,24 @@ impl SqliteDataProvider {
 
 impl DataProvider for SqliteDataProvider {
     fn get_feed(&mut self, id: FeedId) -> DbResult<Option<crate::model::Feed>> {
-        let mut statement = self.connection.prepare( "SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
+        let mut statement = self.connection.prepare(
+            "SELECT id, COALESCE(title_override, title), title_override IS NOT NULL, description, 
+                    link, author, copyright, source, status, error_code 
+            FROM feeds
+            WHERE id = ?1
+        ",
+        )?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
                 id: row.get(0)?,
                 title: row.get(1)?,
-                description: row.get(2)?,
-                link: row.get(3)?,
-                author: row.get(4)?,
-                copyright: row.get(5)?,
-                source: row.get(6)?,
-                status: FeedStatus::from_db(row.get(7)?, row.get(8)?),
+                title_overriden: row.get(2)?,
+                description: row.get(3)?,
+                link: row.get(4)?,
+                author: row.get(5)?,
+                copyright: row.get(6)?,
+                source: row.get(7)?,
+                status: FeedStatus::from_db(row.get(8)?, row.get(9)?),
             })
         });
         match result {
@@ -81,16 +88,14 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_feed_summaries(&mut self) -> DbResult<Vec<FeedSummary>> {
-        let mut select = self
-            .connection
-            .prepare(
-                "SELECT feeds.id, CASE WHEN feeds.title IS NOT NULL THEN feeds.title ELSE feeds.source END, 
-                        feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id)
-                FROM feeds 
-                LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
-                GROUP BY feeds.id
-                ORDER BY feeds.title, feeds.source"
-            )?;
+        let mut select = self.connection.prepare(
+            "SELECT feeds.id, COALESCE(feeds.title_override, feeds.title, feeds.source), 
+                    feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id)
+            FROM feeds 
+            LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
+            GROUP BY feeds.id
+            ORDER BY COALESCE(feeds.title_override, feeds.title), feeds.source",
+        )?;
         let rows = select.query_map([], |row| {
             Ok(FeedSummary {
                 id: row.get(0)?,

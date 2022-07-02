@@ -215,6 +215,17 @@ impl Library {
                             .status(EpisodeSummaryStatus::New);
                         feed_summary.new_count =
                             library.data_provider.count_episodes(new_episodes_query)?;
+
+                        let feed = library.data_provider.get_feed(feed_id)?;
+                        if let Some((overriden, title)) = feed.and_then(|feed| {
+                            let overridden = feed.title_overriden;
+                            feed.title.map(|title| (overridden, title))
+                        }) {
+                            if overriden {
+                                feed_summary.title = title;
+                            }
+                        }
+
                         library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
                             feed_id,
                             FeedUpdateResult::Updated(feed_summary),

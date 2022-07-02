@@ -33,7 +33,7 @@ pub struct SqliteDataProvider {
 }
 
 impl SqliteDataProvider {
-    const CURRENT_VERSION: u32 = 1;
+    const CURRENT_VERSION: u32 = 2;
 
     pub fn connect<P: AsRef<Path>>(path: P) -> Result<Self, ConnectionError> {
         let connection = Connection::open(path)?;
@@ -48,6 +48,9 @@ impl SqliteDataProvider {
         connection.execute("PRAGMA foreign_keys = ON", named_params! {})?;
         if version < 1 {
             connection.execute_batch(include_str!("schema/init.sql"))?;
+        }
+        if version < 2 {
+            connection.execute_batch(include_str!("schema/v2.sql"))?;
         }
 
         connection.pragma_update(None, "user_version", Self::CURRENT_VERSION)?;

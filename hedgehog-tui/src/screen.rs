@@ -40,6 +40,7 @@ use hedgehog_player::{
 };
 use std::collections::HashSet;
 use std::io::{stdout, Write};
+use std::iter::once;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -912,15 +913,32 @@ impl UI {
         ctx.spawn(
             wrap_future(self.library_actor.send(FeedSummariesRequest)).map(
                 move |data, actor: &mut UI, ctx| match data {
-                    Ok(FeedSummariesResponse { feeds, groups: _ }) => {
+                    Ok(FeedSummariesResponse { feeds, groups }) => {
                         actor
                             .library
                             .feeds
                             .update_data::<selection::FindPrevious, _>(|current_feeds| {
-                                let mut feed_views = Vec::with_capacity(feeds.len() + 2);
+                                let mut feed_views =
+                                    Vec::with_capacity(feeds.len() + groups.len() + 2);
                                 feed_views.push(FeedView::All);
                                 feed_views.push(FeedView::New);
-                                feed_views.extend(feeds.into_iter().map(FeedView::Feed));
+
+                                let mut feeds_iter = feeds.into_iter().peekable();
+                                for group in once(None).chain(groups.into_iter().map(Some)) {
+                                    let group_id = group.as_ref().map(|group| group.id);
+                                    if let Some(group) = group {
+                                        feed_views.push(FeedView::Group(group));
+                                    }
+
+                                    let group_feeds =
+                                        crate::utils::iter_take_while(&mut feeds_iter, |feed| {
+                                            feed.group_id == group_id
+                                        });
+                                    for feed in group_feeds {
+                                        feed_views.push(FeedView::Feed(feed));
+                                    }
+                                }
+
                                 *current_feeds = feed_views;
                             });
                         actor.update_current_feed(ctx);

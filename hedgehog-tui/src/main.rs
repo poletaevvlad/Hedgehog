@@ -9,6 +9,7 @@ mod options;
 mod screen;
 mod scrolling;
 mod theming;
+mod utils;
 mod widgets;
 
 use actix::prelude::*;

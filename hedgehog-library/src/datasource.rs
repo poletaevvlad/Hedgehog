@@ -3,6 +3,7 @@ use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, FeedView, GroupId,
+    GroupSummary,
 };
 use std::collections::{HashMap, HashSet};
 use std::marker::Unpin;
@@ -127,6 +128,8 @@ pub trait DataProvider: Unpin {
         feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>>;
     fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()>;
+
+    fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>>;
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(

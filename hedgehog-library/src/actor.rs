@@ -1,10 +1,11 @@
 use crate::datasource::{DataProvider, NewFeedMetadata, QueryError};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, GroupSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::EpisodesQuery;
+use actix::dev::MessageResponse;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -86,21 +87,35 @@ impl Handler<EpisodesListMetadataRequest> for Library {
     }
 }
 
+#[derive(MessageResponse)]
+pub struct FeedSummariesResponse {
+    pub feeds: Vec<FeedSummary>,
+    pub groups: Vec<GroupSummary>,
+}
+
 #[derive(Message)]
-#[rtype(result = "Vec<FeedSummary>")]
+#[rtype(result = "FeedSummariesResponse")]
 pub struct FeedSummariesRequest;
 
 impl Handler<FeedSummariesRequest> for Library {
-    type Result = Vec<FeedSummary>;
+    type Result = FeedSummariesResponse;
 
     fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
-        match self.data_provider.get_feed_summaries() {
-            Ok(summaries) => summaries,
-            Err(error) => {
+        let feeds = self
+            .data_provider
+            .get_feed_summaries()
+            .unwrap_or_else(|error| {
                 log::error!(target: "sql", "cannot fetch feed summaries, {}", error);
                 Vec::new()
-            }
-        }
+            });
+        let groups = self
+            .data_provider
+            .get_group_summaries()
+            .unwrap_or_else(|error| {
+                log::error!(target: "sql", "cannot fetch group summaries, {}", error);
+                Vec::new()
+            });
+        FeedSummariesResponse { feeds, groups }
     }
 }
 

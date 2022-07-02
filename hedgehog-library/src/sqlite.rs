@@ -6,6 +6,7 @@ use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
     EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, GroupId,
+    GroupSummary,
 };
 use rusqlite::{named_params, Connection};
 use std::collections::{HashMap, HashSet};
@@ -161,6 +162,19 @@ impl DataProvider for SqliteDataProvider {
             .prepare("UPDATE feeds SET title_override = :name WHERE id = :feed_id")?;
         statement.execute(named_params! {":name": name, ":feed_id": feed_id})?;
         Ok(())
+    }
+
+    fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, name FROM groups ORDER BY ordering")?;
+        let items = statement.query_map([], |row| {
+            Ok(GroupSummary {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })?;
+        Ok(collect_results(items)?)
     }
 
     fn get_new_episodes_count(

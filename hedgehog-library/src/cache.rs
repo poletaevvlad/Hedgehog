@@ -53,12 +53,12 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         self.data_provider.get_feed_opml_entries()
     }
 
-    fn get_update_sources(&mut self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>> {
-        self.data_provider.get_update_sources(update)
+    fn get_group_summaries(&mut self) -> DbResult<Vec<crate::model::GroupSummary>> {
+        self.data_provider.get_group_summaries()
     }
 
-    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
-        self.data_provider.rename_feed(feed_id, name)
+    fn get_update_sources(&mut self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>> {
+        self.data_provider.get_update_sources(update)
     }
 
     fn get_new_episodes_count(
@@ -66,6 +66,10 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>> {
         self.data_provider.get_new_episodes_count(feed_ids)
+    }
+
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
+        self.data_provider.rename_feed(feed_id, name)
     }
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {

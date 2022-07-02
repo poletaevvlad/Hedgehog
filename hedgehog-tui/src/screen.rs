@@ -29,8 +29,8 @@ use hedgehog_library::search::{self, SearchClient, SearchResult};
 use hedgehog_library::status_writer::{self, StatusWriter, StatusWriterCommand};
 use hedgehog_library::{
     EpisodePlaybackDataRequest, EpisodeSummariesRequest, EpisodesListMetadataRequest,
-    EpisodesQuery, FeedSummariesRequest, FeedUpdateNotification, FeedUpdateRequest,
-    FeedUpdateResult, Library, NewFeedMetadata, UpdateQuery,
+    EpisodesQuery, FeedSummariesRequest, FeedSummariesResponse, FeedUpdateNotification,
+    FeedUpdateRequest, FeedUpdateResult, Library, NewFeedMetadata, UpdateQuery,
 };
 use hedgehog_player::state::PlaybackState;
 use hedgehog_player::volume::VolumeCommand;
@@ -912,16 +912,16 @@ impl UI {
         ctx.spawn(
             wrap_future(self.library_actor.send(FeedSummariesRequest)).map(
                 move |data, actor: &mut UI, ctx| match data {
-                    Ok(data) => {
+                    Ok(FeedSummariesResponse { feeds, groups: _ }) => {
                         actor
                             .library
                             .feeds
                             .update_data::<selection::FindPrevious, _>(|current_feeds| {
-                                let mut feeds = Vec::with_capacity(data.len() + 2);
-                                feeds.push(FeedView::All);
-                                feeds.push(FeedView::New);
-                                feeds.extend(data.into_iter().map(FeedView::Feed));
-                                *current_feeds = feeds;
+                                let mut feed_views = Vec::with_capacity(feeds.len() + 2);
+                                feed_views.push(FeedView::All);
+                                feed_views.push(FeedView::New);
+                                feed_views.extend(feeds.into_iter().map(FeedView::Feed));
+                                *current_feeds = feed_views;
                             });
                         actor.update_current_feed(ctx);
                         actor.library.feeds_loaded = true;

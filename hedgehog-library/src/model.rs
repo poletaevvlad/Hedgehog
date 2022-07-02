@@ -114,6 +114,11 @@ pub trait Identifiable {
     fn id(&self) -> Self::Id;
 }
 
+pub struct GroupSummary {
+    pub id: GroupId,
+    pub name: String,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct FeedSummary {
     pub id: FeedId,

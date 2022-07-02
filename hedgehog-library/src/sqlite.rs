@@ -20,7 +20,7 @@ pub enum ConnectionError {
     #[error("Database query failed")]
     SqliteError(#[from] rusqlite::Error),
 
-    #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {version})")]
+    #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {current})")]
     VersionUnknown { version: u32, current: u32 },
 
     #[error(transparent)]

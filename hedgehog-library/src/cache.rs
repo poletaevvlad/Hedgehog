@@ -53,10 +53,6 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         self.data_provider.get_feed_opml_entries()
     }
 
-    fn get_group_summaries(&mut self) -> DbResult<Vec<crate::model::GroupSummary>> {
-        self.data_provider.get_group_summaries()
-    }
-
     fn get_update_sources(&mut self, update: UpdateQuery) -> DbResult<Vec<(FeedId, String)>> {
         self.data_provider.get_update_sources(update)
     }
@@ -70,6 +66,14 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
 
     fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
         self.data_provider.rename_feed(feed_id, name)
+    }
+
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>> {
+        self.data_provider.create_group(name)
+    }
+
+    fn get_group_summaries(&mut self) -> DbResult<Vec<crate::model::GroupSummary>> {
+        self.data_provider.get_group_summaries()
     }
 
     fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {

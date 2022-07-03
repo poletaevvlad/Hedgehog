@@ -130,6 +130,7 @@ pub trait DataProvider: Unpin {
     ) -> DbResult<HashMap<FeedId, usize>>;
     fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()>;
 
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>>;
     fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>>;
     fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()>;
 

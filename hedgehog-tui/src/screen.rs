@@ -125,9 +125,10 @@ pub(crate) enum Command {
     SetOption(OptionsUpdate),
     #[cmd(rename = "add")]
     AddFeed(String),
+    AddGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     DeleteFeed,
     Reverse,
-    Rename(String),
+    Rename(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     #[cmd(alias = "u")]
     Update {
         #[cmd(attr(this = "true"))]
@@ -514,6 +515,9 @@ impl UI {
             Command::AddFeed(source) => self
                 .library_actor
                 .do_send(FeedUpdateRequest::AddFeed(NewFeedMetadata::new(source))),
+            Command::AddGroup(name) => self
+                .library_actor
+                .do_send(FeedUpdateRequest::AddGroup(name)),
             Command::DeleteFeed => {
                 if let Some(FeedView::Feed(selected_feed)) = self.library.feeds.selection() {
                     self.library_actor
@@ -1359,9 +1363,6 @@ impl Handler<FeedUpdateNotification> for UI {
                     .update_data::<selection::Keep, _>(|feeds, _| feeds.push(FeedView::Feed(feed)));
                 self.update_current_feed(ctx);
             }
-            FeedUpdateNotification::DuplicateFeed => {
-                log::warn!("This podcast has already been added");
-            }
             FeedUpdateNotification::FeedDeleted(feed_id) => {
                 self.library
                     .feeds
@@ -1375,6 +1376,14 @@ impl Handler<FeedUpdateNotification> for UI {
                         if let Some(index) = index {
                             feeds.remove(index);
                         }
+                    });
+                self.update_current_feed(ctx);
+            }
+            FeedUpdateNotification::GroupAdded(group) => {
+                self.library
+                    .feeds
+                    .update_data::<selection::Keep, _>(|feeds, _| {
+                        feeds.push(FeedView::Group(group));
                     });
                 self.update_current_feed(ctx);
             }

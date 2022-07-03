@@ -164,6 +164,23 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT 1 FROM groups WHERE name = :name")?;
+        let already_exist = statement
+            .query(named_params! {":name": name})?
+            .next()?
+            .is_some();
+        if already_exist {
+            return Ok(None);
+        }
+
+        let mut statement = self.connection.prepare("INSERT INTO groups (name, ordering) VALUES (:name, (SELECT MAX(ordering) + 1 FROM groups))")?;
+        let result = statement.insert(named_params! {":name": name})?;
+        Ok(Some(GroupId(result)))
+    }
+
     fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>> {
         let mut statement = self
             .connection

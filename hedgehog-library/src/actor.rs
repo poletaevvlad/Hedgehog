@@ -284,8 +284,8 @@ pub enum FeedUpdateNotification {
     UpdateStarted(Vec<FeedId>),
     UpdateFinished(FeedId, FeedUpdateResult),
     FeedAdded(FeedSummary),
-    DuplicateFeed,
     FeedDeleted(FeedId),
+    GroupAdded(GroupSummary),
     NewCountUpdated(HashMap<FeedId, usize>),
 }
 
@@ -301,6 +301,7 @@ pub enum UpdateQuery {
 pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
     AddFeed(NewFeedMetadata),
+    AddGroup(String),
     DeleteFeed(FeedId),
     RenameFeed(FeedId, String),
     RenameGroup(GroupId, String),
@@ -333,7 +334,7 @@ impl Handler<FeedUpdateRequest> for Library {
                 let feed_id = match self.data_provider.create_feed_pending(&data) {
                     Ok(Some(feed_id)) => feed_id,
                     Ok(None) => {
-                        self.notify_update_listener(FeedUpdateNotification::DuplicateFeed);
+                        log::warn!("This podcast has already been added");
                         return;
                     }
                     Err(error) => {
@@ -348,6 +349,18 @@ impl Handler<FeedUpdateRequest> for Library {
                 ));
                 self.schedule_update(vec![(feed_id, source)], ctx);
             }
+            FeedUpdateRequest::AddGroup(name) => match self.data_provider.create_group(&name) {
+                Ok(Some(group_id)) => {
+                    let summary = GroupSummary { id: group_id, name };
+                    self.notify_update_listener(FeedUpdateNotification::GroupAdded(summary));
+                }
+                Ok(None) => {
+                    log::warn!("The group with this name already exists");
+                }
+                Err(error) => {
+                    log::error!(target: "sql", "cannot create group, {}", error);
+                }
+            },
             FeedUpdateRequest::DeleteFeed(feed_id) => {
                 match self.data_provider.delete_feed(feed_id) {
                     Ok(_) => {

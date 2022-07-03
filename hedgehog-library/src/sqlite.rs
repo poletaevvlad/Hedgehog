@@ -5,9 +5,11 @@ use crate::datasource::{
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, GroupId,
+    GroupSummary,
 };
 use rusqlite::{named_params, Connection};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::ops::Range;
@@ -20,7 +22,7 @@ pub enum ConnectionError {
     #[error("Database query failed")]
     SqliteError(#[from] rusqlite::Error),
 
-    #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {version})")]
+    #[error("Database was updated in a newer version of hedgehog (db version: {version}, current: {current})")]
     VersionUnknown { version: u32, current: u32 },
 
     #[error(transparent)]
@@ -33,7 +35,7 @@ pub struct SqliteDataProvider {
 }
 
 impl SqliteDataProvider {
-    const CURRENT_VERSION: u32 = 1;
+    const CURRENT_VERSION: u32 = 2;
 
     pub fn connect<P: AsRef<Path>>(path: P) -> Result<Self, ConnectionError> {
         let connection = Connection::open(path)?;
@@ -49,25 +51,45 @@ impl SqliteDataProvider {
         if version < 1 {
             connection.execute_batch(include_str!("schema/init.sql"))?;
         }
+        if version < 2 {
+            connection.execute_batch(include_str!("schema/v2.sql"))?;
+        }
 
         connection.pragma_update(None, "user_version", Self::CURRENT_VERSION)?;
         Ok(SqliteDataProvider { connection })
+    }
+
+    fn fix_group_oredering(&mut self) -> DbResult<()> {
+        let mut statement = self.connection.prepare(
+            "WITH orders AS (SELECT id, RANK() OVER (ORDER BY ordering) AS new_ordering FROM groups)
+            UPDATE groups SET ordering = new_ordering 
+            FROM orders WHERE groups.id = orders.id",
+        )?;
+        statement.execute([])?;
+        Ok(())
     }
 }
 
 impl DataProvider for SqliteDataProvider {
     fn get_feed(&mut self, id: FeedId) -> DbResult<Option<crate::model::Feed>> {
-        let mut statement = self.connection.prepare( "SELECT id, title, description, link, author, copyright, source, status, error_code FROM feeds WHERE id = ?1")?;
+        let mut statement = self.connection.prepare(
+            "SELECT id, COALESCE(title_override, title), title_override IS NOT NULL, description, 
+                    link, author, copyright, source, status, error_code 
+            FROM feeds
+            WHERE id = ?1
+        ",
+        )?;
         let result = statement.query_row([id], |row| {
             Ok(Feed {
                 id: row.get(0)?,
                 title: row.get(1)?,
-                description: row.get(2)?,
-                link: row.get(3)?,
-                author: row.get(4)?,
-                copyright: row.get(5)?,
-                source: row.get(6)?,
-                status: FeedStatus::from_db(row.get(7)?, row.get(8)?),
+                title_overriden: row.get(2)?,
+                description: row.get(3)?,
+                link: row.get(4)?,
+                author: row.get(5)?,
+                copyright: row.get(6)?,
+                source: row.get(7)?,
+                status: FeedStatus::from_db(row.get(8)?, row.get(9)?),
             })
         });
         match result {
@@ -78,16 +100,16 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn get_feed_summaries(&mut self) -> DbResult<Vec<FeedSummary>> {
-        let mut select = self
-            .connection
-            .prepare(
-                "SELECT feeds.id, CASE WHEN feeds.title IS NOT NULL THEN feeds.title ELSE feeds.source END, 
-                        feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id)
-                FROM feeds 
-                LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
-                GROUP BY feeds.id
-                ORDER BY feeds.title, feeds.source"
-            )?;
+        let mut select = self.connection.prepare(
+            "SELECT feeds.id, COALESCE(feeds.title_override, feeds.title, feeds.source), 
+                    feeds.title IS NOT NULL, feeds.status, feeds.error_code, COUNT(episodes.id),
+                    feeds.group_id
+            FROM feeds 
+            LEFT JOIN episodes ON feeds.id = episodes.feed_id AND episodes.status = 0
+            LEFT JOIN groups ON feeds.group_id = groups.id
+            GROUP BY feeds.id
+            ORDER BY groups.ordering, COALESCE(feeds.title_override, feeds.title), feeds.source",
+        )?;
         let rows = select.query_map([], |row| {
             Ok(FeedSummary {
                 id: row.get(0)?,
@@ -95,6 +117,7 @@ impl DataProvider for SqliteDataProvider {
                 has_title: row.get(2)?,
                 status: FeedStatus::from_db(row.get(3)?, row.get(4)?),
                 new_count: row.get(5)?,
+                group_id: row.get(6)?,
             })
         })?;
         Ok(collect_results(rows)?)
@@ -174,6 +197,102 @@ impl DataProvider for SqliteDataProvider {
         Ok(results)
     }
 
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET title_override = :name WHERE id = :feed_id")?;
+        statement.execute(named_params! {":name": name, ":feed_id": feed_id})?;
+        Ok(())
+    }
+
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT 1 FROM groups WHERE name = :name")?;
+        let already_exist = statement
+            .query(named_params! {":name": name})?
+            .next()?
+            .is_some();
+        if already_exist {
+            return Ok(None);
+        }
+
+        let mut statement = self.connection.prepare("INSERT INTO groups (name, ordering) VALUES (:name, COALESCE((SELECT MAX(ordering) + 1 FROM groups), 1))")?;
+        let result = statement.insert(named_params! {":name": name})?;
+        Ok(Some(GroupId(result)))
+    }
+
+    fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, name FROM groups ORDER BY ordering")?;
+        let items = statement.query_map([], |row| {
+            Ok(GroupSummary {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })?;
+        Ok(collect_results(items)?)
+    }
+
+    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET group_id = :group_id WHERE id = :feed_id")?;
+        statement.execute(named_params! {":group_id": group_id, ":feed_id": feed_id})?;
+        Ok(())
+    }
+
+    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE groups SET name = :name WHERE id = :group_id")?;
+        statement.execute(named_params! {":name": name, ":group_id": group_id})?;
+        Ok(())
+    }
+
+    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()> {
+        {
+            let mut statement = self
+                .connection
+                .prepare("DELETE FROM groups WHERE id = :group_id")?;
+            statement.execute(named_params! { ":group_id": group_id })?;
+        }
+        self.fix_group_oredering()?;
+        Ok(())
+    }
+
+    fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()> {
+        let current_position: usize = self
+            .connection
+            .prepare("SELECT ordering FROM groups WHERE id = :group_id")?
+            .query_row(named_params! {":group_id": group_id}, |row| row.get(0))?;
+
+        let sql = match current_position.cmp(&position) {
+            Ordering::Less => {
+                "UPDATE groups SET ordering = CASE 
+                    WHEN ordering < :current_position OR ordering > :position THEN ordering
+                    WHEN ordering = :current_position THEN :position
+                    ELSE ordering - 1
+                END"
+            }
+            Ordering::Greater => {
+                "UPDATE groups SET ordering = CASE 
+                    WHEN ordering < :position OR ordering > :current_position THEN ordering
+                    WHEN ordering = :current_position THEN :position
+                    ELSE ordering + 1
+                END"
+            }
+            Ordering::Equal => return Ok(()),
+        };
+
+        self.connection.prepare(sql)?.execute(
+            named_params! {":position": position, ":current_position": current_position},
+        )?;
+        self.fix_group_oredering()?;
+        Ok(())
+    }
+
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         let mut statement =
             self.connection.prepare("SELECT feed_id, episode_number, season_number, title, description, link, status, position, duration, publication_date, media_url FROM episodes WHERE id = :id")?;
@@ -236,6 +355,7 @@ impl DataProvider for SqliteDataProvider {
                     SUM(CASE WHEN ep.publication_date IS NOT NULL THEN 1 ELSE 0 END), feeds.reversed
             FROM episodes AS ep
             JOIN feeds ON ep.feed_id = feeds.id
+            LEFT JOIN groups ON feeds.group_id = groups.id
             "
             .to_string();
         query.build_where_clause(&mut sql);
@@ -268,13 +388,17 @@ impl DataProvider for SqliteDataProvider {
         range: Range<usize>,
     ) -> DbResult<Vec<EpisodeSummary>> {
         let feed_title_required = request.include_feed_title;
+        let has_group_filter = request.group_id.is_some();
         let mut sql = "SELECT ep.id, ep.feed_id, ep.episode_number, ep.season_number, ep.title, ep.status, ep.duration, ep.publication_date, ep.hidden".to_string();
         if feed_title_required {
             sql.push_str(", feeds.title");
         }
         sql.push_str(" FROM episodes AS ep");
-        if feed_title_required {
+        if feed_title_required || has_group_filter {
             sql.push_str(" JOIN feeds ON feeds.id == ep.feed_id");
+        }
+        if has_group_filter {
+            sql.push_str(" LEFT JOIN groups on groups.id = feeds.group_id");
         }
         request.build_where_clause(&mut sql);
         sql.push_str(" ORDER BY ep.publication_date ");
@@ -439,6 +563,9 @@ impl EpisodesQuery {
         if self.feed_id.is_some() {
             clauses.push("ep.feed_id = :feed_id");
         }
+        if self.group_id.is_some() {
+            clauses.push("groups.id = :group_id");
+        }
         if self.status.is_some() {
             clauses.push("ep.status = :status");
         }
@@ -461,6 +588,7 @@ impl EpisodesQuery {
 struct EpisodeQueryParams {
     id: Option<EpisodeId>,
     feed_id: Option<FeedId>,
+    group_id: Option<GroupId>,
     status: Option<usize>,
 }
 
@@ -469,6 +597,7 @@ impl EpisodeQueryParams {
         EpisodeQueryParams {
             id: query.episode_id,
             feed_id: query.feed_id,
+            group_id: query.group_id,
             status: query.status.map(|status| status.db_view()),
         }
     }
@@ -480,6 +609,9 @@ impl EpisodeQueryParams {
         }
         if let Some(feed_id) = self.feed_id.as_ref() {
             params.push((":feed_id", feed_id));
+        }
+        if let Some(group_id) = self.group_id.as_ref() {
+            params.push((":group_id", group_id));
         }
         if let Some(status) = self.status.as_ref() {
             params.push((":status", status));
@@ -615,7 +747,7 @@ mod tests {
             error,
             ConnectionError::VersionUnknown {
                 version: 20,
-                current: 1
+                current: 2
             }
         ));
     }

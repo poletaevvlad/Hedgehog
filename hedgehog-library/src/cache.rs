@@ -1,7 +1,7 @@
 use crate::datasource::{DataProvider, DbResult, EpisodeWriter};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodesListMetadata,
-    Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary,
+    Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, GroupId,
 };
 use crate::{EpisodesQuery, NewFeedMetadata, UpdateQuery};
 use std::collections::{HashMap, HashSet};
@@ -62,6 +62,34 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>> {
         self.data_provider.get_new_episodes_count(feed_ids)
+    }
+
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
+        self.data_provider.rename_feed(feed_id, name)
+    }
+
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>> {
+        self.data_provider.create_group(name)
+    }
+
+    fn get_group_summaries(&mut self) -> DbResult<Vec<crate::model::GroupSummary>> {
+        self.data_provider.get_group_summaries()
+    }
+
+    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()> {
+        self.data_provider.add_feed_to_group(group_id, feed_id)
+    }
+
+    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {
+        self.data_provider.rename_group(group_id, name)
+    }
+
+    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()> {
+        self.data_provider.delete_group(group_id)
+    }
+
+    fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()> {
+        self.data_provider.set_group_position(group_id, position)
     }
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {

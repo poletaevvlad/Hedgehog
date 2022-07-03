@@ -1,10 +1,11 @@
 use crate::datasource::{DataProvider, NewFeedMetadata, QueryError};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary,
+    EpisodesListMetadata, Feed, FeedId, FeedStatus, FeedSummary, GroupId, GroupSummary,
 };
 use crate::rss_client::{fetch_feed, WritableFeed};
 use crate::EpisodesQuery;
+use actix::dev::MessageResponse;
 use actix::fut::wrap_future;
 use actix::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -86,21 +87,35 @@ impl Handler<EpisodesListMetadataRequest> for Library {
     }
 }
 
+#[derive(MessageResponse)]
+pub struct FeedSummariesResponse {
+    pub feeds: Vec<FeedSummary>,
+    pub groups: Vec<GroupSummary>,
+}
+
 #[derive(Message)]
-#[rtype(result = "Vec<FeedSummary>")]
+#[rtype(result = "FeedSummariesResponse")]
 pub struct FeedSummariesRequest;
 
 impl Handler<FeedSummariesRequest> for Library {
-    type Result = Vec<FeedSummary>;
+    type Result = FeedSummariesResponse;
 
     fn handle(&mut self, _msg: FeedSummariesRequest, _ctx: &mut Self::Context) -> Self::Result {
-        match self.data_provider.get_feed_summaries() {
-            Ok(summaries) => summaries,
-            Err(error) => {
+        let feeds = self
+            .data_provider
+            .get_feed_summaries()
+            .unwrap_or_else(|error| {
                 log::error!(target: "sql", "cannot fetch feed summaries, {}", error);
                 Vec::new()
-            }
-        }
+            });
+        let groups = self
+            .data_provider
+            .get_group_summaries()
+            .unwrap_or_else(|error| {
+                log::error!(target: "sql", "cannot fetch group summaries, {}", error);
+                Vec::new()
+            });
+        FeedSummariesResponse { feeds, groups }
     }
 }
 
@@ -215,6 +230,17 @@ impl Library {
                             .status(EpisodeSummaryStatus::New);
                         feed_summary.new_count =
                             library.data_provider.count_episodes(new_episodes_query)?;
+
+                        let feed = library.data_provider.get_feed(feed_id)?;
+                        if let Some((overriden, title)) = feed.and_then(|feed| {
+                            let overridden = feed.title_overriden;
+                            feed.title.map(|title| (overridden, title))
+                        }) {
+                            if overriden {
+                                feed_summary.title = title;
+                            }
+                        }
+
                         library.notify_update_listener(FeedUpdateNotification::UpdateFinished(
                             feed_id,
                             FeedUpdateResult::Updated(feed_summary),
@@ -258,8 +284,8 @@ pub enum FeedUpdateNotification {
     UpdateStarted(Vec<FeedId>),
     UpdateFinished(FeedId, FeedUpdateResult),
     FeedAdded(FeedSummary),
-    DuplicateFeed,
     FeedDeleted(FeedId),
+    GroupAdded(GroupSummary),
     NewCountUpdated(HashMap<FeedId, usize>),
 }
 
@@ -275,8 +301,14 @@ pub enum UpdateQuery {
 pub enum FeedUpdateRequest {
     Subscribe(Recipient<FeedUpdateNotification>),
     AddFeed(NewFeedMetadata),
+    AddGroup(String),
     DeleteFeed(FeedId),
+    DeleteGroup(GroupId),
+    SetGroupPosition(GroupId, usize),
+    RenameFeed(FeedId, String),
+    RenameGroup(GroupId, String),
     Update(UpdateQuery),
+    SetGroup(GroupId, FeedId),
     AddArchive(FeedId, String),
     SetStatus(EpisodesQuery, EpisodeStatus),
     SetHidden(EpisodesQuery, bool),
@@ -298,6 +330,7 @@ impl Handler<FeedUpdateRequest> for Library {
                     }
                 }
             }
+
             FeedUpdateRequest::AddArchive(feed_id, feed_url) => {
                 self.schedule_update(vec![(feed_id, feed_url)], ctx);
             }
@@ -305,7 +338,7 @@ impl Handler<FeedUpdateRequest> for Library {
                 let feed_id = match self.data_provider.create_feed_pending(&data) {
                     Ok(Some(feed_id)) => feed_id,
                     Ok(None) => {
-                        self.notify_update_listener(FeedUpdateNotification::DuplicateFeed);
+                        log::warn!("This podcast has already been added");
                         return;
                     }
                     Err(error) => {
@@ -320,6 +353,18 @@ impl Handler<FeedUpdateRequest> for Library {
                 ));
                 self.schedule_update(vec![(feed_id, source)], ctx);
             }
+            FeedUpdateRequest::AddGroup(name) => match self.data_provider.create_group(&name) {
+                Ok(Some(group_id)) => {
+                    let summary = GroupSummary { id: group_id, name };
+                    self.notify_update_listener(FeedUpdateNotification::GroupAdded(summary));
+                }
+                Ok(None) => {
+                    log::warn!("The group with this name already exists");
+                }
+                Err(error) => {
+                    log::error!(target: "sql", "cannot create group, {}", error);
+                }
+            },
             FeedUpdateRequest::DeleteFeed(feed_id) => {
                 match self.data_provider.delete_feed(feed_id) {
                     Ok(_) => {
@@ -328,6 +373,26 @@ impl Handler<FeedUpdateRequest> for Library {
                     Err(error) => {
                         log::error!(target: "sql", "cannot delete feed, {}", error);
                     }
+                }
+            }
+            FeedUpdateRequest::DeleteGroup(group_id) => {
+                if let Err(error) = self.data_provider.delete_group(group_id) {
+                    log::error!(target: "sql", "cannot delete group, {}", error);
+                }
+            }
+            FeedUpdateRequest::SetGroupPosition(group_id, position) => {
+                if let Err(error) = self.data_provider.set_group_position(group_id, position) {
+                    log::error!(target: "sql", "cannot change group position, {}", error);
+                }
+            }
+            FeedUpdateRequest::RenameFeed(feed_id, name) => {
+                if let Err(error) = self.data_provider.rename_feed(feed_id, name) {
+                    log::error!(target: "sql", "cannot rename feed, {}", error);
+                }
+            }
+            FeedUpdateRequest::RenameGroup(group_id, name) => {
+                if let Err(error) = self.data_provider.rename_group(group_id, name) {
+                    log::error!(target: "sql", "cannot rename group, {}", error);
                 }
             }
             FeedUpdateRequest::SetStatus(query, status) => {
@@ -357,6 +422,11 @@ impl Handler<FeedUpdateRequest> for Library {
             FeedUpdateRequest::ReverseFeedOrder(feed_id) => {
                 if let Err(error) = self.data_provider.reverse_feed_order(feed_id) {
                     log::error!(target: "sql", "cannot reverse order, {}", error);
+                }
+            }
+            FeedUpdateRequest::SetGroup(group_id, feed_id) => {
+                if let Err(error) = self.data_provider.add_feed_to_group(group_id, feed_id) {
+                    log::error!(target: "sql", "cannot assign group, {}", error);
                 }
             }
         }

@@ -202,6 +202,14 @@ impl DataProvider for SqliteDataProvider {
         Ok(())
     }
 
+    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("DELETE FROM groups WHERE id = :group_id")?;
+        statement.execute(named_params! { ":group_id": group_id })?;
+        Ok(())
+    }
+
     fn get_new_episodes_count(
         &mut self,
         feed_ids: HashSet<FeedId>,

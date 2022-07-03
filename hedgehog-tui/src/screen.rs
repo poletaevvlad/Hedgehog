@@ -126,7 +126,8 @@ pub(crate) enum Command {
     #[cmd(rename = "add")]
     AddFeed(String),
     AddGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
-    DeleteFeed,
+    #[cmd(alias = "delete-feed")]
+    Delete,
     Reverse,
     Rename(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     #[cmd(alias = "u")]
@@ -518,12 +519,18 @@ impl UI {
             Command::AddGroup(name) => self
                 .library_actor
                 .do_send(FeedUpdateRequest::AddGroup(name)),
-            Command::DeleteFeed => {
-                if let Some(FeedView::Feed(selected_feed)) = self.library.feeds.selection() {
+            Command::Delete => match self.library.feeds.selection() {
+                Some(FeedView::Feed(selected_feed)) => {
                     self.library_actor
                         .do_send(FeedUpdateRequest::DeleteFeed(selected_feed.id));
                 }
-            }
+                Some(FeedView::Group(selected_group)) => {
+                    self.library_actor
+                        .do_send(FeedUpdateRequest::DeleteGroup(selected_group.id));
+                    self.load_feeds(ctx);
+                }
+                _ => {}
+            },
             Command::Update { current_only } => {
                 let query = if current_only {
                     self.selected_feed

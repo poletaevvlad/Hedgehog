@@ -303,6 +303,7 @@ pub enum FeedUpdateRequest {
     AddFeed(NewFeedMetadata),
     AddGroup(String),
     DeleteFeed(FeedId),
+    DeleteGroup(GroupId),
     RenameFeed(FeedId, String),
     RenameGroup(GroupId, String),
     Update(UpdateQuery),
@@ -369,6 +370,12 @@ impl Handler<FeedUpdateRequest> for Library {
                     Err(error) => {
                         log::error!(target: "sql", "cannot delete feed, {}", error);
                     }
+                }
+            }
+
+            FeedUpdateRequest::DeleteGroup(group_id) => {
+                if let Err(error) = self.data_provider.delete_group(group_id) {
+                    log::error!(target: "sql", "cannot delete group, {}", error);
                 }
             }
             FeedUpdateRequest::RenameFeed(feed_id, name) => {

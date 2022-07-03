@@ -133,6 +133,7 @@ pub trait DataProvider: Unpin {
     fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>>;
     fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>>;
     fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()>;
+    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()>;
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(

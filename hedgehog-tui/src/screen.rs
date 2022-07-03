@@ -126,6 +126,7 @@ pub(crate) enum Command {
     #[cmd(rename = "add")]
     AddFeed(String),
     AddGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
+    SetGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     #[cmd(alias = "delete-feed")]
     Delete,
     Reverse,
@@ -519,6 +520,32 @@ impl UI {
             Command::AddGroup(name) => self
                 .library_actor
                 .do_send(FeedUpdateRequest::AddGroup(name)),
+            Command::SetGroup(name) => {
+                let feed_id = match self.selected_feed {
+                    Some(FeedView::Feed(feed_id)) => feed_id,
+                    Some(_) => {
+                        log::error!("Group can be set only for individual podcasts");
+                        return false;
+                    }
+                    None => return true,
+                };
+                let group_id = (self.library.feeds.data().iter())
+                    .filter_map(|entry| entry.as_group())
+                    .filter(|group| group.name == name)
+                    .map(|group| group.id)
+                    .next();
+                let group_id = match group_id {
+                    Some(group_id) => group_id,
+                    None => {
+                        log::error!("Cannot find a group with this name");
+                        return false;
+                    }
+                };
+
+                self.library_actor
+                    .do_send(FeedUpdateRequest::SetGroup(group_id, feed_id));
+                self.load_feeds(ctx);
+            }
             Command::Delete => match self.library.feeds.selection() {
                 Some(FeedView::Feed(selected_feed)) => {
                     self.library_actor

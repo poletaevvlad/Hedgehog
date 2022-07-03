@@ -307,6 +307,7 @@ pub enum FeedUpdateRequest {
     RenameFeed(FeedId, String),
     RenameGroup(GroupId, String),
     Update(UpdateQuery),
+    SetGroup(GroupId, FeedId),
     AddArchive(FeedId, String),
     SetStatus(EpisodesQuery, EpisodeStatus),
     SetHidden(EpisodesQuery, bool),
@@ -328,6 +329,7 @@ impl Handler<FeedUpdateRequest> for Library {
                     }
                 }
             }
+
             FeedUpdateRequest::AddArchive(feed_id, feed_url) => {
                 self.schedule_update(vec![(feed_id, feed_url)], ctx);
             }
@@ -414,6 +416,11 @@ impl Handler<FeedUpdateRequest> for Library {
             FeedUpdateRequest::ReverseFeedOrder(feed_id) => {
                 if let Err(error) = self.data_provider.reverse_feed_order(feed_id) {
                     log::error!(target: "sql", "cannot reverse order, {}", error);
+                }
+            }
+            FeedUpdateRequest::SetGroup(group_id, feed_id) => {
+                if let Err(error) = self.data_provider.add_feed_to_group(group_id, feed_id) {
+                    log::error!(target: "sql", "cannot assign group, {}", error);
                 }
             }
         }

@@ -350,6 +350,13 @@ impl<F, G> FeedView<F, G> {
         }
     }
 
+    pub fn as_group(&self) -> Option<&G> {
+        match self {
+            FeedView::Group(group) => Some(group),
+            _ => None,
+        }
+    }
+
     pub fn as_group_mut(&mut self) -> Option<&mut G> {
         match self {
             FeedView::Group(group) => Some(group),

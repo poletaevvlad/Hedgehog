@@ -156,60 +156,6 @@ impl DataProvider for SqliteDataProvider {
         }
     }
 
-    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
-        let mut statement = self
-            .connection
-            .prepare("UPDATE feeds SET title_override = :name WHERE id = :feed_id")?;
-        statement.execute(named_params! {":name": name, ":feed_id": feed_id})?;
-        Ok(())
-    }
-
-    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT 1 FROM groups WHERE name = :name")?;
-        let already_exist = statement
-            .query(named_params! {":name": name})?
-            .next()?
-            .is_some();
-        if already_exist {
-            return Ok(None);
-        }
-
-        let mut statement = self.connection.prepare("INSERT INTO groups (name, ordering) VALUES (:name, (SELECT MAX(ordering) + 1 FROM groups))")?;
-        let result = statement.insert(named_params! {":name": name})?;
-        Ok(Some(GroupId(result)))
-    }
-
-    fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT id, name FROM groups ORDER BY ordering")?;
-        let items = statement.query_map([], |row| {
-            Ok(GroupSummary {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            })
-        })?;
-        Ok(collect_results(items)?)
-    }
-
-    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {
-        let mut statement = self
-            .connection
-            .prepare("UPDATE groups SET name = :name WHERE id = :group_id")?;
-        statement.execute(named_params! {":name": name, ":group_id": group_id})?;
-        Ok(())
-    }
-
-    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()> {
-        let mut statement = self
-            .connection
-            .prepare("DELETE FROM groups WHERE id = :group_id")?;
-        statement.execute(named_params! { ":group_id": group_id })?;
-        Ok(())
-    }
-
     fn get_new_episodes_count(
         &mut self,
         feed_ids: HashSet<FeedId>,
@@ -238,6 +184,68 @@ impl DataProvider for SqliteDataProvider {
             results.insert(feed_id, count);
         }
         Ok(results)
+    }
+
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET title_override = :name WHERE id = :feed_id")?;
+        statement.execute(named_params! {":name": name, ":feed_id": feed_id})?;
+        Ok(())
+    }
+
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT 1 FROM groups WHERE name = :name")?;
+        let already_exist = statement
+            .query(named_params! {":name": name})?
+            .next()?
+            .is_some();
+        if already_exist {
+            return Ok(None);
+        }
+
+        let mut statement = self.connection.prepare("INSERT INTO groups (name, ordering) VALUES (:name, COALESCE((SELECT MAX(ordering) + 1 FROM groups), 1))")?;
+        let result = statement.insert(named_params! {":name": name})?;
+        Ok(Some(GroupId(result)))
+    }
+
+    fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, name FROM groups ORDER BY ordering")?;
+        let items = statement.query_map([], |row| {
+            Ok(GroupSummary {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })?;
+        Ok(collect_results(items)?)
+    }
+
+    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE feeds SET group_id = :group_id WHERE id = :feed_id")?;
+        statement.execute(named_params! {":group_id": group_id, ":feed_id": feed_id})?;
+        Ok(())
+    }
+
+    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("UPDATE groups SET name = :name WHERE id = :group_id")?;
+        statement.execute(named_params! {":name": name, ":group_id": group_id})?;
+        Ok(())
+    }
+
+    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()> {
+        let mut statement = self
+            .connection
+            .prepare("DELETE FROM groups WHERE id = :group_id")?;
+        statement.execute(named_params! { ":group_id": group_id })?;
+        Ok(())
     }
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {

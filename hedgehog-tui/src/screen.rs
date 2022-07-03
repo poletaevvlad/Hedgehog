@@ -1,3 +1,4 @@
+use crate::cmdcontext::CommandContext;
 use crate::cmdreader::CommandReader;
 use crate::events::key;
 use crate::history::CommandsHistory;
@@ -95,6 +96,7 @@ impl LibraryViewModel {
 }
 
 #[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
+#[cmd(ctx = "CommandContext<'_>")]
 pub(crate) enum Command {
     #[cmd(rename = "line")]
     Cursor(ScrollAction),
@@ -125,8 +127,8 @@ pub(crate) enum Command {
     SetOption(OptionsUpdate),
     #[cmd(rename = "add")]
     AddFeed(String),
-    AddGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
-    SetGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
+    AddGroup(#[cmd(parser = "crate::cmdcontext::GroupNameParser")] String),
+    SetGroup(#[cmd(parser = "crate::cmdcontext::GroupNameParser")] String),
     PlaceGroup(usize),
     #[cmd(alias = "delete-feed")]
     Delete,
@@ -169,6 +171,7 @@ pub(crate) enum LinkType {
 }
 
 #[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
+#[cmd(ctx = "CommandContext<'_>")]
 pub(crate) struct CommandConfirmation {
     pub(crate) prompt: String,
     pub(crate) action: Command,
@@ -447,9 +450,13 @@ impl UI {
                 let previous_rendering_suspended = self.rendering_suspended;
                 self.rendering_suspended = true;
                 log_set_level!(Error);
+
                 let result = (|| {
                     loop {
-                        match reader.read(()) {
+                        let command_context = CommandContext {
+                            feeds: self.library.feeds.data(),
+                        };
+                        match reader.read(command_context) {
                             Ok(None) => break,
                             Ok(Some(command)) => {
                                 if !self.handle_command(command, ctx) {
@@ -1227,11 +1234,15 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                         self.invalidate(ctx);
                     }
                     CommandActionResult::Complete => {
+                        let command_context = CommandContext {
+                            feeds: self.library.feeds.data(),
+                        };
                         let command_str =
                             command_state.as_str_before_cursor(&self.commands_history);
-                        let completion: Vec<_> = cmdparse::complete::<_, Command>(command_str, ())
-                            .into_iter()
-                            .collect();
+                        let completion: Vec<_> =
+                            cmdparse::complete::<_, Command>(command_str, command_context)
+                                .into_iter()
+                                .collect();
                         command_state.set_completions(completion);
                         self.invalidate(ctx);
                     }
@@ -1241,7 +1252,12 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                             log::error!(target: "commands_history", "{}", error);
                         }
                         self.command = None;
-                        match cmdparse::parse::<_, Option<Command>>(&command_str, ()) {
+                        match cmdparse::parse::<_, Option<Command>>(
+                            &command_str,
+                            CommandContext {
+                                feeds: self.library.feeds.data(),
+                            },
+                        ) {
                             Ok(Some(command)) => {
                                 if !matches!(command, Command::RepeatCommand) {
                                     self.previous_command = Some(command.clone());

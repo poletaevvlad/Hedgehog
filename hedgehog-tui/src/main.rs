@@ -1,3 +1,4 @@
+mod cmdcontext;
 mod cmdreader;
 mod environment;
 mod events;

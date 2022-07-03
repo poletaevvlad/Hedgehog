@@ -9,6 +9,7 @@ use crate::model::{
     GroupSummary,
 };
 use rusqlite::{named_params, Connection};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::ops::Range;
@@ -56,6 +57,16 @@ impl SqliteDataProvider {
 
         connection.pragma_update(None, "user_version", Self::CURRENT_VERSION)?;
         Ok(SqliteDataProvider { connection })
+    }
+
+    fn fix_group_oredering(&mut self) -> DbResult<()> {
+        let mut statement = self.connection.prepare(
+            "WITH orders AS (SELECT id, RANK() OVER (ORDER BY ordering) AS new_ordering FROM groups)
+            UPDATE groups SET ordering = new_ordering 
+            FROM orders WHERE groups.id = orders.id",
+        )?;
+        statement.execute([])?;
+        Ok(())
     }
 }
 
@@ -241,10 +252,44 @@ impl DataProvider for SqliteDataProvider {
     }
 
     fn delete_group(&mut self, group_id: GroupId) -> DbResult<()> {
-        let mut statement = self
+        {
+            let mut statement = self
+                .connection
+                .prepare("DELETE FROM groups WHERE id = :group_id")?;
+            statement.execute(named_params! { ":group_id": group_id })?;
+        }
+        self.fix_group_oredering()?;
+        Ok(())
+    }
+
+    fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()> {
+        let current_position: usize = self
             .connection
-            .prepare("DELETE FROM groups WHERE id = :group_id")?;
-        statement.execute(named_params! { ":group_id": group_id })?;
+            .prepare("SELECT ordering FROM groups WHERE id = :group_id")?
+            .query_row(named_params! {":group_id": group_id}, |row| row.get(0))?;
+
+        let sql = match current_position.cmp(&position) {
+            Ordering::Less => {
+                "UPDATE groups SET ordering = CASE 
+                    WHEN ordering < :current_position OR ordering > :position THEN ordering
+                    WHEN ordering = :current_position THEN :position
+                    ELSE ordering - 1
+                END"
+            }
+            Ordering::Greater => {
+                "UPDATE groups SET ordering = CASE 
+                    WHEN ordering < :position OR ordering > :current_position THEN ordering
+                    WHEN ordering = :current_position THEN :position
+                    ELSE ordering + 1
+                END"
+            }
+            Ordering::Equal => return Ok(()),
+        };
+
+        self.connection.prepare(sql)?.execute(
+            named_params! {":position": position, ":current_position": current_position},
+        )?;
+        self.fix_group_oredering()?;
         Ok(())
     }
 

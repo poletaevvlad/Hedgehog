@@ -88,6 +88,10 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         self.data_provider.delete_group(group_id)
     }
 
+    fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()> {
+        self.data_provider.set_group_position(group_id, position)
+    }
+
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>> {
         self.data_provider.get_episode(episode_id)
     }

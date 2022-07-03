@@ -127,6 +127,7 @@ pub(crate) enum Command {
     AddFeed(String),
     AddGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
     SetGroup(#[cmd(parser = "hedgehog_library::search::SearchQueryParser")] String),
+    PlaceGroup(usize),
     #[cmd(alias = "delete-feed")]
     Delete,
     Reverse,
@@ -545,6 +546,27 @@ impl UI {
                 self.library_actor
                     .do_send(FeedUpdateRequest::SetGroup(group_id, feed_id));
                 self.load_feeds(ctx);
+            }
+            Command::PlaceGroup(position) => {
+                for index in (0..=self.library.feeds.selected_index()).rev() {
+                    match self.library.feeds.data().get(index) {
+                        Some(FeedView::All | FeedView::New) => {
+                            log::error!("Select the group to change its position");
+                            return false;
+                        }
+                        Some(FeedView::Feed(_)) => {}
+                        Some(FeedView::Group(group)) => {
+                            self.library_actor
+                                .do_send(FeedUpdateRequest::SetGroupPosition(group.id, position));
+                            self.load_feeds(ctx);
+                            break;
+                        }
+                        None => {
+                            log::error!("There is no group to reposition");
+                            return false;
+                        }
+                    }
+                }
             }
             Command::Delete => match self.library.feeds.selection() {
                 Some(FeedView::Feed(selected_feed)) => {

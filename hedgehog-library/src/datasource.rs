@@ -135,6 +135,7 @@ pub trait DataProvider: Unpin {
     fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()>;
     fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()>;
     fn delete_group(&mut self, group_id: GroupId) -> DbResult<()>;
+    fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()>;
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(

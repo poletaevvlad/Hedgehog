@@ -91,6 +91,10 @@ impl<D: DataView> ScrollableList<D> {
         self.data.item_at(self.viewport.selected_index())
     }
 
+    pub(crate) fn selected_index(&self) -> usize {
+        self.viewport.selected_index()
+    }
+
     pub(crate) fn has_item_at_window_row(&self, index: usize) -> bool {
         let offset = self.viewport.range().next();
         offset

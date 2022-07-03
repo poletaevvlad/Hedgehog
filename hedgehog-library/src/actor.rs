@@ -304,6 +304,7 @@ pub enum FeedUpdateRequest {
     AddGroup(String),
     DeleteFeed(FeedId),
     DeleteGroup(GroupId),
+    SetGroupPosition(GroupId, usize),
     RenameFeed(FeedId, String),
     RenameGroup(GroupId, String),
     Update(UpdateQuery),
@@ -377,6 +378,11 @@ impl Handler<FeedUpdateRequest> for Library {
             FeedUpdateRequest::DeleteGroup(group_id) => {
                 if let Err(error) = self.data_provider.delete_group(group_id) {
                     log::error!(target: "sql", "cannot delete group, {}", error);
+                }
+            }
+            FeedUpdateRequest::SetGroupPosition(group_id, position) => {
+                if let Err(error) = self.data_provider.set_group_position(group_id, position) {
+                    log::error!(target: "sql", "cannot change group position, {}", error);
                 }
             }
             FeedUpdateRequest::RenameFeed(feed_id, name) => {

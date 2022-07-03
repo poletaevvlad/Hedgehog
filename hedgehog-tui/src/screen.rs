@@ -1367,7 +1367,16 @@ impl Handler<FeedUpdateNotification> for UI {
             FeedUpdateNotification::FeedAdded(feed) => {
                 self.library
                     .feeds
-                    .update_data::<selection::Keep, _>(|feeds, _| feeds.push(FeedView::Feed(feed)));
+                    .update_data::<selection::Keep, _>(|feeds, _| {
+                        let mut index = 0;
+                        while index < feeds.len() {
+                            if let FeedView::Group(_) = feeds[index] {
+                                break;
+                            }
+                            index += 1;
+                        }
+                        feeds.insert(index, FeedView::Feed(feed));
+                    });
                 self.update_current_feed(ctx);
             }
             FeedUpdateNotification::FeedDeleted(feed_id) => {

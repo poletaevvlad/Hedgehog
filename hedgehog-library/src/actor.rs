@@ -372,7 +372,6 @@ impl Handler<FeedUpdateRequest> for Library {
                     }
                 }
             }
-
             FeedUpdateRequest::DeleteGroup(group_id) => {
                 if let Err(error) = self.data_provider.delete_group(group_id) {
                     log::error!(target: "sql", "cannot delete group, {}", error);

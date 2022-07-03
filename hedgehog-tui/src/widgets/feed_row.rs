@@ -1,7 +1,7 @@
 use super::{layout::split_right, list::ListItemRenderingDelegate};
 use crate::options::Options;
 use crate::theming::{self, Theme};
-use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary, FeedView};
+use hedgehog_library::model::{FeedId, FeedStatus, FeedSummary, FeedView, GroupSummary};
 use std::collections::HashSet;
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -63,13 +63,13 @@ impl<'t> FeedsListRowRenderer<'t> {
 }
 
 impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
-    type Item = (&'a FeedView<FeedSummary>, bool);
+    type Item = (&'a FeedView<FeedSummary, GroupSummary>, bool);
 
     fn render_item(&self, mut area: Rect, item: Self::Item, buf: &mut tui::buffer::Buffer) {
         let (item, selected) = item;
 
         match item {
-            FeedView::All | FeedView::New => {
+            FeedView::All | FeedView::New | FeedView::Group(_) => {
                 let item_selector = theming::ListItem {
                     selected,
                     focused: self.focused,
@@ -85,6 +85,7 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 let paragraph = Paragraph::new(match item {
                     FeedView::All => "All episodes",
                     FeedView::New => "New",
+                    FeedView::Group(group) => &group.name,
                     FeedView::Feed(_) => unreachable!(),
                 });
                 paragraph.render(
@@ -142,9 +143,9 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                 let paragraph = Paragraph::new(item.title.as_str());
                 paragraph.render(
                     Rect::new(
-                        area.x + 1,
+                        area.x + 2,
                         area.y,
-                        area.width.saturating_sub(2),
+                        area.width.saturating_sub(3),
                         area.height,
                     ),
                     buf,

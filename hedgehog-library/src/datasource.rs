@@ -2,7 +2,8 @@ use crate::actor::UpdateQuery;
 use crate::metadata::{EpisodeMetadata, FeedMetadata};
 use crate::model::{
     Episode, EpisodeId, EpisodePlaybackData, EpisodeStatus, EpisodeSummary, EpisodeSummaryStatus,
-    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, FeedView,
+    EpisodesListMetadata, Feed, FeedId, FeedOMPLEntry, FeedStatus, FeedSummary, FeedView, GroupId,
+    GroupSummary,
 };
 use std::collections::{HashMap, HashSet};
 use std::marker::Unpin;
@@ -22,6 +23,7 @@ pub type DbResult<T> = Result<T, QueryError>;
 pub struct EpisodesQuery {
     pub(crate) episode_id: Option<EpisodeId>,
     pub(crate) feed_id: Option<FeedId>,
+    pub(crate) group_id: Option<GroupId>,
     pub(crate) status: Option<EpisodeSummaryStatus>,
     pub(crate) with_hidden: bool,
     pub(crate) include_feed_title: bool,
@@ -33,6 +35,7 @@ impl Default for EpisodesQuery {
         Self {
             episode_id: None,
             feed_id: None,
+            group_id: None,
             status: None,
             with_hidden: true,
             include_feed_title: false,
@@ -49,6 +52,11 @@ impl EpisodesQuery {
 
     pub fn feed_id(mut self, feed_id: FeedId) -> Self {
         self.feed_id = Some(feed_id);
+        self
+    }
+
+    pub fn group_id(mut self, group_id: GroupId) -> Self {
+        self.group_id = Some(group_id);
         self
     }
 
@@ -72,13 +80,14 @@ impl EpisodesQuery {
         self
     }
 
-    pub fn from_feed_view(feed_id: FeedView<FeedId>) -> Self {
+    pub fn from_feed_view(feed_id: FeedView<FeedId, GroupId>) -> Self {
         match feed_id {
             FeedView::All => EpisodesQuery::default().include_feed_title(),
             FeedView::New => EpisodesQuery::default()
                 .status(EpisodeSummaryStatus::New)
                 .include_feed_title(),
             FeedView::Feed(feed_id) => EpisodesQuery::default().feed_id(feed_id),
+            FeedView::Group(feed_id) => EpisodesQuery::default().group_id(feed_id),
         }
     }
 }
@@ -119,6 +128,14 @@ pub trait DataProvider: Unpin {
         &mut self,
         feed_ids: HashSet<FeedId>,
     ) -> DbResult<HashMap<FeedId, usize>>;
+    fn rename_feed(&mut self, feed_id: FeedId, name: String) -> DbResult<()>;
+
+    fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>>;
+    fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>>;
+    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()>;
+    fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()>;
+    fn delete_group(&mut self, group_id: GroupId) -> DbResult<()>;
+    fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()>;
 
     fn get_episode(&mut self, episode_id: EpisodeId) -> DbResult<Option<Episode>>;
     fn get_episode_playback_data(

@@ -34,6 +34,7 @@ macro_rules! entity_id {
 
 entity_id!(FeedId);
 entity_id!(EpisodeId);
+entity_id!(GroupId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedError {
@@ -114,12 +115,27 @@ pub trait Identifiable {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct GroupSummary {
+    pub id: GroupId,
+    pub name: String,
+}
+
+impl Identifiable for GroupSummary {
+    type Id = GroupId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct FeedSummary {
     pub id: FeedId,
     pub title: String,
     pub has_title: bool,
     pub status: FeedStatus,
     pub new_count: usize,
+    pub group_id: Option<GroupId>,
 }
 
 impl FeedSummary {
@@ -130,6 +146,7 @@ impl FeedSummary {
             title: data.title.unwrap_or(data.source),
             status: FeedStatus::Pending,
             new_count: 0,
+            group_id: None,
         }
     }
 
@@ -144,6 +161,7 @@ impl FeedSummary {
             has_title: true,
             status: FeedStatus::Loaded,
             new_count: new_episodes_count,
+            group_id: None,
         }
     }
 }
@@ -165,6 +183,7 @@ pub struct FeedOMPLEntry {
 pub struct Feed {
     pub id: FeedId,
     pub title: Option<String>,
+    pub title_overriden: bool,
     pub description: Option<String>,
     pub link: Option<String>,
     pub author: Option<String>,
@@ -309,52 +328,70 @@ pub struct EpisodesListMetadata {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum FeedView<T> {
+pub enum FeedView<F, G> {
     All,
     New,
-    Feed(T),
+    Feed(F),
+    Group(G),
 }
 
-impl<T> FeedView<T> {
-    pub fn as_feed(&self) -> Option<&T> {
+impl<F, G> FeedView<F, G> {
+    pub fn as_feed(&self) -> Option<&F> {
         match self {
             FeedView::Feed(feed) => Some(feed),
             _ => None,
         }
     }
 
-    pub fn as_mut(&mut self) -> Option<&mut T> {
+    pub fn as_feed_mut(&mut self) -> Option<&mut F> {
         match self {
             FeedView::Feed(feed) => Some(feed),
             _ => None,
         }
     }
 
-    pub fn map<R>(self, f: impl FnOnce(T) -> R) -> FeedView<R> {
+    pub fn as_group(&self) -> Option<&G> {
+        match self {
+            FeedView::Group(group) => Some(group),
+            _ => None,
+        }
+    }
+
+    pub fn as_group_mut(&mut self) -> Option<&mut G> {
+        match self {
+            FeedView::Group(group) => Some(group),
+            _ => None,
+        }
+    }
+
+    pub fn map_feed<R>(self, f: impl FnOnce(F) -> R) -> FeedView<R, G> {
         match self {
             FeedView::All => FeedView::All,
             FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(f(feed)),
+            FeedView::Group(group) => FeedView::Group(group),
         }
     }
 
-    pub fn as_ref(&self) -> FeedView<&T> {
+    pub fn as_ref(&self) -> FeedView<&F, &G> {
         match self {
             FeedView::All => FeedView::All,
             FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(feed),
+            FeedView::Group(group) => FeedView::Group(group),
         }
     }
 }
 
-impl<T: Identifiable> Identifiable for FeedView<T> {
-    type Id = FeedView<T::Id>;
+impl<F: Identifiable, G: Identifiable> Identifiable for FeedView<F, G> {
+    type Id = FeedView<F::Id, G::Id>;
 
     fn id(&self) -> Self::Id {
         match self {
             FeedView::All => FeedView::All,
             FeedView::New => FeedView::New,
             FeedView::Feed(feed) => FeedView::Feed(feed.id()),
+            FeedView::Group(group) => FeedView::Group(group.id()),
         }
     }
 }

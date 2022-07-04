@@ -39,8 +39,12 @@ gen_options! {
     LabelEpisodeStarted(label_episode_started: String = " started ".to_string()),
     LabelEpisodeFinished(label_episode_finished: String = " finished ".to_string()),
     LabelEpisodeError(label_episode_error: String = " error ".to_string()),
-    LabelFeedError(label_feed_error: String = " E ".to_string()),
-    LabelFeedUpdating(label_feed_updating: String = " U ".to_string()),
+    LabelFeedError(label_feed_error: String = "E".to_string()),
+    FeedUpdatingChars(
+        #[cmd(parser = "cmdparse::parsers::TransformParser<cmdparse::parsers::StringParser, CharVecTransformation, Vec<char>>")]
+        feed_updating_chars: Vec<char> = vec!['⠇', '⠋', '⠙', '⠸', '⢰', '⣠', '⣄', '⡆']
+    ),
+    AnimationTickDuration(animation_tick_duration: u64 = 150),
     UpdateOnStart(update_on_start: bool = true),
     ShowEpisodeNumber(show_episode_number: bool = true),
     Hidden(hidden: bool = false),

@@ -1,3 +1,4 @@
+use super::animation::{AnimationController, LoadingIndicator};
 use super::{layout::split_right, list::ListItemRenderingDelegate};
 use crate::options::Options;
 use crate::theming::{self, Theme};
@@ -14,20 +15,12 @@ pub(crate) struct FeedsListRowRenderer<'t> {
     options: &'t Options,
     updating_feeds: &'t HashSet<FeedId>,
     playing_feed: Option<FeedId>,
+    animation_controller: AnimationController,
 }
 
 enum FeedsListStatusIndicator {
     Error,
     Update,
-}
-
-impl FeedsListStatusIndicator {
-    fn label<'a>(&self, options: &'a Options) -> &'a str {
-        match self {
-            FeedsListStatusIndicator::Error => options.label_feed_error.as_str(),
-            FeedsListStatusIndicator::Update => options.label_feed_updating.as_str(),
-        }
-    }
 }
 
 impl<'t> FeedsListRowRenderer<'t> {
@@ -36,6 +29,7 @@ impl<'t> FeedsListRowRenderer<'t> {
         options: &'t Options,
         focused: bool,
         updating_feeds: &'t HashSet<FeedId>,
+        animation_controller: AnimationController,
     ) -> Self {
         FeedsListRowRenderer {
             theme,
@@ -43,6 +37,7 @@ impl<'t> FeedsListRowRenderer<'t> {
             focused,
             updating_feeds,
             playing_feed: None,
+            animation_controller,
         }
     }
 
@@ -114,17 +109,6 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     hidden: false,
                 };
 
-                if let Some(status_indicator) = self.get_status_indicator(item) {
-                    let style = self.theme.get(theming::List::Item(
-                        item_selector.with_column(theming::ListColumn::StateIndicator),
-                    ));
-                    let label = status_indicator.label(self.options);
-
-                    let (rest, indicator_area) = split_right(area, label.width() as u16);
-                    area = rest;
-                    buf.set_string(indicator_area.x, indicator_area.y, label, style);
-                }
-
                 if item.new_count > 0 {
                     let formatted = format!(" {} ", item.new_count);
                     let width = formatted.width();
@@ -150,6 +134,23 @@ impl<'t, 'a> ListItemRenderingDelegate<'a> for FeedsListRowRenderer<'t> {
                     ),
                     buf,
                 );
+
+                if let Some(status_indicator) = self.get_status_indicator(item) {
+                    let style = self.theme.get(theming::List::Item(
+                        item_selector.with_column(theming::ListColumn::StateIndicator),
+                    ));
+
+                    match status_indicator {
+                        FeedsListStatusIndicator::Error => {
+                            buf.set_string(area.x, area.y, &self.options.label_feed_error, style);
+                        }
+                        FeedsListStatusIndicator::Update => {
+                            LoadingIndicator::new(self.animation_controller.clone())
+                                .style(style)
+                                .render(Rect::new(area.x, area.y, 1, 1), buf);
+                        }
+                    }
+                }
             }
         }
     }

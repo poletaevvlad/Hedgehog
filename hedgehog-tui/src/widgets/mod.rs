@@ -1,3 +1,4 @@
+pub(crate) mod animation;
 pub(crate) mod command;
 pub(crate) mod confirmation;
 pub(crate) mod empty;

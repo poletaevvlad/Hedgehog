@@ -1,3 +1,4 @@
+use super::animation::AnimationController;
 use super::empty::EmptyView;
 use super::episode_row::{EpisodesListRowRenderer, EpisodesListSizing};
 use super::feed_row::FeedsListRowRenderer;
@@ -16,6 +17,7 @@ pub(crate) struct LibraryWidget<'a> {
     options: &'a Options,
     data: &'a LibraryViewModel,
     layout: &'a mut WidgetPositions,
+    animation_controller: AnimationController,
 }
 
 impl<'a> LibraryWidget<'a> {
@@ -24,12 +26,14 @@ impl<'a> LibraryWidget<'a> {
         options: &'a Options,
         theme: &'a Theme,
         layout: &'a mut WidgetPositions,
+        animation_controller: AnimationController,
     ) -> Self {
         LibraryWidget {
             data,
             options,
             theme,
             layout,
+            animation_controller,
         }
     }
 }
@@ -66,6 +70,7 @@ impl<'a> Widget for LibraryWidget<'a> {
                 self.options,
                 self.data.focus == FocusedPane::FeedsList,
                 &self.data.updating_feeds,
+                self.animation_controller.clone(),
             )
             .playing(
                 self.data

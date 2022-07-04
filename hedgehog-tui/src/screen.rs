@@ -9,6 +9,7 @@ use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
 use crate::scrolling::{selection, DataView, ScrollAction, ScrollableList};
 use crate::theming::{Theme, ThemeCommand};
+use crate::widgets::animation::AnimationController;
 use crate::widgets::command::{CommandActionResult, CommandEditor, CommandState};
 use crate::widgets::confirmation::ConfirmationView;
 use crate::widgets::errors_log::ErrorsLogWidget;
@@ -179,6 +180,10 @@ pub(crate) struct CommandConfirmation {
     pub(crate) default: bool,
 }
 
+#[derive(Message)]
+#[rtype("()")]
+struct AnimationTick;
+
 pub(crate) struct UI {
     app_env: super::AppEnvironment,
 
@@ -205,6 +210,9 @@ pub(crate) struct UI {
     command: Option<CommandState>,
     commands_history: CommandsHistory,
     confirmation: Option<CommandConfirmation>,
+
+    animation_controller: AnimationController,
+    animation_running: bool,
 }
 
 impl UI {
@@ -244,10 +252,15 @@ impl UI {
             command: None,
             commands_history: CommandsHistory::new(),
             confirmation: None,
+
+            animation_controller: AnimationController::default(),
+            animation_running: false,
         }
     }
 
     fn render(&mut self) {
+        self.animation_controller.clear();
+
         self.layout = WidgetPositions::default();
         let draw = |f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>| {
             let area = f.size();
@@ -263,6 +276,7 @@ impl UI {
                         &self.options,
                         &self.theme,
                         &mut self.layout,
+                        self.animation_controller.clone(),
                     );
                     f.render_widget(library_widget, area);
                 }
@@ -301,6 +315,13 @@ impl UI {
         };
         self.terminal.draw(draw).unwrap();
 
+        let mut stdout = stdout();
+        if !self.animation_controller.is_empty() {
+            self.animation_controller
+                .render_loading_indicator(&mut stdout, &self.options.feed_updating_chars)
+                .unwrap();
+        }
+
         let playing_episode = self.library.playing_episode.as_ref();
         let mut title = String::new();
         let episode_title = playing_episode.and_then(|episode| episode.episode_title.as_deref());
@@ -318,9 +339,20 @@ impl UI {
         }
         <String as std::fmt::Write>::write_str(&mut title, "hedgehog").unwrap();
 
-        let mut stdout = stdout();
-        stdout.queue(crossterm::terminal::SetTitle(title)).unwrap();
+        stdout.queue(crossterm::terminal::SetTitle(&title)).unwrap();
         stdout.flush().unwrap();
+    }
+
+    fn check_animation_ticker(&mut self, ctx: &mut <Self as Actor>::Context) {
+        if !self.animation_running && !self.animation_controller.is_empty() {
+            self.animation_running = true;
+            ctx.spawn(
+                wrap_future(actix::clock::sleep(Duration::from_millis(
+                    self.options.animation_tick_duration,
+                )))
+                .map(|_result, _actor: &mut UI, ctx| ctx.address().do_send(AnimationTick)),
+            );
+        }
     }
 
     fn invalidate_later(&mut self, ctx: &mut <Self as Actor>::Context) {
@@ -330,8 +362,11 @@ impl UI {
         if let Some(handle) = self.invalidation_request.take() {
             ctx.cancel_future(handle);
         }
-        let future = wrap_future(sleep(Duration::from_millis(1)))
-            .map(|_result, actor: &mut UI, _ctx| actor.render());
+        let future =
+            wrap_future(sleep(Duration::from_millis(1))).map(|_result, actor: &mut UI, ctx| {
+                actor.render();
+                actor.check_animation_ticker(ctx);
+            });
         self.invalidation_request = Some(ctx.spawn(future));
     }
 
@@ -343,6 +378,7 @@ impl UI {
             ctx.cancel_future(handle);
         }
         self.render();
+        self.check_animation_ticker(ctx);
     }
 
     fn start_playback(
@@ -1059,6 +1095,32 @@ impl Actor for UI {
         );
 
         self.invalidate(ctx);
+    }
+}
+
+impl Handler<AnimationTick> for UI {
+    type Result = ();
+
+    fn handle(&mut self, _msg: AnimationTick, ctx: &mut Self::Context) -> Self::Result {
+        self.animation_controller.advance();
+
+        if self.animation_controller.is_empty() {
+            self.animation_running = false;
+            return;
+        }
+
+        let mut stdout = stdout();
+        self.animation_controller
+            .render_loading_indicator(&mut stdout, &self.options.feed_updating_chars)
+            .unwrap();
+        stdout.flush().unwrap();
+
+        let tick_duration = Duration::from_millis(self.options.animation_tick_duration);
+        let address = ctx.address();
+        ctx.spawn(wrap_future(async move {
+            sleep(tick_duration).await;
+            address.do_send(AnimationTick);
+        }));
     }
 }
 

@@ -3,7 +3,7 @@ use crate::cmdreader::CommandReader;
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::{Key, KeyMapping};
-use crate::logger::{log_set_level, LogEntry, LogHistory};
+use crate::logger::{log_set_level, LogEntry, LogHistory, Severity};
 use crate::mouse::{MouseEventKind, MouseHitResult, MouseState, WidgetPositions};
 use crate::options::{Options, OptionsUpdate};
 use crate::scrolling::pagination::{DataProvider, PaginatedData};
@@ -163,6 +163,36 @@ pub(crate) enum Command {
 
     RepeatCommand,
     Refresh,
+
+    Chain(Vec<Command>),
+    #[cmd(rename = "if")]
+    Conditional {
+        predicate: Predicate,
+        command: Box<Command>,
+        #[cmd(attr(else))]
+        otherwise: Option<Box<Command>>,
+    },
+    #[cmd(rename = "msg")]
+    WriteMessage {
+        message: String,
+        #[cmd(
+            default = "Severity::Information",
+            attr(
+                info = "Severity::Information",
+                warn = "Severity::Warning",
+                error = "Severity::Error",
+            )
+        )]
+        severity: Severity,
+    },
+}
+
+#[derive(Debug, Clone, cmdparse::Parsable, PartialEq)]
+pub(crate) enum Predicate {
+    Not(Box<Predicate>),
+    Either(Vec<Predicate>),
+    Both(Vec<Predicate>),
+    Focused(FocusedPane),
 }
 
 #[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
@@ -832,8 +862,44 @@ impl UI {
                     return self.handle_command(command, ctx);
                 }
             }
+            Command::Chain(commands) => {
+                for command in commands {
+                    if !self.handle_command(command, ctx) {
+                        return false;
+                    }
+                }
+            }
+            Command::Conditional {
+                predicate,
+                command,
+                otherwise,
+            } => {
+                if self.evaluate_predicate(predicate) {
+                    return self.handle_command(*command, ctx);
+                } else if let Some(otherwise) = otherwise {
+                    return self.handle_command(*otherwise, ctx);
+                }
+            }
+            Command::WriteMessage { message, severity } => match severity {
+                Severity::Error => log::error!("{}", message),
+                Severity::Warning => log::warn!("{}", message),
+                Severity::Information => log::info!("{}", message),
+            },
         }
         true
+    }
+
+    fn evaluate_predicate(&self, predicate: Predicate) -> bool {
+        match predicate {
+            Predicate::Not(predicate) => !self.evaluate_predicate(*predicate),
+            Predicate::Either(predicates) => predicates
+                .into_iter()
+                .any(|predicate| self.evaluate_predicate(predicate)),
+            Predicate::Both(predicates) => predicates
+                .into_iter()
+                .all(|predicate| self.evaluate_predicate(predicate)),
+            Predicate::Focused(focused) => self.library.focus == focused,
+        }
     }
 
     fn open_browser(&mut self, url: &str) {

@@ -1,5 +1,6 @@
 mod cmdcontext;
 mod cmdreader;
+mod command;
 mod environment;
 mod events;
 mod history;

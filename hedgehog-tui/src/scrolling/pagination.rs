@@ -19,6 +19,10 @@ impl<T> PaginatedData<T> {
         Self::default()
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
     #[allow(dead_code)]
     pub(crate) fn with_load_margins(mut self, margins: usize) -> Self {
         self.load_margins = margins;

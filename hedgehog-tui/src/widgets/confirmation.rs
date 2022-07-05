@@ -1,4 +1,4 @@
-use crate::screen::CommandConfirmation;
+use crate::command::CommandConfirmation;
 use crate::theming::{self, Theme};
 use tui::widgets::{Paragraph, Widget};
 

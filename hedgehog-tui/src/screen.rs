@@ -1,6 +1,8 @@
 use crate::cmdcontext::CommandContext;
 use crate::cmdreader::CommandReader;
-use crate::command::{Command, CommandConfirmation, FocusedPane, LinkType, Predicate};
+use crate::command::{
+    Command, CommandConfirmation, FocusedPane, LinkType, Predicate, SelectedItem,
+};
 use crate::events::key;
 use crate::history::CommandsHistory;
 use crate::keymap::KeyMapping;
@@ -773,6 +775,28 @@ impl UI {
                 .into_iter()
                 .all(|predicate| self.evaluate_predicate(predicate)),
             Predicate::Focused(focused) => self.library.focus == focused,
+            Predicate::Selected(selected) => self.selected_item() == selected,
+        }
+    }
+
+    fn selected_item(&self) -> SelectedItem {
+        match self.library.focus {
+            FocusedPane::FeedsList => match self.library.feeds.selection() {
+                Some(FeedView::All | FeedView::New) => SelectedItem::SpecialFeed,
+                Some(FeedView::Feed(_)) => SelectedItem::Feed,
+                Some(FeedView::Group(_)) => SelectedItem::Group,
+                None => SelectedItem::Nothing,
+            },
+            FocusedPane::EpisodesList if self.library.episodes.data().is_empty() => {
+                SelectedItem::Nothing
+            }
+            FocusedPane::EpisodesList => SelectedItem::Episode,
+            FocusedPane::Search if matches!(&self.library.search, SearchState::Loaded(data) if !data.data().is_empty()) => {
+                SelectedItem::SearchResult
+            }
+            FocusedPane::Search => SelectedItem::Nothing,
+            FocusedPane::ErrorsLog if self.log_history.data().is_empty() => SelectedItem::Nothing,
+            FocusedPane::ErrorsLog => SelectedItem::LogEntry,
         }
     }
 

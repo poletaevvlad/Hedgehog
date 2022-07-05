@@ -101,13 +101,13 @@ pub(crate) enum Command {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
+#[derive(Debug, Clone, PartialEq, Parsable)]
 pub(crate) enum LinkType {
     Feed,
     Episode,
 }
 
-#[derive(Debug, Clone, PartialEq, cmdparse::Parsable)]
+#[derive(Debug, Clone, PartialEq, Parsable)]
 #[cmd(ctx = "CommandContext<'_>")]
 pub(crate) struct CommandConfirmation {
     pub(crate) prompt: String,
@@ -116,7 +116,7 @@ pub(crate) struct CommandConfirmation {
     pub(crate) default: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, cmdparse::Parsable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Parsable)]
 pub(crate) enum FocusedPane {
     #[cmd(rename = "feeds")]
     FeedsList,
@@ -127,10 +127,22 @@ pub(crate) enum FocusedPane {
     ErrorsLog,
 }
 
-#[derive(Debug, Clone, cmdparse::Parsable, PartialEq)]
+#[derive(Debug, Clone, Copy, Parsable, PartialEq, Eq)]
+pub(crate) enum SelectedItem {
+    SpecialFeed,
+    Feed,
+    Group,
+    Episode,
+    LogEntry,
+    SearchResult,
+    Nothing,
+}
+
+#[derive(Debug, Clone, Parsable, PartialEq)]
 pub(crate) enum Predicate {
     Not(Box<Predicate>),
     Either(Vec<Predicate>),
     Both(Vec<Predicate>),
     Focused(FocusedPane),
+    Selected(SelectedItem),
 }

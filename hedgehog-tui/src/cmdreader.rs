@@ -35,12 +35,25 @@ impl CommandReader {
     ) -> Result<Option<P>, Error> {
         loop {
             self.buffer.clear();
-            let read_count = self.reader.read_line(&mut self.buffer)?;
-            if read_count == 0 {
-                return Ok(None);
+            loop {
+                let read_count = self.reader.read_line(&mut self.buffer)?;
+                if read_count == 0 && self.buffer.is_empty() {
+                    return Ok(None);
+                }
+                self.line_no += 1;
+
+                while self.buffer.ends_with('\n') {
+                    self.buffer.pop();
+                }
+
+                if self.buffer.ends_with('\\') {
+                    self.buffer.pop();
+                    self.buffer.push(' ');
+                } else {
+                    break;
+                }
             }
 
-            self.line_no += 1;
             return match cmdparse::parse::<_, Option<P>>(&self.buffer, ctx.clone()) {
                 Ok(Some(command)) => Ok(Some(command)),
                 Ok(None) => continue,
@@ -83,6 +96,24 @@ mod tests {
             Some(MockCmd::Second("four".to_string()))
         );
         assert_eq!(reader.read::<(), MockCmd>(()).unwrap(), None);
+    }
+
+    #[test]
+    fn read_file_with_newline_escapes() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("cmdrc");
+
+        let mut file = File::create(&path).unwrap();
+        writeln!(file, "first\\\n10").unwrap();
+        writeln!(file, "second\\\nthird").unwrap();
+        drop(file);
+
+        let mut reader = CommandReader::open(path).unwrap();
+        assert_eq!(reader.read(()).unwrap(), Some(MockCmd::First(10)));
+        assert_eq!(
+            reader.read(()).unwrap(),
+            Some(MockCmd::Second("third".to_string()))
+        );
     }
 
     #[test]

@@ -9,19 +9,24 @@ map End line last
 map PageUp line page-up
 map PageDown line page-down
 map f finish
-map Tab --state feeds focus episodes
-map Enter --state feeds focus episodes
-map Tab --state episodes focus feeds
-map Enter --state episodes play-current 
-map Esc --state search focus feeds
-map Enter --state search search-add
-map Esc --state log focus feeds
+
+map Tab \
+    if focused feeds focus episodes \
+    --else if focused episodes focus feeds
+map Enter \
+    if focused feeds focus episodes \
+    --else if focused episodes play-current \
+    --else if focused search (chain search-add focus episodes)
+map Esc if (either focused search focused log focused episodes) focus feeds
+map o \
+    if focused feeds open-link feed \
+    --else if focused episodes open-link episode
 map C-c confirm "Are you sure you want to quit?" --default true quit
 map q confirm "Are you sure you want to quit?" --default true quit
 map C-r refresh
-map Delete --state feeds confirm "Are you sure you want to delete this item? This cannot be undone." delete
-map o --state feeds open-link feed
-map o --state episodes open-link episode
+map Delete if focused feeds ( \
+    if selected feed confirm "Are you sure you want to delete this feed? You will lose your history" delete \
+    --else if selected group confirm "Are you sure you want to delete this group? This cannot be undone, your feeds won't be removed" delete \
 map . repeat-command
 
 map Right seek +5

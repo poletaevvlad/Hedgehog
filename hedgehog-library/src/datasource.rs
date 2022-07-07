@@ -87,7 +87,9 @@ impl EpisodesQuery {
                 .status(EpisodeSummaryStatus::New)
                 .include_feed_title(),
             FeedView::Feed(feed_id) => EpisodesQuery::default().feed_id(feed_id),
-            FeedView::Group(feed_id) => EpisodesQuery::default().group_id(feed_id),
+            FeedView::Group(feed_id) => EpisodesQuery::default()
+                .group_id(feed_id)
+                .include_feed_title(),
         }
     }
 }

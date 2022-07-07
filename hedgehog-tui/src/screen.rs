@@ -106,7 +106,7 @@ pub(crate) struct UI {
 
     options: Options,
     theme: Theme,
-    key_mapping: KeyMapping<Command, FocusedPane>,
+    key_mapping: KeyMapping<Command>,
     library: LibraryViewModel,
     selected_feed: Option<FeedView<FeedId, GroupId>>,
     playback_state: PlaybackState,
@@ -360,15 +360,15 @@ impl UI {
                 }
             }
             Command::Quit => System::current().stop(),
-            Command::Map(key, state, command) => {
-                let redefined = self.key_mapping.contains(key, state);
-                self.key_mapping.map(key, state, *command);
+            Command::Map(key, command) => {
+                let redefined = self.key_mapping.contains(key);
+                self.key_mapping.map(key, *command);
                 if redefined {
                     log::info!(target: "key_mapping", "Key mapping redefined");
                 }
             }
-            Command::Unmap(key, state) => {
-                if !self.key_mapping.unmap(key, state) {
+            Command::Unmap(key) => {
+                if !self.key_mapping.unmap(key) {
                     log::info!(target: "key_mapping", "Key mapping is not defined");
                 }
             }
@@ -1112,9 +1112,7 @@ impl StreamHandler<crossterm::Result<event::Event>> for UI {
                     self.invalidate(ctx);
                 }
                 event::Event::Key(key_event) => {
-                    let command = self
-                        .key_mapping
-                        .get(key_event.into(), Some(self.library.focus));
+                    let command = self.key_mapping.get(key_event.into());
                     if let Some(command) = command.cloned() {
                         self.handle_command(command, ctx);
                     }

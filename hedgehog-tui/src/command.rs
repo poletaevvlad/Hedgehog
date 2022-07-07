@@ -15,8 +15,8 @@ use std::path::PathBuf;
 pub(crate) enum Command {
     #[cmd(rename = "line")]
     Cursor(ScrollAction),
-    Map(Key, #[cmd(attr(state))] Option<FocusedPane>, Box<Command>),
-    Unmap(Key, #[cmd(attr(state))] Option<FocusedPane>),
+    Map(Key, Box<Command>),
+    Unmap(Key),
     Theme(ThemeCommand),
     Exec(PathBuf),
     Confirm(Box<CommandConfirmation>),

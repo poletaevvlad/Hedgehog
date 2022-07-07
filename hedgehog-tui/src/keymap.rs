@@ -95,35 +95,29 @@ impl<Ctx> Parsable<Ctx> for Key {
 }
 
 #[derive(Debug)]
-pub(crate) struct KeyMapping<T, S> {
-    mapping: HashMap<(Key, Option<S>), T>,
+pub(crate) struct KeyMapping<T> {
+    mapping: HashMap<Key, T>,
 }
 
-impl<T, S: Eq + std::hash::Hash> KeyMapping<T, S> {
-    pub(crate) fn map(&mut self, key: Key, state: Option<S>, value: T) {
-        self.mapping.insert((key, state), value);
+impl<T> KeyMapping<T> {
+    pub(crate) fn map(&mut self, key: Key, value: T) {
+        self.mapping.insert(key, value);
     }
 
-    pub(crate) fn unmap(&mut self, key: Key, state: Option<S>) -> bool {
-        self.mapping.remove(&(key, state)).is_some()
+    pub(crate) fn unmap(&mut self, key: Key) -> bool {
+        self.mapping.remove(&key).is_some()
     }
 
-    pub(crate) fn contains(&self, key: Key, state: Option<S>) -> bool {
-        self.mapping.contains_key(&(key, state))
+    pub(crate) fn contains(&self, key: Key) -> bool {
+        self.mapping.contains_key(&key)
     }
 
-    pub(crate) fn get(&self, key: Key, state: Option<S>) -> Option<&T> {
-        if let Some(state) = state {
-            self.mapping
-                .get(&(key, Some(state)))
-                .or_else(|| self.mapping.get(&(key, None)))
-        } else {
-            self.mapping.get(&(key, None))
-        }
+    pub(crate) fn get(&self, key: Key) -> Option<&T> {
+        self.mapping.get(&key)
     }
 }
 
-impl<T, S> Default for KeyMapping<T, S> {
+impl<T> Default for KeyMapping<T> {
     fn default() -> Self {
         KeyMapping {
             mapping: HashMap::default(),

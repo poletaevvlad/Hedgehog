@@ -619,7 +619,6 @@ impl UI {
                     let index = list.viewport().selected_index();
                     if let Some(item) = list.data().item_at(index) {
                         let url = item.feed_url.clone();
-                        self.library.focus = FocusedPane::FeedsList;
                         self.handle_command(Command::AddFeed(url), ctx);
                         self.invalidate_later(ctx);
                     }

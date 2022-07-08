@@ -308,7 +308,7 @@ pub enum FeedUpdateRequest {
     RenameFeed(FeedId, String),
     RenameGroup(GroupId, String),
     Update(UpdateQuery),
-    SetGroup(GroupId, FeedId),
+    SetGroup(Option<GroupId>, FeedId),
     AddArchive(FeedId, String),
     SetStatus(EpisodesQuery, EpisodeStatus),
     SetHidden(EpisodesQuery, bool),
@@ -425,7 +425,7 @@ impl Handler<FeedUpdateRequest> for Library {
                 }
             }
             FeedUpdateRequest::SetGroup(group_id, feed_id) => {
-                if let Err(error) = self.data_provider.add_feed_to_group(group_id, feed_id) {
+                if let Err(error) = self.data_provider.set_feed_for_group(group_id, feed_id) {
                     log::error!(target: "sql", "cannot assign group, {}", error);
                 }
             }

@@ -44,6 +44,7 @@ pub(crate) enum Command {
     AddFeed(String),
     AddGroup(#[cmd(parser = "crate::cmdcontext::GroupNameParser")] String),
     SetGroup(#[cmd(parser = "crate::cmdcontext::GroupNameParser")] String),
+    UnsetGroup,
     PlaceGroup(usize),
     #[cmd(alias = "delete-feed")]
     Delete,

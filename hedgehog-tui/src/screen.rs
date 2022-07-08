@@ -493,7 +493,21 @@ impl UI {
                 };
 
                 self.library_actor
-                    .do_send(FeedUpdateRequest::SetGroup(group_id, feed_id));
+                    .do_send(FeedUpdateRequest::SetGroup(Some(group_id), feed_id));
+                self.load_feeds(ctx);
+            }
+            Command::UnsetGroup => {
+                let feed_id = match self.selected_feed {
+                    Some(FeedView::Feed(feed_id)) => feed_id,
+                    Some(_) => {
+                        log::error!("Select a podcast to remove from a group");
+                        return false;
+                    }
+                    None => return true,
+                };
+
+                self.library_actor
+                    .do_send(FeedUpdateRequest::SetGroup(None, feed_id));
                 self.load_feeds(ctx);
             }
             Command::PlaceGroup(position) => {

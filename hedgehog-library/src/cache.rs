@@ -76,8 +76,8 @@ impl<D: DataProvider> DataProvider for InMemoryCache<D> {
         self.data_provider.get_group_summaries()
     }
 
-    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()> {
-        self.data_provider.add_feed_to_group(group_id, feed_id)
+    fn set_feed_for_group(&mut self, group_id: Option<GroupId>, feed_id: FeedId) -> DbResult<()> {
+        self.data_provider.set_feed_for_group(group_id, feed_id)
     }
 
     fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()> {

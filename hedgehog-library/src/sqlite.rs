@@ -235,7 +235,7 @@ impl DataProvider for SqliteDataProvider {
         Ok(collect_results(items)?)
     }
 
-    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()> {
+    fn set_feed_for_group(&mut self, group_id: Option<GroupId>, feed_id: FeedId) -> DbResult<()> {
         let mut statement = self
             .connection
             .prepare("UPDATE feeds SET group_id = :group_id WHERE id = :feed_id")?;

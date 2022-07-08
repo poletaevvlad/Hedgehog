@@ -87,7 +87,9 @@ impl EpisodesQuery {
                 .status(EpisodeSummaryStatus::New)
                 .include_feed_title(),
             FeedView::Feed(feed_id) => EpisodesQuery::default().feed_id(feed_id),
-            FeedView::Group(feed_id) => EpisodesQuery::default().group_id(feed_id),
+            FeedView::Group(feed_id) => EpisodesQuery::default()
+                .group_id(feed_id)
+                .include_feed_title(),
         }
     }
 }
@@ -132,7 +134,7 @@ pub trait DataProvider: Unpin {
 
     fn create_group(&mut self, name: &str) -> DbResult<Option<GroupId>>;
     fn get_group_summaries(&mut self) -> DbResult<Vec<GroupSummary>>;
-    fn add_feed_to_group(&mut self, group_id: GroupId, feed_id: FeedId) -> DbResult<()>;
+    fn set_feed_for_group(&mut self, group_id: Option<GroupId>, feed_id: FeedId) -> DbResult<()>;
     fn rename_group(&mut self, group_id: GroupId, name: String) -> DbResult<()>;
     fn delete_group(&mut self, group_id: GroupId) -> DbResult<()>;
     fn set_group_position(&mut self, group_id: GroupId, position: usize) -> DbResult<()>;

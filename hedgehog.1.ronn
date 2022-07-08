@@ -231,8 +231,11 @@ The possible values for <pane-name> are:
   point to the RSS feed, Hedgehog will not try to determine the URL of the RSS
   feed from the HTML page's metadata.
 
-* `delete-feed`:
-  Removes the feed and all its episodes. This action cannot be undone.
+* `delete`:
+  Removes the feed and all its episodes or a group depending on the item 
+  currently selected in the feed list sidebar. In cases when a group is
+  deleted no feeds in this group are deleted, instead their group is unassigned.
+  This action cannot be undone.
 
 * `update` [`--this`]:
   Updates the feed metadata and the episodes list. If new episodes are found in
@@ -282,12 +285,36 @@ The possible values for <pane-name> are:
   command changes this order for a single feed. This preference is saved in the
   database and will remain after the restart.
 
+* `rename <new name>`:
+  Changes the name of a group or feed displayed in the sidebar that is
+  currently selected. If the feed's name declared in the RSS feed changes, this
+  change doesn't override the title set using rename command.
+
 * `search` <query> or `s` <query>:
   Starts the search session. When this command is issued, Hedgehog performs a
   search for podcast feeds online and `search` pane comes into focus.
 
 * `search-add`:
   Subscribes to the currently selected feed in the search pane.
+
+* `add-group` <group-name>:
+  Creates a new group and places it at the bottom of the feeds lists. Group
+  names must be unique, meaning there cannot be more then one group with a
+  given name.
+
+* `set-group` <group-name>:
+  Adds the currently selected feed into a group identified by <group-name>.
+
+* `unset-group`
+  Removes the currently selected feed from a group.
+
+* `place-group` <position>:
+  Changes the position of the currently selected group. <position> is a
+  non-negative integer indicating the place of a group in the list.
+  `place-group 1` will position the group at the very top immediately after the
+  last feed which has no group assigned. `place-group 2` will place the group
+  immediately after. It's not possible to change the position of the feed
+  without an assigned group.
 
 
 ### CONFIGURATION
@@ -308,24 +335,25 @@ The possible values for <pane-name> are:
   will try to find a file in any of the paths specified in the list of data
   directories. See details in the [CONFIGURATION][] section of the manual.
 
-* `map` <key> <command> [`--state` <pane>]:
-  Maps <command> to a specific key combination <key>. You can specify different
-  mapping for different states depending on which pane is currently selected.
-  If `--state` option is specified, then the key mapping will be active only if
-  this specific pane is selected. Mapping with a specific state has higher
-  precedence than mappings without one.
-
-* `unmap` <key> [`--state` <pane>]:
-  Removes the key mapping. See the documentation for the `map` command above
-  for the meaning behind `--state` attribute. Note that when unmapping the
-  key, you need to specify the same state as was specified when mapping:
-  `unmap` <key> without `--state` does not remove state-specific
-  keybindings.
-
 * `set` <option-name> <value>:
-: Updates the property controlling how Hedgehog looks like and behaves. The
+  Updates the property controlling how Hedgehog looks like and behaves. The
   list of properties is described in the [CONFIGURATION][] section of this
   manual.
+
+* `msg` <message> [`--info`|`--warn`|`--error`]:
+  Displays a <message> in the status bar. It's displayed in a different color
+  depending on the specified attribute. If the `--error` attribute is provided
+  the message will also appear in the errors log (available using `log` 
+  command).
+
+* `map` <key> <command>:
+  Maps <command> to a specific key combination <key> so that this command is
+  executed when the key combination is pressed. You can have different
+  commands executed depending on the state of Hedgehog using conditional
+  commands described below.
+
+* `unmap` <key>:
+  Removes the key mapping crated using the `map` command.
 
 `map` and `unmap` commands accept <key> argument specified in the format
 similar to the one used by `vim` and some other software. Key specification
@@ -358,6 +386,42 @@ Modifiers and keys and separated by dashes (`-`), for example, `C-c` for
 `Control+C`, `A-S-W` for `Alt+Shift+W`. Please note that keys are
 case-sensitive: if you include the Shift modifier, then the key should be
 uppercase if applicable (`S-A` is correct while `S-a` won't work).
+
+
+### CONDITIONAL COMMANDS
+
+* `chain` <command> [<command>...]:
+  Executes multiple commands in a sequence. The execution stops after the first
+  command whose execution fails, the `chain` command automatically fails
+  afterward.
+
+* `if` <condition> <command 1> [`--else` <command 2>]
+  Evaluates the <condition> and execute one of two commands: <command 1> if the
+  condition is true and <command 2> otherwise. If the `--else` attribute is not
+  specified, and the <condition> evaluates to false, then the `if` command has
+  no effect.
+
+The conditions used as arguments for the `if` command can check the
+Hedgehog UI's state. Currently you can check the currently focused pane and the
+type of a selected item:
+
+* `focused` (`feeds`|`episodes`|`search`|`log`):
+  Evaluates to true if the currently focused pane matches the specified 
+  argument. The selected pane can be either the list of feeds (`feeds`), the
+  list of episodes in the currently selected list (`episodes`), the search
+  results or the search progress screen (`search`), or the list of errors 
+  (`log`).
+
+* `selected` (`nothing`|`special-feed`|`feed`|`group`|`episode`|`log-entry`|`search-result`)
+  Evaluates to true if an item in the selected pane is a special feed: all 
+  episodes or new episodes, a regular feed, a group, an episode, a log entry,
+  or a search result. `nothing` case is applicable in situations when the list
+  in the currently selected pane is empty.
+
+You can combine multiple conditions using `both` or `either` command such that
+`both <condition> [<condition> ...]` evaluates to true if and only if all
+conditions evaluate to true. Similarly, `either <condition> [<condition> ...]`
+evaluates to true if at least one of the conditions is true.
 
 
 
@@ -446,11 +510,15 @@ This section list options that can be set using the *set* command.
   The label displaying in the library list for feeds that could not be updated
   due to an error.
 
-* `label-feed-updating`:
-  The label displaying in the library list for feeds that are currently being
-  loaded.
+* `feed-updating-chars`:
+  The set of characters used for the episode loading indicator. The characters
+  will be displayed one-by-one looped.
 
-* `label-feed-updating`:
+* `animation-tick-duration`:
+  The duration of the animation frame for the loading indicator expressed in
+  milliseconds.
+
+* `update-on-start`:
   The flag indicating whether enabled feeds should be updated on startup.
 
 * `show-episode-number`:

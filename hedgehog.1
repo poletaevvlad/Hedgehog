@@ -1,6 +1,6 @@
 .\" generated with Ronn-NG/v0.9.1
 .\" http://github.com/apjanke/ronn-ng/tree/0.9.1
-.TH "HEDGEHOG" "1" "May 2022" ""
+.TH "HEDGEHOG" "1" "July 2022" ""
 .SH "NAME"
 \fBhedgehog\fR \- podcast player and organizer
 .SH "SYNOPSIS"
@@ -134,42 +134,41 @@ Sets the volume to the specified value\. \fIvolume\fR must be a number between 0
 \fBvol\-adjust\fR \fIsigned\-volume\fR
 Changes the current volume by a specified amount\. \fBsigned volume\fR has the same unit as in the \fBvol\-set\fR command: the range is \-100 to 100\.
 .SS "SUBSCRIPTIONS MANAGEMENT"
-.TP
-\fBadd\fR \fIrss\-url\fR
-Adds a new subscription\. Hedgehog will try to fetch the feed metadata and episodes list immediately after it finishes\. Note, that \fIrss\-url\fR must point to the RSS feed, Hedgehog will not try to determine the URL of the RSS feed from the HTML page\'s metadata\.
-.TP
-\fBdelete\-feed\fR
-Removes the feed and all its episodes\. This action cannot be undone\.
-.TP
-\fBupdate\fR [\fB\-\-this\fR]
-Updates the feed metadata and the episodes list\. If new episodes are found in the feed, they will appear in the library marked "new"\. If \fB\-\-this\fR attribute is specified, then only the currently selected feed will be updated\. Otherwise, all feeds that haven\'t been disabled will be updated\.
-.TP
-\fBadd\-archive\fR \fIrss\-url\fR
-Loades episodes from the RSS feed located at \fIrss\-url\fR and adds them to the current feed\. It\'s useful with some podcasts that offer two types of feeds: the one with a few recent episodes which can be fetched quickly and another with all episodes that may take some time to update\.
-.TP
-\fBenable\fR, \fBdisable\fR
-Enables or disables the feed\. If you disable the feed, then it won\'t be scheduled to be updated by neither the \fBupdate\fR command nor automatically on launch\.
-.TP
-\fBopen\-link feed\fR, \fBopen\-link episode\fR
-Opens the WWW URL specified in the feed or episode metadata respectively in the default browser\.
-.TP
-\fBhide\fR
-Hides the currently selected episode from the episodes list\. Note, that it won\'t be deleted from the database\. The hidden episodes aren\'t shown in the library by default\. This can be enabled by issuing the command \fBset hidden true\fR\.
-.TP
-\fBunhide\fR
-Removed the hidden status from the currently selected episode\. To issue this command, Hedgehog needs to be configured to show hidden episodes (using command \fIset hidden true\fR; it can be reverted by issuing \fBset hidden false\fR)
-.TP
-\fBmark\fR \fIstatus\fR [\fB\-\-all\fR] [\fB\-\-if\fR \fIstatus\-conditiol\fR]
-Changes the status of the episode\. The \fIstatus\fR can be either \fBnew\fR, \fBseen\fR, or \fBfinished\fR\. By default, only the currently selected episode will be affected\. If \fB\-\-all\fR attribute is specified, then all episodes in the currently selected feed will be altered\. In this case, it can be useful to update only a subset of episodes, for example, you may want to mark all new episodes in the new feed as seen\. \fB\-\-if\fR attribute specifies a precondition for such update\. \fBstatus\-condition\fR can be either \fBnew\fR, \fBseen\fR, \fBfinished\fR, \fBstarted\fR, or \fBerror\fR\.
-.TP
-\fBreverse\fR
-Changes the order of episodes in the selected feed\. By default, episodes are displayed in reverse chronological order (starting with the newest)\. This command changes this order for a single feed\. This preference is saved in the database and will remain after the restart\.
-.TP
-\fBsearch\fR \fIquery\fR or \fBs\fR \fIquery\fR
-Starts the search session\. When this command is issued, Hedgehog performs a search for podcast feeds online and \fBsearch\fR pane comes into focus\.
-.TP
-\fBsearch\-add\fR
-Subscribes to the currently selected feed in the search pane\.
+.IP "\[bu]" 2
+\fBadd\fR \fIrss\-url\fR: Adds a new subscription\. Hedgehog will try to fetch the feed metadata and episodes list immediately after it finishes\. Note, that \fIrss\-url\fR must point to the RSS feed, Hedgehog will not try to determine the URL of the RSS feed from the HTML page\'s metadata\.
+.IP "\[bu]" 2
+\fBdelete\fR: Removes the feed and all its episodes or a group depending on the item currently selected in the feed list sidebar\. In cases when a group is deleted no feeds in this group are deleted, instead their group is unassigned\. This action cannot be undone\.
+.IP "\[bu]" 2
+\fBupdate\fR [\fB\-\-this\fR]: Updates the feed metadata and the episodes list\. If new episodes are found in the feed, they will appear in the library marked "new"\. If \fB\-\-this\fR attribute is specified, then only the currently selected feed will be updated\. Otherwise, all feeds that haven\'t been disabled will be updated\.
+.IP "\[bu]" 2
+\fBadd\-archive\fR \fIrss\-url\fR: Loades episodes from the RSS feed located at \fIrss\-url\fR and adds them to the current feed\. It\'s useful with some podcasts that offer two types of feeds: the one with a few recent episodes which can be fetched quickly and another with all episodes that may take some time to update\.
+.IP "\[bu]" 2
+\fBenable\fR, \fBdisable\fR: Enables or disables the feed\. If you disable the feed, then it won\'t be scheduled to be updated by neither the \fBupdate\fR command nor automatically on launch\.
+.IP "\[bu]" 2
+\fBopen\-link feed\fR, \fBopen\-link episode\fR: Opens the WWW URL specified in the feed or episode metadata respectively in the default browser\.
+.IP "\[bu]" 2
+\fBhide\fR: Hides the currently selected episode from the episodes list\. Note, that it won\'t be deleted from the database\. The hidden episodes aren\'t shown in the library by default\. This can be enabled by issuing the command \fBset hidden true\fR\.
+.IP "\[bu]" 2
+\fBunhide\fR: Removed the hidden status from the currently selected episode\. To issue this command, Hedgehog needs to be configured to show hidden episodes (using command \fIset hidden true\fR; it can be reverted by issuing \fBset hidden false\fR)
+.IP "\[bu]" 2
+\fBmark\fR \fIstatus\fR [\fB\-\-all\fR] [\fB\-\-if\fR \fIstatus\-conditiol\fR]: Changes the status of the episode\. The \fIstatus\fR can be either \fBnew\fR, \fBseen\fR, or \fBfinished\fR\. By default, only the currently selected episode will be affected\. If \fB\-\-all\fR attribute is specified, then all episodes in the currently selected feed will be altered\. In this case, it can be useful to update only a subset of episodes, for example, you may want to mark all new episodes in the new feed as seen\. \fB\-\-if\fR attribute specifies a precondition for such update\. \fBstatus\-condition\fR can be either \fBnew\fR, \fBseen\fR, \fBfinished\fR, \fBstarted\fR, or \fBerror\fR\.
+.IP "\[bu]" 2
+\fBreverse\fR: Changes the order of episodes in the selected feed\. By default, episodes are displayed in reverse chronological order (starting with the newest)\. This command changes this order for a single feed\. This preference is saved in the database and will remain after the restart\.
+.IP "\[bu]" 2
+\fBrename <new name>\fR: Changes the name of a group or feed displayed in the sidebar that is currently selected\. If the feed\'s name declared in the RSS feed changes, this change doesn\'t override the title set using rename command\.
+.IP "\[bu]" 2
+\fBsearch\fR \fIquery\fR or \fBs\fR \fIquery\fR: Starts the search session\. When this command is issued, Hedgehog performs a search for podcast feeds online and \fBsearch\fR pane comes into focus\.
+.IP "\[bu]" 2
+\fBsearch\-add\fR: Subscribes to the currently selected feed in the search pane\.
+.IP "\[bu]" 2
+\fBadd\-group\fR \fIgroup\-name\fR: Creates a new group and places it at the bottom of the feeds lists\. Group names must be unique, meaning there cannot be more then one group with a given name\.
+.IP "\[bu]" 2
+\fBset\-group\fR \fIgroup\-name\fR: Adds the currently selected feed into a group identified by \fIgroup\-name\fR\.
+.IP "\[bu]" 2
+\fBunset\-group\fR Removes the currently selected feed from a group\.
+.IP "\[bu]" 2
+\fBplace\-group\fR \fIposition\fR: Changes the position of the currently selected group\. \fIposition\fR is a non\-negative integer indicating the place of a group in the list\. \fBplace\-group 1\fR will position the group at the very top immediately after the last feed which has no group assigned\. \fBplace\-group 2\fR will place the group immediately after\. It\'s not possible to change the position of the feed without an assigned group\.
+.IP "" 0
 .SS "CONFIGURATION"
 .TP
 \fBconfirm\fR \fIprompt\fR \fIcommand\fR [\fB\-\-default\fR \fIbool\fR]
@@ -180,17 +179,17 @@ Reads the file at path and executes commands in it\. Each command must be specif
 .IP
 \fIpath\fR can be either absolute or relative\. If \fIpath\fR is relative, Hedgehog will try to find a file in any of the paths specified in the list of data directories\. See details in the \fICONFIGURATION\fR section of the manual\.
 .TP
-\fBmap\fR \fIkey\fR \fIcommand\fR [\fB\-\-state\fR \fIpane\fR]
-Maps \fIcommand\fR to a specific key combination \fIkey\fR\. You can specify different mapping for different states depending on which pane is currently selected\. If \fB\-\-state\fR option is specified, then the key mapping will be active only if this specific pane is selected\. Mapping with a specific state has higher precedence than mappings without one\.
-.TP
-\fBunmap\fR \fIkey\fR [\fB\-\-state\fR \fIpane\fR]
-Removes the key mapping\. See the documentation for the \fBmap\fR command above for the meaning behind \fB\-\-state\fR attribute\. Note that when unmapping the key, you need to specify the same state as was specified when mapping: \fBunmap\fR \fIkey\fR without \fB\-\-state\fR does not remove state\-specific keybindings\.
-.TP
-
-.TP
-\fBset\fR \fIoption\-name\fR \fIvalue\fR:
+\fBset\fR \fIoption\-name\fR \fIvalue\fR
 Updates the property controlling how Hedgehog looks like and behaves\. The list of properties is described in the \fICONFIGURATION\fR section of this manual\.
-
+.TP
+\fBmsg\fR \fImessage\fR [\fB\-\-info\fR|\fB\-\-warn\fR|\fB\-\-error\fR]
+Displays a \fImessage\fR in the status bar\. It\'s displayed in a different color depending on the specified attribute\. If the \fB\-\-error\fR attribute is provided the message will also appear in the errors log (available using \fBlog\fR command)\.
+.TP
+\fBmap\fR \fIkey\fR \fIcommand\fR
+Maps \fIcommand\fR to a specific key combination \fIkey\fR so that this command is executed when the key combination is pressed\. You can have different commands executed depending on the state of Hedgehog using conditional commands described below\.
+.TP
+\fBunmap\fR \fIkey\fR
+Removes the key mapping crated using the \fBmap\fR command\.
 .P
 \fBmap\fR and \fBunmap\fR commands accept \fIkey\fR argument specified in the format similar to the one used by \fBvim\fR and some other software\. Key specification consists of zero or more modifiers followed by the key\'s name\. Allowed modifier are:
 .IP "\[bu]" 2
@@ -231,6 +230,21 @@ Most keys can be specified with a single character (such as numbers, Latin lette
 .IP "" 0
 .P
 Modifiers and keys and separated by dashes (\fB\-\fR), for example, \fBC\-c\fR for \fBControl+C\fR, \fBA\-S\-W\fR for \fBAlt+Shift+W\fR\. Please note that keys are case\-sensitive: if you include the Shift modifier, then the key should be uppercase if applicable (\fBS\-A\fR is correct while \fBS\-a\fR won\'t work)\.
+.SS "CONDITIONAL COMMANDS"
+.IP "\[bu]" 2
+\fBchain\fR \fIcommand\fR [\fIcommand\fR\|\.\|\.\|\.]: Executes multiple commands in a sequence\. The execution stops after the first command whose execution fails, the \fBchain\fR command automatically fails afterward\.
+.IP "\[bu]" 2
+\fBif\fR \fIcondition\fR \fIcommand 1\fR [\fB\-\-else\fR \fIcommand 2\fR] Evaluates the \fIcondition\fR and execute one of two commands: \fIcommand 1\fR if the condition is true and \fIcommand 2\fR otherwise\. If the \fB\-\-else\fR attribute is not specified, and the \fIcondition\fR evaluates to false, then the \fBif\fR command has no effect\.
+.IP "" 0
+.P
+The conditions used as arguments for the \fBif\fR command can check the Hedgehog UI\'s state\. Currently you can check the currently focused pane and the type of a selected item:
+.IP "\[bu]" 2
+\fBfocused\fR (\fBfeeds\fR|\fBepisodes\fR|\fBsearch\fR|\fBlog\fR): Evaluates to true if the currently focused pane matches the specified argument\. The selected pane can be either the list of feeds (\fBfeeds\fR), the list of episodes in the currently selected list (\fBepisodes\fR), the search results or the search progress screen (\fBsearch\fR), or the list of errors (\fBlog\fR)\.
+.IP "\[bu]" 2
+\fBselected\fR (\fBnothing\fR|\fBspecial\-feed\fR|\fBfeed\fR|\fBgroup\fR|\fBepisode\fR|\fBlog\-entry\fR|\fBsearch\-result\fR) Evaluates to true if an item in the selected pane is a special feed: all episodes or new episodes, a regular feed, a group, an episode, a log entry, or a search result\. \fBnothing\fR case is applicable in situations when the list in the currently selected pane is empty\.
+.IP "" 0
+.P
+You can combine multiple conditions using \fBboth\fR or \fBeither\fR command such that \fBboth <condition> [<condition> \|\.\|\.\|\.]\fR evaluates to true if and only if all conditions evaluate to true\. Similarly, \fBeither <condition> [<condition> \|\.\|\.\|\.]\fR evaluates to true if at least one of the conditions is true\.
 .SH "CONFIGURATION"
 Hedgehog is configured by executing the commands described in the \fICOMMANDS\fR section of this manual\. The effect of these commands lasts until Hedgehog restarts\. In order for the configuration to be persistent across restarts, they should be inserted in the \fBrc\fR file in the config directory\.
 .P
@@ -288,10 +302,13 @@ The label displaying in the library when the previous playback attempt has faile
 \fBlabel\-feed\-error\fR
 The label displaying in the library list for feeds that could not be updated due to an error\.
 .TP
-\fBlabel\-feed\-updating\fR
-The label displaying in the library list for feeds that are currently being loaded\.
+\fBfeed\-updating\-chars\fR
+The set of characters used for the episode loading indicator\. The characters will be displayed one\-by\-one looped\.
 .TP
-\fBlabel\-feed\-updating\fR
+\fBanimation\-tick\-duration\fR
+The duration of the animation frame for the loading indicator expressed in milliseconds\.
+.TP
+\fBupdate\-on\-start\fR
 The flag indicating whether enabled feeds should be updated on startup\.
 .TP
 \fBshow\-episode\-number\fR

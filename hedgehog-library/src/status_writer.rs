@@ -22,21 +22,27 @@ impl StatusWriter {
     }
 
     pub fn set_playing_path(mut self, path: PathBuf) -> Self {
-        self.saved_episode_id = match fs::File::open(&path) {
+        match fs::File::open(&path) {
             Ok(file) => {
                 let mut buffer = String::new();
                 if let Err(err) = BufReader::new(file).read_line(&mut buffer) {
                     log::error!(target:"io", "Cannot load previous playback status: {}", err);
-                    None
+                    self.playing_path = None;
+                    self.saved_episode_id = None;
                 } else {
                     let id = buffer.trim_end().parse::<i64>().ok().map(EpisodeId);
-                    id
+                    self.playing_path = Some(path);
+                    self.saved_episode_id = id;
                 }
             }
-            Err(err) if err.kind() == ErrorKind::NotFound => None,
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                self.playing_path = Some(path);
+                self.saved_episode_id = None;
+            }
             Err(err) => {
                 log::error!(target:"io", "Cannot load previous playback status: {}", err);
-                None
+                self.playing_path = None;
+                self.saved_episode_id = None;
             }
         };
         self

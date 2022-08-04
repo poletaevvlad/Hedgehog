@@ -94,7 +94,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/search")
-                .query_param("term", "query+terms")
+                .query_param("term", "query terms")
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(200)
@@ -139,7 +139,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/search")
-                .query_param("term", "query+terms")
+                .query_param("term", "query terms")
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(200)
@@ -177,7 +177,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/search")
-                .query_param("term", "query+terms")
+                .query_param("term", "query terms")
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(200)
@@ -196,7 +196,7 @@ mod tests {
         server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/search")
-                .query_param("term", "query+terms")
+                .query_param("term", "query terms")
                 .query_param("entity", "podcast")
                 .query_param("limit", "50");
             then.status(500);

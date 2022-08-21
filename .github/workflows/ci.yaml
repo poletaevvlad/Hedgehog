@@ -15,7 +15,7 @@ jobs:
       - name: Install cargo and tools
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.63.0
           components: rustfmt, clippy
 
       - name: Install dependencies
@@ -42,12 +42,13 @@ jobs:
       - name: Install cargo and tools
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.63.0
 
       - name: Install dependencies
         shell: pwsh
         run: |
-          choco install --yes gstreamer gstreamer-devel pkgconfiglite
+          choco install --yes gstreamer gstreamer-devel
+          choco install --yes pkgconfiglite --download-checksum 2038c49d23b5ca19e2218ca89f06df18fe6d870b4c6b54c0498548ef88771f6f --download-checksum-type sha256 --version 0.28
           "C:\\gstreamer\\1.0\\msvc_x86_64\\bin" >> $env:GITHUB_PATH
 
       - name: Run tests

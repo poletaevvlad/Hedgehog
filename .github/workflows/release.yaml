@@ -48,7 +48,9 @@ jobs:
           toolchain: stable
 
       - name: Install gstreamer
-        run: choco install --yes ${{ matrix.arch == 'i686' && '--forcex86' || '' }} gstreamer-devel pkgconfiglite
+        run: |
+          choco install --yes ${{ matrix.arch == 'i686' && '--forcex86' || '' }} gstreamer-devel
+          choco install --yes ${{ matrix.arch == 'i686' && '--forcex86' || '' }} pkgconfiglite --download-checksum 2038c49d23b5ca19e2218ca89f06df18fe6d870b4c6b54c0498548ef88771f6f --download-checksum-type sha256 --version 0.28
 
       - name: Create an archive
         shell: cmd

@@ -213,13 +213,13 @@ impl<Ctx> Parser<Ctx> for DurationParser {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SeekDirection {
     Forward,
     Backward,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct SeekOffset(pub SeekDirection, pub Duration);
 
 impl FromStr for SeekOffset {
@@ -243,7 +243,7 @@ impl<Ctx> Parsable<Ctx> for SeekOffset {
     type Parser = cmdparse::parsers::FromStrParser<Self>;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaybackMetadata {
     pub episode_id: i64,
     pub episode_title: Option<String>,

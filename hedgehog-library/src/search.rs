@@ -1,7 +1,7 @@
 pub use crate::search_query::SearchQueryParser;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct SearchResult {
     #[serde(rename = "collectionName")]
     pub title: String,

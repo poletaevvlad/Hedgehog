@@ -211,7 +211,7 @@ impl List {
                 let mut list_item = ListItem::default();
 
                 input = &input[1..];
-                while let Some(item) = input.get(0) {
+                while let Some(item) = input.first() {
                     match *item {
                         ":focused" => list_item.focused = true,
                         ":selected" => list_item.selected = true,
@@ -400,7 +400,7 @@ impl EmptyItem {
 
 impl Empty {
     fn parse(mut input: &[&str]) -> Result<Empty, ()> {
-        let focused = match input.get(0) {
+        let focused = match input.first() {
             Some(&":focused") => {
                 input = &input[1..];
                 true

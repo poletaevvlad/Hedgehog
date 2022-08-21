@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use std::time::Duration;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FeedMetadata<'a> {
     pub(crate) title: &'a str,
     pub(crate) description: &'a str,
@@ -25,7 +25,7 @@ impl<'a> FeedMetadata<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct EpisodeMetadata<'a> {
     pub(crate) title: Option<&'a str>,
     pub(crate) description: Option<&'a str>,

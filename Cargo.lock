@@ -1246,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "hedgehog-library"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "actix",
  "chrono",
@@ -1267,7 +1267,7 @@ dependencies = [
 
 [[package]]
 name = "hedgehog-player"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "actix",
  "cmdparse",
@@ -1280,7 +1280,7 @@ dependencies = [
 
 [[package]]
 name = "hedgehog-tui"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "actix",
  "chrono",

@@ -62,9 +62,10 @@ environment variable.
 
 ### Building from source
 
-To build Hedgehog from sources you will need a rust compiler and cargo package
-manager. You should also have all dependencies installed before compiling
-Hedgehog. Otherwise, there is no additional configuration required.
+To build Hedgehog from sources you will need a rust compiler (1.56.0 or newer)
+and cargo package manager. You should also have all dependencies installed
+before compiling Hedgehog. Otherwise, there is no additional configuration
+required.
 
 Hedgehog can be built and launched using cargo (`cargo run --release`). Cargo
 will build the application and its environment. If you wish to install Hedgehog

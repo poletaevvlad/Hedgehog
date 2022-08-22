@@ -5,8 +5,8 @@ on:
       - trunk
 
 jobs:
-  test-linux:
-    name: test-linux
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -16,6 +16,34 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.63.0
+          components: rustfmt, clippy
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libsqlite3-dev libdbus-1-3 libssl-dev libgstreamer1.0-dev 
+
+      - name: Run fmt
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all -- -D  warnings -D clippy::semicolon-if-nothing-returned
+
+  test-linux:
+    name: test-linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: ["1.56.0", "1.63.0"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install cargo and tools
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
           components: rustfmt, clippy
 
       - name: Install dependencies
@@ -35,6 +63,10 @@ jobs:
   test-windows:
     name: test-windows
     runs-on: windows-latest
+    strategy:
+      matrix:
+        toolchain: ["1.56.0", "1.63.0"]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -42,7 +74,7 @@ jobs:
       - name: Install cargo and tools
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.63.0
+          toolchain: ${{ matrix.toolchain }}
 
       - name: Install dependencies
         shell: pwsh

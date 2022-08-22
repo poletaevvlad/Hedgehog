@@ -268,48 +268,82 @@ same unit as in the <strong>vol-set</strong> command: the range is -100 to 100.<
 
 <h3 id="SUBSCRIPTIONS-MANAGEMENT">SUBSCRIPTIONS MANAGEMENT</h3>
 
-<dl>
-<dt><code>add</code> <var>rss-url</var></dt><dd><p>Adds a new subscription. Hedgehog will try to fetch the feed metadata and
+<ul>
+<li><p><code>add</code> <var>rss-url</var>:
+Adds a new subscription. Hedgehog will try to fetch the feed metadata and
 episodes list immediately after it finishes. Note, that <var>rss-url</var> must
 point to the RSS feed, Hedgehog will not try to determine the URL of the RSS
-feed from the HTML page's metadata.</p></dd>
-<dt><code>delete-feed</code></dt><dd><p>Removes the feed and all its episodes. This action cannot be undone.</p></dd>
-<dt><code>update</code> [<code>--this</code>]</dt><dd><p>Updates the feed metadata and the episodes list. If new episodes are found in
+feed from the HTML page's metadata.</p></li>
+<li><p><code>delete</code>:
+Removes the feed and all its episodes or a group depending on the item
+currently selected in the feed list sidebar. In cases when a group is
+deleted no feeds in this group are deleted, instead their group is unassigned.
+This action cannot be undone.</p></li>
+<li><p><code>update</code> [<code>--this</code>]:
+Updates the feed metadata and the episodes list. If new episodes are found in
 the feed, they will appear in the library marked "new". If <code>--this</code> attribute
 is specified, then only the currently selected feed will be updated.
-Otherwise, all feeds that haven't been disabled will be updated.</p></dd>
-<dt><code>add-archive</code> <var>rss-url</var></dt><dd><p>Loades episodes from the RSS feed located at <var>rss-url</var> and adds them to the
+Otherwise, all feeds that haven't been disabled will be updated.</p></li>
+<li><p><code>add-archive</code> <var>rss-url</var>:
+Loades episodes from the RSS feed located at <var>rss-url</var> and adds them to the
 current feed. It's useful with some podcasts that offer two types of feeds:
 the one with a few recent episodes which can be fetched quickly and another
-with all episodes that may take some time to update.</p></dd>
-<dt><code>enable</code>, <code>disable</code></dt><dd><p>Enables or disables the feed. If you disable the feed, then it won't be
+with all episodes that may take some time to update.</p></li>
+<li><p><code>enable</code>, <code>disable</code>:
+Enables or disables the feed. If you disable the feed, then it won't be
 scheduled to be updated by neither the <code>update</code> command nor automatically on
-launch.</p></dd>
-<dt><code>open-link feed</code>, <code>open-link episode</code></dt><dd><p>Opens the WWW URL specified in the feed or episode metadata respectively in
-the default browser.</p></dd>
-<dt class="flush"><code>hide</code></dt><dd><p>Hides the currently selected episode from the episodes list. Note, that it
+launch.</p></li>
+<li><p><code>open-link feed</code>, <code>open-link episode</code>:
+Opens the WWW URL specified in the feed or episode metadata respectively in
+the default browser.</p></li>
+<li><p><code>hide</code>:
+Hides the currently selected episode from the episodes list. Note, that it
 won't be deleted from the database. The hidden episodes aren't shown in the
 library by default. This can be enabled by issuing the command
-<code>set hidden true</code>.</p></dd>
-<dt class="flush"><code>unhide</code></dt><dd><p>Removed the hidden status from the currently selected episode. To issue this
+<code>set hidden true</code>.</p></li>
+<li><p><code>unhide</code>:
+Removed the hidden status from the currently selected episode. To issue this
 command, Hedgehog needs to be configured to show hidden episodes (using
-command <em>set hidden true</em>; it can be reverted by issuing <code>set hidden false</code>)</p></dd>
-<dt><code>mark</code> <var>status</var> [<code>--all</code>] [<code>--if</code> <var>status-conditiol</var>]</dt><dd><p>Changes the status of the episode. The <var>status</var> can be either <code>new</code>, <code>seen</code>,
+command <em>set hidden true</em>; it can be reverted by issuing <code>set hidden false</code>)</p></li>
+<li><p><code>mark</code> <var>status</var> [<code>--all</code>] [<code>--if</code> <var>status-conditiol</var>]:
+Changes the status of the episode. The <var>status</var> can be either <code>new</code>, <code>seen</code>,
 or <code>finished</code>. By default, only the currently selected episode will be
 affected. If <code>--all</code> attribute is specified, then all episodes in the
 currently selected feed will be altered. In this case, it can be useful to
 update only a subset of episodes, for example, you may want to mark all new
 episodes in the new feed as seen. <code>--if</code> attribute specifies a precondition
 for such update. <code>status-condition</code> can be either <code>new</code>, <code>seen</code>, <code>finished</code>,
-<code>started</code>, or <code>error</code>.</p></dd>
-<dt class="flush"><code>reverse</code></dt><dd><p>Changes the order of episodes in the selected feed. By default, episodes are
+<code>started</code>, or <code>error</code>.</p></li>
+<li><p><code>reverse</code>:
+Changes the order of episodes in the selected feed. By default, episodes are
 displayed in reverse chronological order (starting with the newest). This
 command changes this order for a single feed. This preference is saved in the
-database and will remain after the restart.</p></dd>
-<dt><code>search</code> <var>query</var> or <code>s</code> <var>query</var></dt><dd><p>Starts the search session. When this command is issued, Hedgehog performs a
-search for podcast feeds online and <code>search</code> pane comes into focus.</p></dd>
-<dt><code>search-add</code></dt><dd><p>Subscribes to the currently selected feed in the search pane.</p></dd>
-</dl>
+database and will remain after the restart.</p></li>
+<li><p><code>rename &lt;new name></code>:
+Changes the name of a group or feed displayed in the sidebar that is
+currently selected. If the feed's name declared in the RSS feed changes, this
+change doesn't override the title set using rename command.</p></li>
+<li><p><code>search</code> <var>query</var> or <code>s</code> <var>query</var>:
+Starts the search session. When this command is issued, Hedgehog performs a
+search for podcast feeds online and <code>search</code> pane comes into focus.</p></li>
+<li><p><code>search-add</code>:
+Subscribes to the currently selected feed in the search pane.</p></li>
+<li><p><code>add-group</code> <var>group-name</var>:
+Creates a new group and places it at the bottom of the feeds lists. Group
+names must be unique, meaning there cannot be more then one group with a
+given name.</p></li>
+<li><p><code>set-group</code> <var>group-name</var>:
+Adds the currently selected feed into a group identified by <var>group-name</var>.</p></li>
+<li><p><code>unset-group</code>
+Removes the currently selected feed from a group.</p></li>
+<li><p><code>place-group</code> <var>position</var>:
+Changes the position of the currently selected group. <var>position</var> is a
+non-negative integer indicating the place of a group in the list.
+<code>place-group 1</code> will position the group at the very top immediately after the
+last feed which has no group assigned. <code>place-group 2</code> will place the group
+immediately after. It's not possible to change the position of the feed
+without an assigned group.</p></li>
+</ul>
 
 
 <h3 id="CONFIGURATION">CONFIGURATION</h3>
@@ -327,25 +361,20 @@ first failure or until the end of the file is reached.</p>
 <p><var>path</var> can be either absolute or relative. If <var>path</var> is relative, Hedgehog
 will try to find a file in any of the paths specified in the list of data
 directories. See details in the <a href="#CONFIGURATION" title="CONFIGURATION" data-bare-link="true">CONFIGURATION</a> section of the manual.</p></dd>
-<dt><code>map</code> <var>key</var> <var>command</var> [<code>--state</code> <var>pane</var>]</dt><dd><p>Maps <var>command</var> to a specific key combination <var>key</var>. You can specify different
-mapping for different states depending on which pane is currently selected.
-If <code>--state</code> option is specified, then the key mapping will be active only if
-this specific pane is selected. Mapping with a specific state has higher
-precedence than mappings without one.</p></dd>
-<dt><code>unmap</code> <var>key</var> [<code>--state</code> <var>pane</var>]</dt><dd><p>Removes the key mapping. See the documentation for the <code>map</code> command above
-for the meaning behind <code>--state</code> attribute. Note that when unmapping the
-key, you need to specify the same state as was specified when mapping:
-<code>unmap</code> <var>key</var> without <code>--state</code> does not remove state-specific
-keybindings.</p></dd>
-</dl>
-
-
-<dl>
-<dt>* <code>set</code> <var>option-name</var> <var>value</var>:</dt>
-<dd>Updates the property controlling how Hedgehog looks like and behaves. The
+<dt><code>set</code> <var>option-name</var> <var>value</var></dt><dd><p>Updates the property controlling how Hedgehog looks like and behaves. The
 list of properties is described in the <a href="#CONFIGURATION" title="CONFIGURATION" data-bare-link="true">CONFIGURATION</a> section of this
-manual.</dd>
+manual.</p></dd>
+<dt><code>msg</code> <var>message</var> [<code>--info</code>|<code>--warn</code>|<code>--error</code>]</dt><dd><p>Displays a <var>message</var> in the status bar. It's displayed in a different color
+depending on the specified attribute. If the <code>--error</code> attribute is provided
+the message will also appear in the errors log (available using <code>log</code>
+command).</p></dd>
+<dt><code>map</code> <var>key</var> <var>command</var></dt><dd><p>Maps <var>command</var> to a specific key combination <var>key</var> so that this command is
+executed when the key combination is pressed. You can have different
+commands executed depending on the state of Hedgehog using conditional
+commands described below.</p></dd>
+<dt><code>unmap</code> <var>key</var></dt><dd><p>Removes the key mapping crated using the <code>map</code> command.</p></dd>
 </dl>
+
 
 <p><code>map</code> and <code>unmap</code> commands accept <var>key</var> argument specified in the format
 similar to the one used by <code>vim</code> and some other software. Key specification
@@ -384,6 +413,45 @@ manipulation keys,</li>
 <code>Control+C</code>, <code>A-S-W</code> for <code>Alt+Shift+W</code>. Please note that keys are
 case-sensitive: if you include the Shift modifier, then the key should be
 uppercase if applicable (<code>S-A</code> is correct while <code>S-a</code> won't work).</p>
+
+<h3 id="CONDITIONAL-COMMANDS">CONDITIONAL COMMANDS</h3>
+
+<ul>
+<li><p><code>chain</code> <var>command</var> [<var>command</var>...]:
+Executes multiple commands in a sequence. The execution stops after the first
+command whose execution fails, the <code>chain</code> command automatically fails
+afterward.</p></li>
+<li><p><code>if</code> <var>condition</var> <var>command 1</var> [<code>--else</code> <var>command 2</var>]
+Evaluates the <var>condition</var> and execute one of two commands: <var>command 1</var> if the
+condition is true and <var>command 2</var> otherwise. If the <code>--else</code> attribute is not
+specified, and the <var>condition</var> evaluates to false, then the <code>if</code> command has
+no effect.</p></li>
+</ul>
+
+
+<p>The conditions used as arguments for the <code>if</code> command can check the
+Hedgehog UI's state. Currently you can check the currently focused pane and the
+type of a selected item:</p>
+
+<ul>
+<li><p><code>focused</code> (<code>feeds</code>|<code>episodes</code>|<code>search</code>|<code>log</code>):
+Evaluates to true if the currently focused pane matches the specified
+argument. The selected pane can be either the list of feeds (<code>feeds</code>), the
+list of episodes in the currently selected list (<code>episodes</code>), the search
+results or the search progress screen (<code>search</code>), or the list of errors
+(<code>log</code>).</p></li>
+<li><p><code>selected</code> (<code>nothing</code>|<code>special-feed</code>|<code>feed</code>|<code>group</code>|<code>episode</code>|<code>log-entry</code>|<code>search-result</code>)
+Evaluates to true if an item in the selected pane is a special feed: all
+episodes or new episodes, a regular feed, a group, an episode, a log entry,
+or a search result. <code>nothing</code> case is applicable in situations when the list
+in the currently selected pane is empty.</p></li>
+</ul>
+
+
+<p>You can combine multiple conditions using <code>both</code> or <code>either</code> command such that
+<code>both &lt;condition> [&lt;condition> ...]</code> evaluates to true if and only if all
+conditions evaluate to true. Similarly, <code>either &lt;condition> [&lt;condition> ...]</code>
+evaluates to true if at least one of the conditions is true.</p>
 
 <h2 id="CONFIGURATION">CONFIGURATION</h2>
 
@@ -426,35 +494,38 @@ and comments (sections starting with <code>#</code>).</p>
 <p>This section list options that can be set using the <em>set</em> command.</p>
 
 <dl>
-<dt><code>date_format</code></dt><dd><p>The format of the publication date following the syntax of <em><span class="man-ref">strftime<span class="s">(3)</span></span></em>
+<dt><code>date-format</code></dt><dd><p>The format of the publication date following the syntax of <em><span class="man-ref">strftime<span class="s">(3)</span></span></em>
 function.</p></dd>
-<dt><code>label_playback_status_playing</code></dt><dd><p>The label displaying in the player status bar in the playing state.</p></dd>
-<dt><code>label_playback_status_paused</code></dt><dd><p>The label displaying in the player status bar in the paused state.</p></dd>
-<dt><code>label_playback_status_bufffering</code></dt><dd><p>The label displaying in the player status bar when the audio stream is
+<dt><code>label-playback-status-playing</code></dt><dd><p>The label displaying in the player status bar in the playing state.</p></dd>
+<dt><code>label-playback-status-paused</code></dt><dd><p>The label displaying in the player status bar in the paused state.</p></dd>
+<dt><code>label-playback-status-bufffering</code></dt><dd><p>The label displaying in the player status bar when the audio stream is
 buffering.</p></dd>
-<dt><code>label_playback_status_none</code></dt><dd><p>The label displaying in the player status bar when no episode is playing.</p></dd>
-<dt><code>label_playback_status_none</code></dt><dd><p>The label displaying in the player status bar when no episode is playing.</p></dd>
-<dt><code>label_episode_new</code></dt><dd><p>The label displaying in the library when the episode is new.</p></dd>
-<dt><code>label_episode_seen</code></dt><dd><p>Label displaying in the library when the episode is not new but hasn't been
+<dt><code>label-playback-status-none</code></dt><dd><p>The label displaying in the player status bar when no episode is playing.</p></dd>
+<dt><code>label-playback-status-none</code></dt><dd><p>The label displaying in the player status bar when no episode is playing.</p></dd>
+<dt><code>label-episode-new</code></dt><dd><p>The label displaying in the library when the episode is new.</p></dd>
+<dt><code>label-episode-seen</code></dt><dd><p>Label displaying in the library when the episode is not new but hasn't been
 played. An episode can reach this status using <code>mark</code> command.</p></dd>
-<dt><code>label_episode_playing</code></dt><dd><p>The label displaying in the library when the episode is currently being played.</p></dd>
-<dt><code>label_episode_started</code></dt><dd><p>The label displaying in the library when the episode was started but not
+<dt><code>label-episode-playing</code></dt><dd><p>The label displaying in the library when the episode is currently being
+played.</p></dd>
+<dt><code>label-episode-started</code></dt><dd><p>The label displaying in the library when the episode was started but not
 completed and is not currently playing.</p></dd>
-<dt><code>label_episode_finished</code></dt><dd><p>The label displaying in the library when the episode was completed.</p></dd>
-<dt><code>label_episode_finished</code></dt><dd><p>The label displaying in the library when the previous playback attempt has failed
-with an error.</p></dd>
-<dt><code>label_feed_error</code></dt><dd><p>The label displaying in the library list for feeds that could not be updated due
-to an error.</p></dd>
-<dt><code>label_feed_updating</code></dt><dd><p>The label displaying in the library list for feeds that are currently being
-loaded.</p></dd>
-<dt><code>label_feed_updating</code></dt><dd><p>The flag indicating whether enabled feeds should be updated on startup.</p></dd>
-<dt><code>show_episode_number</code></dt><dd><p>The flag indicating whether episode and season number should be displayed for
+<dt><code>label-episode-finished</code></dt><dd><p>The label displaying in the library when the episode was completed.</p></dd>
+<dt><code>label-episode-finished</code></dt><dd><p>The label displaying in the library when the previous playback attempt has
+failed with an error.</p></dd>
+<dt><code>label-feed-error</code></dt><dd><p>The label displaying in the library list for feeds that could not be updated
+due to an error.</p></dd>
+<dt><code>feed-updating-chars</code></dt><dd><p>The set of characters used for the episode loading indicator. The characters
+will be displayed one-by-one looped.</p></dd>
+<dt><code>animation-tick-duration</code></dt><dd><p>The duration of the animation frame for the loading indicator expressed in
+milliseconds.</p></dd>
+<dt><code>update-on-start</code></dt><dd><p>The flag indicating whether enabled feeds should be updated on startup.</p></dd>
+<dt><code>show-episode-number</code></dt><dd><p>The flag indicating whether episode and season number should be displayed for
 episodes in the library.</p></dd>
-<dt class="flush"><code>hidden</code></dt><dd><p>The flag indicating whether the episodes that are hidden using the <em>hide</em> command
-should be visible in the library.</p></dd>
-<dt><code>progress_bar_width</code></dt><dd><p>The number of characters allocated to the progress indicator in the player
+<dt class="flush"><code>hidden</code></dt><dd><p>The flag indicating whether the episodes that are hidden using the <em>hide</em>
+command should be visible in the library.</p></dd>
+<dt><code>progress-bar-width</code></dt><dd><p>The number of characters allocated to the progress indicator in the player
 state bar.</p></dd>
-<dt><code>progress_bar_chars</code></dt><dd><p>The string, characters of which are used for the progress indicator.</p></dd>
+<dt><code>progress-bar-chars</code></dt><dd><p>The string, characters of which are used for the progress indicator.</p></dd>
 </dl>
 
 
@@ -585,16 +656,17 @@ error (<code>:episode-error</code>).</p>
 <p>Styling can be applied to the whole row or a specific part of it. For a later
 case, you may extend this selector with the name of such part. Some of these
 are used by many lists. These include the name of the feed or episode
-(<code>.name</code>), a state indicator usually displayed on the right (<code>.state</code>), and an
-ellipsis that are displayed when the data is being loaded from the database
-for more time than usual. Most though are list specific. The episodes list
-includes an episode and season number (<code>.episode-number</code>), the name of a feed
-where this episode is located (<code>.feed-title</code>), the duration of the episode
-(<code>.duration</code>), the date when it was published (<code>.date</code>). Search result
-entries include the name of the autor who publishes the podcast (<code>.author</code>),
-its genre (<code>.genre</code>), the number of episodes in the feed (<code>.episodes-count</code>).
-The list of feeds along with the title includes a number of new episodes
-(<code>.new-count</code>). The log entry details are selected as <code>.details</code>.</p>
+(<code>.name</code>), a state indicator usually displayed on the right (<code>.state</code>), and
+an ellipsis that are displayed when the data is being loaded from the
+database for more time than usual. Most though are list specific. The
+episodes list includes an episode and season number (<code>.episode-number</code>), the
+name of a feed where this episode is located (<code>.feed-title</code>), the duration of
+the episode (<code>.duration</code>), the date when it was published (<code>.date</code>). Search
+result entries include the name of the autor who publishes the podcast
+(<code>.author</code>), its genre (<code>.genre</code>), the number of episodes in the feed
+(<code>.episodes-count</code>). The list of feeds along with the title includes a number
+of new episodes (<code>.new-count</code>). The log entry details are selected as
+<code>.details</code>.</p>
 
 <p>This selector is also used for empty parts of the list.</p></dd>
 <dt><code>empty</code>[<code>:focused</code>][<code>.title</code>|<code>.subtitle</code>]</dt><dd><p>The list with no entries. It usually contains a title (<code>.title</code>) and a text
@@ -697,7 +769,7 @@ development at <a href="https://github.com/poletaevvlad/Hedgehog" data-bare-link
 
   <ol class='man-decor man-foot man foot'>
     <li class='tl'></li>
-    <li class='tc'>May 2022</li>
+    <li class='tc'>August 2022</li>
     <li class='tr'>hedgehog(1)</li>
   </ol>
 

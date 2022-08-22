@@ -2,6 +2,7 @@
 name = "hedgehog-player"
 version = "0.2.0"
 edition = "2018"
+rust-version = "1.56.0"
 
 [dependencies]
 gstreamer-base = "0.17"

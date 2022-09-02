@@ -27,7 +27,9 @@ impl FetchError {
 }
 
 pub(crate) async fn fetch_feed(url: &str) -> Result<impl WritableFeed + 'static, FetchError> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("Hedgehog ", env!("CARGO_PKG_VERSION")))
+        .build()?;
     let request = client.get(url).timeout(Duration::from_secs(300));
     let response = request.send().await?;
     if !response.status().is_success() {
